@@ -8,10 +8,13 @@ import {
   Heading3,
   List,
   ListOrdered,
+  ListTodo,
   Text,
   Image as ImageIcon,
   Code,
-  CheckSquare,
+  Quote,
+  Minus,
+  Sigma,
 } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 
@@ -85,22 +88,30 @@ const CommandList = forwardRef((props: CommandListProps, ref) => {
   }));
 
   return (
-    <div className="z-50 h-auto max-h-[330px] w-72 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md transition-all animate-in fade-in-0 zoom-in-95">
-      <div className="flex flex-col gap-1">
+    <div className="z-50 h-auto max-h-[400px] w-80 overflow-y-auto rounded-2xl border border-border/50 bg-card/90 backdrop-blur-xl p-2 shadow-2xl transition-all animate-in fade-in-0 slide-in-from-bottom-2 zoom-in-95 duration-200">
+      {/* Subtle gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-50 rounded-2xl pointer-events-none" />
+      
+      <div className="relative flex flex-col gap-1">
         {props.items.map((item, index) => (
           <button
             key={index}
             onClick={() => selectItem(index)}
-            className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors ${
-              index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm outline-none transition-all duration-200 ${
+              index === selectedIndex 
+                ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]' 
+                : 'hover:bg-accent/50 hover:scale-[1.01]'
             }`}
           >
-            <div className="flex h-5 w-5 items-center justify-center rounded-sm border border-muted-foreground/20 bg-background">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+              index === selectedIndex 
+                ? 'bg-primary-foreground/20' 
+                : 'bg-muted/50'
+            }`}>
               {item.icon}
             </div>
-            <div className="flex flex-col items-start">
+            <div className="flex flex-col items-start flex-1">
               <span className="font-medium">{item.title}</span>
-              {/* <span className="text-xs text-muted-foreground">{item.description}</span> */}
             </div>
           </button>
         ))}

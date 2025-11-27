@@ -5,11 +5,16 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
+import Underline from '@tiptap/extension-underline';
+import { HorizontalRule } from '@tiptap/extension-horizontal-rule';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
 import { SlashCommand, renderItems } from '../extensions/slash-command';
 import { InlineMath } from '../extensions/inline-math';
 import { EditorBubbleMenu } from '../menus/bubble-menu';
 import { useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Editor, Range } from '@tiptap/core';
+import { Text, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, Minus, Image as ImageIcon, Sigma } from 'lucide-react';
 
 interface TextBlockProps {
   content: string;
@@ -24,6 +29,7 @@ interface TextBlockProps {
 
 export interface TextBlockRef {
   focus: (position?: 'start' | 'end') => void;
+  toggleBlockType: (type: string, level?: number) => void;
 }
 
 export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({ 
@@ -43,61 +49,105 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
         heading: {
           levels: [1, 2, 3],
         },
+        blockquote: {},
+        codeBlock: {},
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
       }),
       Placeholder.configure({
         placeholder: "Type '/' for commands...",
       }),
       Highlight,
       Typography,
+      Underline,
+      HorizontalRule,
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
       SlashCommand.configure({
         suggestion: {
           items: ({ query }: { query: string }) => {
             return [
               {
                 title: 'Text',
-                icon: <span className="text-xs">T</span>,
+                icon: <Text className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
                   editor.chain().focus().deleteRange(range).setParagraph().run();
                 },
               },
               {
                 title: 'Heading 1',
-                icon: <span className="text-xs">H1</span>,
+                icon: <Heading1 className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setNode('heading', { level: 1 }).run();
+                  editor.chain().focus().deleteRange(range).setHeading({ level: 1 }).run();
                 },
               },
               {
                 title: 'Heading 2',
-                icon: <span className="text-xs">H2</span>,
+                icon: <Heading2 className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run();
+                  editor.chain().focus().deleteRange(range).setHeading({ level: 2 }).run();
                 },
               },
               {
                 title: 'Heading 3',
-                icon: <span className="text-xs">H3</span>,
+                icon: <Heading3 className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run();
+                  editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run();
                 },
               },
               {
                 title: 'Bullet List',
-                icon: <span className="text-xs">•</span>,
+                icon: <List className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
                   editor.chain().focus().deleteRange(range).toggleBulletList().run();
                 },
               },
               {
                 title: 'Numbered List',
-                icon: <span className="text-xs">1.</span>,
+                icon: <ListOrdered className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
                   editor.chain().focus().deleteRange(range).toggleOrderedList().run();
                 },
               },
               {
+                title: 'Task List',
+                icon: <ListTodo className="h-4 w-4" />,
+                command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                  editor.chain().focus().deleteRange(range).toggleTaskList().run();
+                },
+              },
+              {
+                title: 'Quote',
+                icon: <Quote className="h-4 w-4" />,
+                command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                  editor.chain().focus().deleteRange(range).setBlockquote().run();
+                },
+              },
+              {
+                title: 'Code Block',
+                icon: <Code className="h-4 w-4" />,
+                command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                  editor.chain().focus().deleteRange(range).setCodeBlock().run();
+                },
+              },
+              {
+                title: 'Divider',
+                icon: <Minus className="h-4 w-4" />,
+                command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                  editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+                },
+              },
+              {
                 title: 'Image',
-                icon: <span className="text-xs">IMG</span>,
+                icon: <ImageIcon className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
                   editor.chain().focus().deleteRange(range).run();
                   onInsertBlock?.('image');
@@ -105,7 +155,7 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
               },
               {
                 title: 'LaTeX',
-                icon: <span className="text-xs">TEX</span>,
+                icon: <Sigma className="h-4 w-4" />,
                 command: ({ editor, range }: { editor: Editor; range: Range }) => {
                   editor.chain().focus().deleteRange(range).run();
                   onInsertBlock?.('latex');
@@ -121,10 +171,24 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
     content,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[1.5em] px-2 py-1',
+        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[2em] transition-all duration-200',
       },
       handleKeyDown: (view, event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
+          const { $from } = view.state.selection;
+          let isList = false;
+          // Check if any ancestor is a list item
+          for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            if (node.type.name === 'listItem' || node.type.name === 'taskItem') {
+              isList = true;
+              break;
+            }
+          }
+          
+          if (isList) {
+            return false;
+          }
           event.preventDefault();
           onEnter?.();
           return true;
@@ -171,6 +235,30 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
     focus: (position = 'end') => {
       if (editor) {
         editor.commands.focus(position);
+      }
+    },
+    toggleBlockType: (type: string, level?: number) => {
+      if (!editor) return;
+      editor.commands.focus();
+      switch (type) {
+        case 'paragraph':
+          editor.commands.setParagraph();
+          break;
+        case 'heading':
+          editor.commands.setHeading({ level: level as any || 1 });
+          break;
+        case 'bulletList':
+          editor.commands.toggleBulletList();
+          break;
+        case 'orderedList':
+          editor.commands.toggleOrderedList();
+          break;
+        case 'taskList':
+          editor.commands.toggleTaskList();
+          break;
+        case 'blockquote':
+          editor.commands.toggleBlockquote();
+          break;
       }
     }
   }));

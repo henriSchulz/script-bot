@@ -47,15 +47,16 @@ export async function createSummaryBlock(summaryId: string, type: string, conten
   }
 }
 
-export async function updateSummaryBlock(blockId: string, content: string) {
+export async function updateSummaryBlock(blockId: string, content: string, type?: string) {
   try {
+    const data: any = { content };
+    if (type) data.type = type;
+
     const block = await db.block.update({
       where: {
         id: blockId,
       },
-      data: {
-        content,
-      },
+      data,
       include: {
         summary: true
       }

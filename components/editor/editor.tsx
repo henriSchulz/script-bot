@@ -5,6 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useState } from 'react';
 import { updateProjectScript } from '@/app/actions/projects';
 import { useDebounce } from '@/hooks/use-debounce';
+import { InlineMath } from './extensions/inline-math';
 
 interface EditorProps {
   projectId: string;
@@ -19,6 +20,7 @@ export function Editor({ projectId, initialContent }: EditorProps) {
     immediatelyRender: false,
     extensions: [
       StarterKit,
+      InlineMath,
     ],
     content: initialContent,
     editorProps: {

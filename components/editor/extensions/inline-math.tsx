@@ -1,73 +1,93 @@
-import { Node, mergeAttributes, InputRule } from '@tiptap/core';
-import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
+"use client";
+
+import { Node, mergeAttributes, InputRule, PasteRule } from '@tiptap/core';
+import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewProps } from '@tiptap/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
-import { NodeViewProps } from '@tiptap/core';
 
 const InlineMathComponent = ({ node, updateAttributes, getPos, editor }: NodeViewProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLSpanElement>(null);
 
+  const content = node.attrs.content;
+
   const handleSubmit = useCallback(() => {
     setIsEditing(false);
-  }, []);
+    // If content is empty, we might want to delete the node, but for now let's keep it or set a placeholder
+    if (!content) {
+        // Optional: remove node if empty?
+        // editor.commands.deleteSelection(); 
+    }
+  }, [content]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
+      inputRef.current.select();
     }
   }, [isEditing]);
 
   useEffect(() => {
     if (!isEditing && previewRef.current) {
       try {
-        katex.render(node.attrs.content || '?', previewRef.current, {
+        katex.render(content || '\\text{Empty}', previewRef.current, {
           throwOnError: false,
-          displayMode: false, // Inline mode
+          displayMode: false,
         });
       } catch (e) {
-        previewRef.current.innerText = 'Invalid LaTeX';
+        if (previewRef.current) {
+            previewRef.current.innerText = 'Invalid LaTeX';
+        }
       }
     }
-  }, [node.attrs.content, isEditing]);
+  }, [content, isEditing]);
 
   return (
-    <NodeViewWrapper as="span" className="inline-block mx-1 align-middle">
+    <NodeViewWrapper as="span" className="inline-block mx-0.5 align-middle">
       {isEditing ? (
         <input
           ref={inputRef}
           type="text"
-          value={node.attrs.content}
+          value={content}
           onChange={(e) => updateAttributes({ content: e.target.value })}
           onBlur={handleSubmit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
+              e.preventDefault();
               handleSubmit();
+              // Move cursor after the node
               const pos = getPos();
-              if (editor && typeof pos === 'number') {
-                editor.commands.focus(pos + 1);
+              if (typeof pos === 'number') {
+                 editor.commands.focus(pos + 1);
               }
             }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                handleSubmit();
+            }
           }}
-          className="border rounded px-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-          style={{ minWidth: '2em' }}
+          className="border-2 border-primary rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[8em] bg-card/50 backdrop-blur-sm shadow-lg transition-all animate-in fade-in zoom-in-95 duration-200"
+          placeholder="x^2 + y^2 = z^2"
         />
       ) : (
         <span
           ref={previewRef}
           onClick={() => setIsEditing(true)}
-          className="cursor-pointer hover:bg-muted/50 rounded px-0.5"
+          className={`cursor-pointer hover:bg-primary/10 rounded-md px-1.5 py-0.5 transition-all duration-200 hover:scale-105 ${
+            !content 
+              ? 'text-muted-foreground text-xs border-2 border-dashed border-muted-foreground/30 p-1.5 hover:border-primary/50' 
+              : 'hover:shadow-md'
+          }`}
           title="Click to edit LaTeX"
-        />
+        >
+            {!content && "Empty Math"}
+        </span>
       )}
     </NodeViewWrapper>
   );
 };
-
-const inlineMathPluginKey = new PluginKey('inlineMath');
 
 export const InlineMath = Node.create({
   name: 'inlineMath',
@@ -90,12 +110,18 @@ export const InlineMath = Node.create({
     return [
       {
         tag: 'span[data-type="inline-math"]',
+        getAttrs: (node) => {
+            if (typeof node === 'string') return {};
+            return {
+                content: node.getAttribute('data-content'),
+            };
+        }
       },
     ];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'inline-math' })];
+  renderHTML({ node, HTMLAttributes }) {
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'inline-math', 'data-content': node.attrs.content }), node.attrs.content];
   },
 
   addNodeView() {
@@ -105,89 +131,48 @@ export const InlineMath = Node.create({
   addInputRules() {
     return [
       new InputRule({
-        find: /\$([^$\n]+)\$$/,
+        find: /\$([^$]+)\$$/,
         handler: ({ state, range, match }) => {
-          const { tr } = state;
           const content = match[1];
-          const start = range.from;
-          const end = range.to;
-
-          console.log('[InlineMath InputRule] Match found:', { content, start, end });
-
-          // Replace the matched text with an inline math node
-          tr.delete(start, end);
-          const node = this.type.create({ content });
-          tr.insert(start, node);
+          if (content) {
+              state.tr.replaceWith(range.from, range.to, this.type.create({ content }));
+          }
         },
       }),
     ];
   },
 
-  addProseMirrorPlugins() {
+  addPasteRules() {
     return [
-      new Plugin({
-        key: inlineMathPluginKey,
-        props: {
-          handleTextInput: (view, from, to, text) => {
-            console.log('[InlineMath] handleTextInput called:', { text, from, to });
-            
-            // Check if we just typed a dollar sign
-            if (text !== '$') {
-              console.log('[InlineMath] Not a $, returning false');
-              return false;
+      new PasteRule({
+        find: /\$([^$]+)\$/g,
+        handler: ({ state, range, match }) => {
+            const content = match[1];
+            if (content) {
+                state.tr.replaceWith(range.from, range.to, this.type.create({ content }));
             }
-
-            const { state } = view;
-            const { doc, selection } = state;
-            const { $from } = selection;
-            const currentPos = $from.pos;
-
-            // Get the text immediately before the cursor
-            // Note: handleTextInput is called BEFORE the character is inserted
-            const textBefore = doc.textBetween(
-              Math.max(0, currentPos - 100),
-              currentPos,
-              '\n'
-            );
-
-            // Add the character being typed to simulate what the text will look like
-            const textWithNewChar = textBefore + text;
-
-            console.log('[InlineMath] Text before cursor:', textBefore, 'with new char:', textWithNewChar, 'currentPos:', currentPos);
-
-            // Look for $...$ pattern at the end
-            // This matches: $ followed by content (non-$ chars) followed by $
-            const match = textWithNewChar.match(/\$([^$\n]+)\$$/);
-            
-            console.log('[InlineMath] Regex match result:', match);
-            
-            if (match) {
-              const fullMatch = match[0]; // $$content$$
-              const content = match[1];
-              const matchStart = currentPos - fullMatch.length + 1; // +1 because we haven't inserted the final $ yet
-
-              console.log('[InlineMath] Creating math node:', { content, matchStart, currentPos, fullMatch });
-
-              // Replace the matched text with inline math node
-              const tr = state.tr;
-              // Delete everything except the final $ (which hasn't been inserted yet)
-              tr.delete(matchStart, currentPos);
-              const node = this.type.create({ content });
-              tr.insert(matchStart, node);
-              
-              // Set cursor after the node
-              tr.setSelection(TextSelection.create(tr.doc, matchStart + 1));
-              
-              view.dispatch(tr);
-              console.log('[InlineMath] Transaction dispatched successfully');
-              return true;
-            }
-
-            console.log('[InlineMath] No match found, returning false');
-            return false;
-          },
         },
       }),
     ];
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Insert inline math on $ keypress
+      '$': () => {
+        return this.editor.commands.insertContent([
+          {
+            type: this.name,
+            attrs: {
+              content: '',
+            },
+          },
+          {
+            type: 'text',
+            text: ' ',
+          },
+        ]);
+      },
+    };
   },
 });

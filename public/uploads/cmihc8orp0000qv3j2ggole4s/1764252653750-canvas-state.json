@@ -1,0 +1,35 @@
+{
+  "points": [
+    {
+      "x": 199.9535912408518,
+      "y": 101.97436318747536
+    },
+    {
+      "x": 241.97436318747535,
+      "y": 101.97436318747536
+    },
+    {
+      "x": 320,
+      "y": 180
+    },
+    {
+      "x": 320,
+      "y": 623
+    },
+    {
+      "x": 224,
+      "y": 718
+    },
+    {
+      "x": 200,
+      "y": 718
+    }
+  ],
+  "snapEnabled": true,
+  "hauswandEdges": [],
+  "lockedEdges": [],
+  "lockedAngles": [],
+  "showProfiles": true,
+  "isDrawing": false,
+  "isEditing": true
+}
