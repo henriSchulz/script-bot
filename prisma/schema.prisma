@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  language    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  files       File[]
+  summaries   Summary[]
+  script      String?
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  mimeType  String?
+  size      Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Summary {
+  id        String   @id @default(cuid())
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  blocks    Block[]
+  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  type      String   // SQLite doesn't support enums, so we use String
+  content   String 
+                   // However, standard String in Prisma is usually enough for text. 
+                   // If using Postgres/MySQL, @db.Text is useful for large content.
+                   // Since the datasource is sqlite (from view_file), String is fine (TEXT in sqlite).
+  order     Int      
+  
+  properties String? // SQLite doesn't support Json, so we store as stringified JSON
+  
+  summaryId String
+  summary   Summary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// enum BlockType {
+//   TEXT
+//   LATEX
+//   IMAGE
+// }
