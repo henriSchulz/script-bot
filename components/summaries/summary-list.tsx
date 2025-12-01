@@ -5,8 +5,19 @@ import { getSummaries, deleteSummary } from "@/app/actions/summaries";
 import { Button } from "@/components/ui/button";
 import { Trash2, FileText, LayoutGrid, List, ArrowUpDown, Loader2 } from "lucide-react";
 import { CreateSummaryDialog } from "./create-summary-dialog";
+import { GenerateSummaryButton } from "./generate-summary-button";
 import Link from "next/link"; 
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Simple date formatter
 const formatDate = (date: Date) => {
@@ -21,6 +32,10 @@ interface Summary {
   id: string;
   title: string;
   updatedAt: Date;
+  blocks: {
+    content: string;
+    type: string;
+  }[];
   _count: {
     blocks: number;
   };
@@ -34,6 +49,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [summaryToDelete, setSummaryToDelete] = useState<string | null>(null);
   
   // UI States matching Files tab
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
@@ -52,16 +68,17 @@ export function SummaryList({ projectId }: SummaryListProps) {
     fetchSummaries();
   }, [projectId]);
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Are you sure you want to delete this summary?")) return;
+  const handleDelete = () => {
+    if (!summaryToDelete) return;
     
     startDeleteTransition(async () => {
-      const result = await deleteSummary(id, projectId);
+      const result = await deleteSummary(summaryToDelete, projectId);
       if (result.success) {
-        setSummaries(prev => prev.filter(s => s.id !== id));
+        setSummaries(prev => prev.filter(s => s.id !== summaryToDelete));
       } else {
         alert("Failed to delete summary");
       }
+      setSummaryToDelete(null);
     });
   };
 
@@ -136,7 +153,10 @@ export function SummaryList({ projectId }: SummaryListProps) {
           </div>
         </div>
         
-        <CreateSummaryDialog projectId={projectId} onSuccess={fetchSummaries} />
+        <div className="flex items-center gap-2">
+          <GenerateSummaryButton projectId={projectId} onSuccess={fetchSummaries} />
+          <CreateSummaryDialog projectId={projectId} onSuccess={fetchSummaries} />
+        </div>
       </div>
 
       {loading ? (
@@ -151,58 +171,86 @@ export function SummaryList({ projectId }: SummaryListProps) {
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sortedSummaries.map((summary) => (
-            <div 
-              key={summary.id} 
-              className="group relative flex items-start gap-4 p-4 rounded-xl bg-background border border-border/50 hover:border-primary/50 transition-colors"
-            >
-              <div className="p-3 rounded-lg bg-primary/10 text-primary">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <Link 
-                  href={`/projects/${projectId}/summaries/${summary.id}`}
-                  className="font-medium hover:underline truncate block"
-                >
-                  {summary.title}
-                </Link>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatDate(summary.updatedAt)} • {summary._count.blocks} blocks
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => handleDelete(summary.id)}
-                disabled={isDeleting}
+          {sortedSummaries.map((summary, index) => (
+              <Link 
+                key={summary.id} 
+                href={`/projects/${projectId}/summaries/${summary.id}`}
+                className="group relative flex flex-col rounded-xl overflow-hidden bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10"
+                style={{
+                  animation: `fadeIn 0.4s ease-out ${index * 0.1}s both`
+                }}
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+                {/* Subtle gradient background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                {/* Content */}
+                <div className="relative z-10 p-6 space-y-4">
+                  {/* Icon and Delete Button */}
+                  <div className="flex items-start justify-between">
+                    <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors duration-300">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setSummaryToDelete(summary.id);
+                      }}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <h3 className="font-semibold text-lg group-hover:text-primary transition-colors duration-200 line-clamp-2">
+                      {summary.title}
+                    </h3>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="flex items-center justify-between pt-2 text-sm border-t border-border/50">
+                    <span className="text-muted-foreground">
+                      {formatDate(summary.updatedAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-full text-xs font-medium text-primary">
+                      {summary._count.blocks} blocks
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
         </div>
       ) : (
-        <div className="space-y-2">
-          {sortedSummaries.map((summary) => (
+        <div className="space-y-3">
+          {sortedSummaries.map((summary, index) => (
             <div 
               key={summary.id}
-              className="group flex items-center gap-4 p-3 rounded-lg bg-background border border-border/50 hover:border-primary/50 transition-colors"
+              className="group flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-background via-background to-primary/5 border border-border/40 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
+              style={{
+                animation: `fadeIn 0.3s ease-out ${index * 0.05}s both`
+              }}
             >
-              <div className="p-2 rounded-md bg-primary/10 text-primary">
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:scale-110 transition-transform duration-300 shadow-md shadow-primary/20">
                 <FileText className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
                 <div className="col-span-6">
                   <Link 
                     href={`/projects/${projectId}/summaries/${summary.id}`}
-                    className="font-medium hover:underline truncate block"
+                    className="font-medium hover:text-primary truncate block transition-colors duration-200"
                   >
                     {summary.title}
                   </Link>
                 </div>
-                <div className="col-span-3 text-sm text-muted-foreground">
-                  {summary._count.blocks} blocks
+                <div className="col-span-3">
+                  <span className="inline-flex items-center gap-1.5 bg-primary/10 px-3 py-1 rounded-full text-xs font-medium text-primary">
+                    {summary._count.blocks} blocks
+                  </span>
                 </div>
                 <div className="col-span-3 text-sm text-muted-foreground">
                   {formatDate(summary.updatedAt)}
@@ -211,8 +259,12 @@ export function SummaryList({ projectId }: SummaryListProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                onClick={() => handleDelete(summary.id)}
+                className="opacity-0 group-hover:opacity-100 transition-all duration-300 text-destructive hover:text-destructive hover:bg-destructive/10 hover:scale-110 h-9 w-9"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setSummaryToDelete(summary.id);
+                }}
                 disabled={isDeleting}
               >
                 <Trash2 className="h-4 w-4" />
@@ -221,6 +273,30 @@ export function SummaryList({ projectId }: SummaryListProps) {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!summaryToDelete} onOpenChange={(open) => !open && setSummaryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the summary and all its content.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

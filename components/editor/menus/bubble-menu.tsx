@@ -78,7 +78,7 @@ export function EditorBubbleMenu({ editor, className }: EditorBubbleMenuProps) {
       editor={editor}
       shouldShow={({ editor, state }: { editor: Editor; state: EditorState }) => {
         // Only show if selection is text and not empty
-        return !editor.isEmpty && isTextSelection(state.selection);
+        return !editor.isEmpty && isTextSelection(state.selection) && !state.selection.empty;
       }}
       className={cn(
         "flex w-fit rounded-full border border-border/50 bg-card/90 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200",
@@ -206,7 +206,9 @@ export function EditorBubbleMenu({ editor, className }: EditorBubbleMenuProps) {
         <div className="w-px bg-border/50" />
         <button
           onClick={() => {
-            editor.chain().focus().insertContent({ type: 'inlineMath', attrs: { content: '' } }).run();
+            const { from, to } = editor.state.selection;
+            const text = editor.state.doc.textBetween(from, to);
+            editor.chain().focus().insertContent({ type: 'inlineMath', attrs: { content: text } }).run();
           }}
           className={cn(
             "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",

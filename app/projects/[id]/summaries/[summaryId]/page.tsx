@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useEffect, useState } from "react";
-import { BlockEditor } from "@/components/editor/block-editor";
+import { use, useEffect, useState, useRef } from "react";
+import { BlockEditor, BlockEditorHandle } from "@/components/editor/block-editor";
 import { getSummary } from "@/app/actions/summaries";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, ChevronRight, Check } from "lucide-react";
+import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download } from "lucide-react";
 import Link from "next/link";
+import { exportSummaryToPDF } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
 
 interface SummaryPageProps {
@@ -20,6 +21,24 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  const [hasPendingBlocks, setHasPendingBlocks] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const editorContentRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<BlockEditorHandle>(null);
+
+  const handleExportPDF = async () => {
+    if (!editorContentRef.current) return;
+    
+    setIsExporting(true);
+    try {
+      await exportSummaryToPDF(summary.title, editorContentRef.current);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export PDF');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     getSummary(resolvedParams.summaryId).then((result) => {
@@ -95,6 +114,38 @@ export default function SummaryPage({ params }: SummaryPageProps) {
                   <span>Just now</span>
                 </div>
               </div>
+              
+              <div className="flex items-center gap-2">
+                {hasPendingBlocks && (
+                  <Button 
+                    variant="outline" 
+                    className="gap-2 border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-950/30 animate-in fade-in slide-in-from-right-4"
+                    onClick={() => editorRef.current?.openBatchUploadDialog()}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Missing Images
+                  </Button>
+                )}
+                
+                <Button 
+                  variant="default"
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  className="gap-2"
+                >
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Export PDF
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -105,10 +156,14 @@ export default function SummaryPage({ params }: SummaryPageProps) {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3 opacity-50 pointer-events-none" />
               
               {/* Editor Content */}
-              <div className="relative p-8 md:p-12 min-h-[calc(100vh-16rem)]">
+              <div ref={editorContentRef} className="relative p-8 md:p-12 min-h-[calc(100vh-16rem)]">
                 <BlockEditor 
+                  key={summary.blocks?.map((b: any) => b.id + b.type).join(',')}
+                  ref={editorRef}
                   summaryId={summary.id} 
+                  projectId={resolvedParams.id}
                   initialBlocks={summary.blocks || []} 
+                  onPendingBlocksChange={setHasPendingBlocks}
                 />
               </div>
             </div>

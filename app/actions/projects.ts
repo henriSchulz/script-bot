@@ -44,3 +44,19 @@ export async function updateProjectScript(projectId: string, script: string) {
     return { success: false, error: "Failed to update project script" };
   }
 }
+
+export async function deleteProject(projectId: string) {
+  try {
+    await db.project.delete({
+      where: {
+        id: projectId,
+      },
+    });
+
+    revalidatePath("/projects");
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    return { success: false, error: "Failed to delete project" };
+  }
+}

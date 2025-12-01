@@ -16,6 +16,16 @@ export async function getSummaries(projectId: string) {
         _count: {
           select: { blocks: true },
         },
+        blocks: {
+          take: 3,
+          orderBy: {
+            order: 'asc',
+          },
+          select: {
+            content: true,
+            type: true,
+          }
+        }
       },
     });
     return { success: true, summaries };

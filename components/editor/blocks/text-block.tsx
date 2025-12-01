@@ -265,7 +265,7 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
 
   return (
     <>
-      {editor && <EditorBubbleMenu editor={editor} />}
+      {editor && editor.isEditable && <EditorBubbleMenu editor={editor} />}
       <EditorContent editor={editor} />
     </>
   );

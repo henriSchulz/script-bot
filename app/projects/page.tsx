@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { DeleteProjectButton } from "@/components/projects/delete-project-button";
 
 export default async function ProjectsPage() {
   const projects = await db.project.findMany({
@@ -68,12 +69,13 @@ export default async function ProjectsPage() {
           </Link>
           {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer">
-                <CardHeader>
-                  <CardTitle>{project.name}</CardTitle>
+              <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer group relative">
+                <CardHeader className="relative">
+                  <CardTitle className="pr-8">{project.name}</CardTitle>
                   <CardDescription>
                     Last updated {project.updatedAt.toLocaleDateString()}
                   </CardDescription>
+                  <DeleteProjectButton projectId={project.id} projectName={project.name} />
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">

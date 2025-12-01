@@ -63,6 +63,7 @@ export async function updateSummaryBlock(blockId: string, content: string, type?
     });
     
     revalidatePath(`/projects/${block.summary.projectId}`);
+    revalidatePath(`/projects/${block.summary.projectId}/summaries/${block.summaryId}`);
     return { success: true, block };
   } catch (error) {
     console.error("Error updating summary block:", error);

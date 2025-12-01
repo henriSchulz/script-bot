@@ -26,11 +26,20 @@ import {
   FileCode
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { use, useState, useEffect, useTransition } from "react";
 import { uploadFile, deleteFile, getFiles } from "@/app/actions/files";
 import { getProject } from "@/app/actions/projects";
 import { SummaryList } from "@/components/summaries/summary-list";
 import { Editor } from "@/components/editor/editor";
+import { FormulaList } from "@/components/formulas/formula-list";
 
 interface ProjectPageProps {
   params: Promise<{
@@ -107,6 +116,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const resolvedParams = use(params);
   const [activeTab, setActiveTab] = useState("script");
   const [files, setFiles] = useState<FileData[]>([]);
+  const [projectName, setProjectName] = useState<string>("");
   const [projectScript, setProjectScript] = useState<string>("");
   const [isUploading, startUploadTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
@@ -127,19 +137,22 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   });
 
+  // Fetch project details on mount
+  useEffect(() => {
+    getProject(resolvedParams.id).then((result) => {
+      if (result.success && result.project) {
+        setProjectName(result.project.name);
+        setProjectScript(result.project.script || "");
+      }
+    });
+  }, [resolvedParams.id]);
+
   // Fetch files when the tab is active
   useEffect(() => {
     if (activeTab === "files") {
       getFiles(resolvedParams.id).then((result) => {
         if (result.files) {
           setFiles(result.files);
-        }
-      });
-    }
-    if (activeTab === "script") {
-      getProject(resolvedParams.id).then((result) => {
-        if (result.success && result.project) {
-          setProjectScript(result.project.script || "");
         }
       });
     }
@@ -192,16 +205,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     });
   };
 
+  const [fileToDelete, setFileToDelete] = useState<string | null>(null);
+
   const handleDeleteFile = (fileId: string) => {
-    if (!confirm("Are you sure you want to delete this file?")) return;
+    setFileToDelete(fileId);
+  };
+
+  const confirmDelete = () => {
+    if (!fileToDelete) return;
 
     startDeleteTransition(async () => {
-      const result = await deleteFile(fileId, resolvedParams.id);
+      const result = await deleteFile(fileToDelete, resolvedParams.id);
       if (result.success) {
-        setFiles(files.filter(f => f.id !== fileId));
+        setFiles(files.filter(f => f.id !== fileToDelete));
       } else {
         alert("Delete failed");
       }
+      setFileToDelete(null);
     });
   };
 
@@ -236,7 +256,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       icon: Sigma,
       color: "text-purple-500",
       bg: "bg-purple-500/10",
-      content: "Hier sind die Formeln."
+      content: <FormulaList projectId={resolvedParams.id} />
     },
     {
       id: "chat",
@@ -424,10 +444,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span>Project {resolvedParams.id}</span>
+            <span>Project</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Project Dashboard
+            {projectName || "Loading..."}
           </h1>
           <p className="text-muted-foreground max-w-2xl">
             Manage your study materials, chat with your AI assistant, and track your progress.
@@ -471,7 +491,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               className="outline-none mt-0"
             >
               <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 min-h-[400px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {tab.id === "files" || tab.id === "summary" || tab.id === "script" ? (
+                {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" ? (
                   tab.content
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
@@ -491,6 +511,25 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             </TabsContent>
           ))}
         </Tabs>
+
+        <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete File</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this file? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFileToDelete(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
