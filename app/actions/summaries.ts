@@ -46,6 +46,13 @@ export async function getSummary(summaryId: string) {
           orderBy: {
             order: 'asc',
           },
+          include: {
+            file: {
+              select: {
+                url: true
+              }
+            }
+          }
         },
       },
     });

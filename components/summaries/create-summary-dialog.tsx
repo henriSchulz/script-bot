@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSummary } from "@/app/actions/summaries";
 import { Loader2, Plus } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 
 interface CreateSummaryDialogProps {
   projectId: string;
@@ -14,6 +15,7 @@ interface CreateSummaryDialogProps {
 }
 
 export function CreateSummaryDialog({ projectId, onSuccess }: CreateSummaryDialogProps) {
+  const { dict } = useLanguage();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -40,16 +42,16 @@ export function CreateSummaryDialog({ projectId, onSuccess }: CreateSummaryDialo
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          New Summary
+          {dict.common.create} Summary
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create Summary</DialogTitle>
+          <DialogTitle>{dict.common.create} Summary</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{dict.summaries.title}</Label>
             <Input
               id="title"
               value={title}
@@ -60,11 +62,11 @@ export function CreateSummaryDialog({ projectId, onSuccess }: CreateSummaryDialo
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {dict.common.cancel}
             </Button>
             <Button type="submit" disabled={isPending || !title.trim()}>
               {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create
+              {dict.common.create}
             </Button>
           </DialogFooter>
         </form>

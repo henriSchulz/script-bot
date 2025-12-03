@@ -3,9 +3,12 @@
 import { use, useEffect, useState, useRef } from "react";
 import { BlockEditor, BlockEditorHandle } from "@/components/editor/block-editor";
 import { getSummary } from "@/app/actions/summaries";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download } from "lucide-react";
-import Link from "next/link";
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download, Eye, Edit3 } from 'lucide-react';
+import Link from 'next/link';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Progress } from "@/components/ui/progress";
 import { exportSummaryToPDF } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +26,9 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [hasPendingBlocks, setHasPendingBlocks] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStatus, setExportStatus] = useState('');
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const editorContentRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockEditorHandle>(null);
 
@@ -30,14 +36,36 @@ export default function SummaryPage({ params }: SummaryPageProps) {
     if (!editorContentRef.current) return;
     
     setIsExporting(true);
-    try {
-      await exportSummaryToPDF(summary.title, editorContentRef.current);
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Failed to export PDF');
-    } finally {
-      setIsExporting(false);
-    }
+    setExportProgress(0);
+    setExportStatus('Starting export...');
+    
+    // Use requestAnimationFrame to ensure the UI updates (showing the loader) 
+    // before the heavy synchronous work of PDF generation begins.
+    requestAnimationFrame(() => {
+      // A small timeout to allow the browser to paint the loader
+      setTimeout(async () => {
+        try {
+          if (!editorContentRef.current) return;
+          
+          await exportSummaryToPDF(
+            summary.title, 
+            editorContentRef.current,
+            (progress, status) => {
+              setExportProgress(progress);
+              setExportStatus(status);
+            }
+          );
+        } catch (error) {
+          console.error('Export failed:', error);
+          // Show error in a more user-friendly way if needed, but alert is fine for now as fallback
+          alert('Failed to export PDF. Please try again.');
+        } finally {
+          setIsExporting(false);
+          setExportProgress(0);
+          setExportStatus('');
+        }
+      }, 50);
+    });
   };
 
   useEffect(() => {
@@ -79,6 +107,27 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      {/* Fullscreen Loading Overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md space-y-6 p-8 rounded-2xl bg-card border border-border shadow-2xl text-center">
+            <div className="relative mx-auto h-16 w-16">
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+              <Download className="absolute inset-0 m-auto h-6 w-6 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold tracking-tight">Exporting PDF</h3>
+              <p className="text-sm text-muted-foreground">{exportStatus}</p>
+            </div>
+            <div className="space-y-2">
+              <Progress value={exportProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{Math.round(exportProgress)}%</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Animated gradient background */}
       <div className="fixed inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-50 pointer-events-none" />
       
@@ -116,6 +165,19 @@ export default function SummaryPage({ params }: SummaryPageProps) {
               </div>
               
               <div className="flex items-center gap-2">
+                {/* Read-Only Mode Toggle */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/50 bg-background/50">
+                  <Switch
+                    id="readonly-mode"
+                    checked={isReadOnly}
+                    onCheckedChange={setIsReadOnly}
+                  />
+                  <Label htmlFor="readonly-mode" className="text-sm cursor-pointer flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5" />
+                    Read-only
+                  </Label>
+                </div>
+
                 {hasPendingBlocks && (
                   <Button 
                     variant="outline" 
@@ -133,17 +195,8 @@ export default function SummaryPage({ params }: SummaryPageProps) {
                   disabled={isExporting}
                   className="gap-2"
                 >
-                  {isExporting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Export PDF
-                    </>
-                  )}
+                  <Download className="h-4 w-4" />
+                  Export PDF
                 </Button>
               </div>
             </div>
@@ -164,6 +217,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
                   projectId={resolvedParams.id}
                   initialBlocks={summary.blocks || []} 
                   onPendingBlocksChange={setHasPendingBlocks}
+                  isReadOnly={isReadOnly}
                 />
               </div>
             </div>

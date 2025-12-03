@@ -15,6 +15,7 @@ import {
   File as FileIcon,
   Loader2,
   ArrowUpDown,
+  ArrowLeft,
   LayoutGrid,
   List,
   Image as ImageIcon,
@@ -40,6 +41,11 @@ import { getProject } from "@/app/actions/projects";
 import { SummaryList } from "@/components/summaries/summary-list";
 import { Editor } from "@/components/editor/editor";
 import { FormulaList } from "@/components/formulas/formula-list";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { ExerciseList } from "@/components/exercises/exercise-list";
+
+import { ChatInterface } from "@/components/chat/chat-interface";
+import { useLanguage } from "@/components/language-provider";
 
 interface ProjectPageProps {
   params: Promise<{
@@ -113,17 +119,20 @@ const getFileIconSmall = (file: FileData) => {
 };
 
 export default function ProjectPage({ params }: ProjectPageProps) {
+  const { dict } = useLanguage();
   const resolvedParams = use(params);
-  const [activeTab, setActiveTab] = useState("script");
+  // Persist active tab per project
+  const [activeTab, setActiveTab] = useLocalStorage<string>(`project-${resolvedParams.id}-active-tab`, "summary");
   const [files, setFiles] = useState<FileData[]>([]);
   const [projectName, setProjectName] = useState<string>("");
   const [projectScript, setProjectScript] = useState<string>("");
   const [isUploading, startUploadTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
-  const [sortBy, setSortBy] = useState<"date" | "name">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // Persist file tab preferences
+  const [sortBy, setSortBy] = useLocalStorage<"date" | "name">("files-sort-by", "date");
+  const [sortOrder, setSortOrder] = useLocalStorage<"asc" | "desc">("files-sort-order", "desc");
+  const [viewMode, setViewMode] = useLocalStorage<"grid" | "list">("files-view-mode", "grid");
 
   const sortedFiles = [...files].sort((a, b) => {
     if (sortBy === "date") {
@@ -227,16 +236,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   const tabs = [
     {
-      id: "script",
-      label: "Skript",
-      icon: Book,
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
-      content: <Editor projectId={resolvedParams.id} initialContent={projectScript} />
-    },
-    {
       id: "summary",
-      label: "Zusammenfassung",
+      label: dict.project.summaries,
       icon: FileText,
       color: "text-orange-500",
       bg: "bg-orange-500/10",
@@ -244,31 +245,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     },
     {
       id: "exercises",
-      label: "Übung",
+      label: dict.project.exercises,
       icon: PenTool,
       color: "text-green-500",
       bg: "bg-green-500/10",
-      content: "Hier sind die Übungen."
+      content: <ExerciseList projectId={resolvedParams.id} />
     },
     {
       id: "formulas",
-      label: "Formeln",
+      label: dict.project.formulas,
       icon: Sigma,
       color: "text-purple-500",
       bg: "bg-purple-500/10",
       content: <FormulaList projectId={resolvedParams.id} />
     },
     {
-      id: "chat",
-      label: "Chat",
-      icon: MessageSquare,
-      color: "text-pink-500",
-      bg: "bg-pink-500/10",
-      content: "Hier ist der Chat."
-    },
-    {
       id: "files",
-      label: "Dateien",
+      label: dict.project.files,
       icon: FolderOpen,
       color: "text-yellow-500",
       bg: "bg-yellow-500/10",
@@ -276,7 +269,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <div className="w-full max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h3 className="text-xl font-semibold">Project Files</h3>
+              <h3 className="text-xl font-semibold">{dict.project.files}</h3>
               <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
                 <Button
                   variant={sortBy === "date" ? "secondary" : "ghost"}
@@ -345,8 +338,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   <Upload className="h-4 w-4 mr-2" />
                 )}
                 {isUploading && uploadProgress 
-                  ? `Uploading ${uploadProgress.current}/${uploadProgress.total}` 
-                  : "Upload Files"}
+                  ? `${dict.common.loading} ${uploadProgress.current}/${uploadProgress.total}` 
+                  : dict.files.upload}
               </Button>
             </div>
           </div>
@@ -354,7 +347,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           {sortedFiles.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-muted rounded-xl">
               <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No files uploaded yet</p>
+              <p className="text-muted-foreground">{dict.files.noFiles}</p>
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -439,16 +432,25 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Project</span>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              {projectName || dict.common.loading}
+            </h1>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              asChild
+              className="gap-2"
+            >
+              <a href="/projects">
+                <ArrowLeft className="h-4 w-4" />
+                {dict.project.overview}
+              </a>
+            </Button>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            {projectName || "Loading..."}
-          </h1>
           <p className="text-muted-foreground max-w-2xl">
             Manage your study materials, chat with your AI assistant, and track your progress.
           </p>
@@ -456,33 +458,28 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
         {/* Tabs Interface */}
         <Tabs 
-          defaultValue="script" 
-          className="w-full space-y-6"
+          value={activeTab}
+          className="w-full space-y-4"
           onValueChange={setActiveTab}
         >
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background z-10 pointer-events-none md:hidden" />
-            <TabsList className="w-full justify-start h-auto p-1 bg-muted/50 backdrop-blur-sm border border-border/50 overflow-x-auto no-scrollbar">
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-300",
-                    "data-[state=active]:bg-background data-[state=active]:shadow-sm",
-                    "data-[state=active]:text-foreground",
-                    "hover:bg-background/50"
-                  )}
-                >
-                  <tab.icon className={cn(
-                    "h-4 w-4 transition-colors duration-300",
-                    activeTab === tab.id ? tab.color : "text-muted-foreground"
-                  )} />
-                  <span>{tab.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+          <TabsList className="w-full justify-start h-auto p-1 bg-muted/30 border border-border overflow-x-auto">
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-md transition-colors",
+                  "data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                )}
+              >
+                <tab.icon className={cn(
+                  "h-4 w-4 transition-colors",
+                  activeTab === tab.id ? tab.color : "text-muted-foreground"
+                )} />
+                <span className="font-medium">{tab.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
           {tabs.map((tab) => (
             <TabsContent
@@ -490,21 +487,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               value={tab.id}
               className="outline-none mt-0"
             >
-              <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 min-h-[400px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" ? (
+              <div className="clean-card p-6 min-h-[500px]">
+                {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "chat" ? (
                   tab.content
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
                     <div className={cn(
-                      "p-4 rounded-full",
+                      "p-4 rounded-xl",
                       tab.bg
                     )}>
                       <tab.icon className={cn("h-8 w-8", tab.color)} />
                     </div>
-                    <h3 className="text-xl font-semibold">{tab.label}</h3>
-                    <p className="text-muted-foreground max-w-md">
-                      {tab.content}
-                    </p>
+                    <div className="space-y-1">
+                      <h3 className="text-xl font-semibold">{tab.label}</h3>
+                      <p className="text-muted-foreground max-w-md text-sm">
+                        {tab.content}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -515,17 +514,17 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete File</DialogTitle>
+              <DialogTitle>{dict.common.delete}</DialogTitle>
               <DialogDescription>
                 Are you sure you want to delete this file? This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setFileToDelete(null)}>
-                Cancel
+                {dict.common.cancel}
               </Button>
               <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : dict.common.delete}
               </Button>
             </DialogFooter>
           </DialogContent>

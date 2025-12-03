@@ -18,6 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useLanguage } from "@/components/language-provider";
 
 // Simple date formatter
 const formatDate = (date: Date) => {
@@ -46,15 +48,16 @@ interface SummaryListProps {
 }
 
 export function SummaryList({ projectId }: SummaryListProps) {
+  const { dict } = useLanguage();
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDeleting, startDeleteTransition] = useTransition();
   const [summaryToDelete, setSummaryToDelete] = useState<string | null>(null);
   
-  // UI States matching Files tab
-  const [sortBy, setSortBy] = useState<"date" | "name">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // UI States with localStorage persistence
+  const [sortBy, setSortBy] = useLocalStorage<"date" | "name">("summary-sort-by", "date");
+  const [sortOrder, setSortOrder] = useLocalStorage<"asc" | "desc">("summary-sort-order", "desc");
+  const [viewMode, setViewMode] = useLocalStorage<"grid" | "list">("summary-view-mode", "grid");
 
   const fetchSummaries = async () => {
     const result = await getSummaries(projectId);
@@ -98,7 +101,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
     <div className="w-full max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h3 className="text-xl font-semibold">Summaries</h3>
+          <h3 className="text-xl font-semibold">{dict.project.summaries}</h3>
           <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
             <Button
               variant={sortBy === "date" ? "secondary" : "ghost"}
@@ -166,7 +169,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
       ) : sortedSummaries.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-muted rounded-xl">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No summaries yet</p>
+          <p className="text-muted-foreground">{dict.summaries.noSummaries}</p>
           <p className="text-sm text-muted-foreground mt-1">Create one to get started</p>
         </div>
       ) : viewMode === "grid" ? (
@@ -283,7 +286,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>{dict.common.cancel}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={(e) => {
                 e.preventDefault();
@@ -292,7 +295,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
             >
-              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : dict.common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

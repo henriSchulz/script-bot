@@ -14,7 +14,8 @@ import { InlineMath } from '../extensions/inline-math';
 import { EditorBubbleMenu } from '../menus/bubble-menu';
 import { useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Editor, Range } from '@tiptap/core';
-import { Text, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, Minus, Image as ImageIcon, Sigma } from 'lucide-react';
+import { Text, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, Minus, Image as ImageIcon, Sigma, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 interface TextBlockProps {
   content: string;
@@ -25,6 +26,11 @@ interface TextBlockProps {
   onMergePrev?: () => void;
   onDelete?: () => void;
   onInsertBlock?: (type: string) => void;
+  page?: number;
+  fileId?: string;
+  fileUrl?: string;
+  projectId?: string;
+  isReadOnly?: boolean;
 }
 
 export interface TextBlockRef {
@@ -40,9 +46,15 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
   onFocusPrev,
   onMergePrev,
   onDelete,
-  onInsertBlock
+  onInsertBlock,
+  page,
+  fileId,
+  fileUrl,
+  projectId,
+  isReadOnly = false
 }, ref) => {
   const editor = useEditor({
+    editable: !isReadOnly,
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
@@ -231,6 +243,13 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
     },
   });
 
+  // Update editable state when isReadOnly changes
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!isReadOnly);
+    }
+  }, [editor, isReadOnly]);
+
   useImperativeHandle(ref, () => ({
     focus: (position = 'end') => {
       if (editor) {
@@ -266,7 +285,9 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
   return (
     <>
       {editor && editor.isEditable && <EditorBubbleMenu editor={editor} />}
-      <EditorContent editor={editor} />
+      <div className="relative group/block">
+        <EditorContent editor={editor} />
+      </div>
     </>
   );
 });

@@ -12,10 +12,11 @@ interface PendingImageBlockProps {
   onUpload?: () => void
   projectId?: string
   summaryId?: string
+  exerciseId?: string
   blockId?: string
 }
 
-export function PendingImageBlock({ content, onUpload, projectId, summaryId, blockId }: PendingImageBlockProps) {
+export function PendingImageBlock({ content, onUpload, projectId, summaryId, exerciseId, blockId }: PendingImageBlockProps) {
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

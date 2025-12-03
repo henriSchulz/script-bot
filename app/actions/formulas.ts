@@ -99,19 +99,24 @@ export async function processPdfChunk(
       
       Für jede Formel:
       1. Gib den LaTeX-Code an.
-      2. Gib eine kurze Beschreibung/Erklärung (was berechnet sie, wofür stehen die Variablen).
+      2. Gib eine kurze Beschreibung/Erklärung (Markdown) (was berechnet sie, wofür stehen die Variablen).
       3. Gib die Seitenzahl an (relativ zum Dokument, also Seite 1 ist die erste Seite dieses Chunks).
       4. Ordne die Formel einem sinnvollen Kapitel/Kategorie zu (z.B. "Grundlagen", "Thermodynamik", "Kinematik"). Denke dir passende Kategorienamen aus, die den Inhalt gut zusammenfassen.
       
       WICHTIG: Da dies ein Ausschnitt ist (Seite ${startPage} bis ${endPage} des Originaldokuments), addiere ${startPage - 1} zur gefundenen Seitenzahl, um die korrekte absolute Seitenzahl zu erhalten.
       
       Ignoriere triviale Formeln oder einfache Rechenbeispiele, es sei denn, sie illustrieren ein wichtiges Konzept.
+
+      **MATHEMATIK - KRITISCH WICHTIG:**
+      - **NIEMALS** Unicode-Zeichen für mathematische Symbole verwenden (z.B. ω, ζ, ±, ², ³, √, ∫, etc.)
+      - **IMMER** inline LaTeX verwenden: $\omega$, $\zeta$, $\pm$, $x^2$, $x^3$, $\sqrt{x}$, $\int$
+      - Auch in der **Beschreibung** müssen alle Variablen und mathematischen Ausdrücke in LaTeX sein (z.B. "wobei $x$ die Zeit ist").
       
       Output Format (JSON Array):
       [
         {
           "latex": "E = mc^2",
-          "description": "Energie-Masse-Äquivalenz. E=Energie, m=Masse, c=Lichtgeschwindigkeit.",
+          "description": "Energie-Masse-Äquivalenz. $E$=Energie, $m$=Masse, $c$=Lichtgeschwindigkeit.",
           "category": "Relativitätstheorie",
           "page": 1
         }

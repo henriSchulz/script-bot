@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 interface GenerateSummaryButtonProps {
   projectId: string;
@@ -27,6 +28,7 @@ interface GenerateSummaryButtonProps {
 }
 
 export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryButtonProps) {
+  const { dict } = useLanguage();
   const [open, setOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<string>("all");
   const [files, setFiles] = useState<{ id: string; name: string }[]>([]);
@@ -107,12 +109,12 @@ export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryB
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary">
           <Sparkles className="h-4 w-4" />
-          Generate with AI
+          {dict.summaries.generate}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Generate Summary with AI</DialogTitle>
+          <DialogTitle>{dict.summaries.generate}</DialogTitle>
           <DialogDescription>
             Create a structured summary from your project files.
           </DialogDescription>
@@ -195,7 +197,7 @@ export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryB
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
-            Cancel
+            {dict.common.cancel}
           </Button>
           <Button onClick={handleGenerate} disabled={isPending} className="gap-2 min-w-[120px]">
             {isPending ? (

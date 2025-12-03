@@ -10,6 +10,8 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { FormulaActions } from './formula-actions';
 import { cn } from '@/lib/utils';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useLanguage } from "@/components/language-provider";
 
 interface Formula {
   id: string;
@@ -64,6 +66,7 @@ const LatexText = ({ text }: { text: string | null }) => {
 };
 
 export function FormulaList({ projectId }: FormulaListProps) {
+  const { dict } = useLanguage();
   const [formulas, setFormulas] = useState<Formula[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExtracting, startTransition] = useTransition();
@@ -71,7 +74,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
   const [progress, setProgress] = useState(0);
   const [progressDetails, setProgressDetails] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useLocalStorage<"grid" | "list">("formula-view-mode", "grid");
 
   const fetchFormulas = async () => {
     setIsLoading(true);
@@ -167,11 +170,11 @@ export function FormulaList({ projectId }: FormulaListProps) {
                 <Sigma className="h-7 w-7 text-primary" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                Formeln
+                {dict.project.formulas}
               </h1>
             </div>
             <p className="text-muted-foreground text-lg">
-              AI-extrahierte Formeln aus deinen Vorlesungsfolien
+              {dict.formulas.title}
             </p>
           </div>
 
@@ -296,7 +299,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
         <div className="text-center py-32 rounded-2xl border-2 border-dashed border-muted bg-card/30 backdrop-blur-sm">
           <Sigma className="h-20 w-20 text-muted-foreground/40 mx-auto mb-6" />
           <h3 className="text-2xl font-bold mb-3">
-            {searchQuery ? "Keine Formeln gefunden" : "Noch keine Formeln"}
+            {searchQuery ? "Keine Formeln gefunden" : dict.formulas.noFormulas}
           </h3>
           <p className="text-muted-foreground max-w-md mx-auto text-lg mb-6">
             {searchQuery 

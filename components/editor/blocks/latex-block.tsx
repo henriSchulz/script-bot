@@ -3,15 +3,21 @@
 import { useState, useEffect, useRef } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { Eye, Code, AlertCircle } from 'lucide-react';
+import { Eye, Code, AlertCircle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface LatexBlockProps {
   content: string;
   onChange: (content: string) => void;
+  page?: number;
+  fileId?: string;
+  fileUrl?: string;
+  projectId?: string;
+  isReadOnly?: boolean;
 }
 
-export function LatexBlock({ content, onChange }: LatexBlockProps) {
+export function LatexBlock({ content, onChange, page, fileId, fileUrl, projectId, isReadOnly = false }: LatexBlockProps) {
   const [isEditing, setIsEditing] = useState(!content);
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -45,6 +51,12 @@ export function LatexBlock({ content, onChange }: LatexBlockProps) {
     // Auto-resize
     e.target.style.height = 'auto';
     e.target.style.height = e.target.scrollHeight + 'px';
+  };
+
+  const handleClick = () => {
+    if (!isReadOnly) {
+      setIsEditing(true);
+    }
   };
 
   return (
@@ -81,9 +93,9 @@ export function LatexBlock({ content, onChange }: LatexBlockProps) {
           </p>
         </div>
       ) : (
-        <div
-          onClick={() => setIsEditing(true)}
-          className="relative p-4 cursor-pointer transition-all duration-300"
+        <div 
+          className="relative cursor-pointer hover:bg-accent/30 rounded-lg p-6 transition-all duration-200 group-hover:shadow-sm" 
+          onClick={handleClick}
         >
           <div className="relative">
             {error ? (

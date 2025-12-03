@@ -31,7 +31,7 @@ export async function uploadFile(projectId: string, formData: FormData) {
         await writeFile(filepath, buffer);
 
         // Create DB record
-        await db.file.create({
+        const dbFile = await db.file.create({
           data: {
             name: file.name,
             url: `/uploads/${projectId}/${filename}`,
@@ -40,7 +40,7 @@ export async function uploadFile(projectId: string, formData: FormData) {
             projectId: projectId,
           },
         });
-        return { success: true, filename: file.name };
+        return { success: true, file: dbFile };
       } catch (error) {
         console.error(`Failed to upload ${file.name}:`, error);
         return { error: `Failed to upload ${file.name}` };
@@ -51,9 +51,11 @@ export async function uploadFile(projectId: string, formData: FormData) {
     if (errors.length > 0) {
       return { error: `Failed to upload ${errors.length} files`, details: errors };
     }
+    
+    const uploadedFiles = results.filter(r => r.success).map(r => r.file);
 
     revalidatePath(`/projects/${projectId}`);
-    return { success: true };
+    return { success: true, files: uploadedFiles };
   } catch (error) {
     console.error("Upload error:", error);
     return { error: "Failed to upload files" };

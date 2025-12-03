@@ -3,22 +3,26 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { createPortal } from 'react-dom';
-import { getSummaryBlocks, createSummaryBlock, updateSummaryBlock, deleteSummaryBlock, reorderSummaryBlocks } from '@/app/actions/blocks';
+import { getSummaryBlocks, createSummaryBlock, updateSummaryBlock, deleteSummaryBlock, reorderSummaryBlocks, createExerciseBlock, reorderExerciseBlocks } from '@/app/actions/blocks';
 import { TextBlock, TextBlockRef } from './blocks/text-block';
 import { LatexBlock } from './blocks/latex-block';
 import { ImageBlock } from './blocks/image-block';
 import { PendingImageBlock } from './blocks/pending-image-block';
 import { BatchUploadDialog } from './batch-upload-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import Link from 'next/link';
 
 interface Block {
   id: string;
   type: string;
   content: string;
   order: number;
+  page?: number;
+  fileId?: string;
+  fileUrl?: string;
 }
 
 export interface BlockEditorHandle {
@@ -26,13 +30,15 @@ export interface BlockEditorHandle {
 }
 
 interface BlockEditorProps {
-  summaryId: string;
+  summaryId?: string;
+  exerciseId?: string;
   projectId: string;
   initialBlocks: Block[];
   onPendingBlocksChange?: (hasPending: boolean) => void;
+  isReadOnly?: boolean;
 }
 
-export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, projectId, initialBlocks, onPendingBlocksChange }, ref) => {
+export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false }, ref) => {
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
   const [hoveredBlockIndex, setHoveredBlockIndex] = useState<number | null>(null);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
@@ -47,7 +53,12 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
 
   useEffect(() => {
     console.log("BlockEditor received initialBlocks:", initialBlocks);
-    setBlocks(initialBlocks);
+    // Map file.url to fileUrl if present
+    const mappedBlocks = initialBlocks.map((block: any) => ({
+      ...block,
+      fileUrl: block.fileUrl || block.file?.url
+    }));
+    setBlocks(mappedBlocks);
   }, [initialBlocks]);
 
   useEffect(() => {
@@ -197,7 +208,15 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
       }
     }, 0);
 
-    const result = await createSummaryBlock(summaryId, type, initialContent, newOrder);
+    let result;
+    if (summaryId) {
+      result = await createSummaryBlock(summaryId, type, initialContent, newOrder);
+    } else if (exerciseId) {
+      result = await createExerciseBlock(exerciseId, type, initialContent, newOrder);
+    } else {
+        console.error("No summaryId or exerciseId provided");
+        return;
+    }
     if (result.success && result.block) {
       // Replace temp block with real block
       setBlocks(prev => prev.map(b => b.id === tempId ? result.block! : b));
@@ -318,7 +337,18 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
 
   const handleUpdateBlock = async (id: string, content: string, type?: string) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content, ...(type ? { type } : {}) } : b));
-    await updateSummaryBlock(id, content, type);
+    
+    // Don't try to update temporary blocks that haven't been created in the database yet
+    if (id.startsWith('temp-')) {
+      console.log('Skipping update for temporary block:', id);
+      return;
+    }
+    
+    const result = await updateSummaryBlock(id, content, type);
+    if (!result.success) {
+      console.error('Failed to update block:', result.error);
+      // Optionally show toast here if you want to notify the user
+    }
   };
 
   const handleBlockTypeChange = async (block: Block, newType: string, level?: number) => {
@@ -421,7 +451,11 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
     setBlocks(finalItems);
 
     const updates = finalItems.map(item => ({ id: item.id, order: item.order }));
-    await reorderSummaryBlocks(summaryId, updates);
+    if (summaryId) {
+      await reorderSummaryBlocks(summaryId, updates);
+    } else if (exerciseId) {
+      await reorderExerciseBlocks(exerciseId, updates);
+    }
   };
 
   const handleFocusNext = (index: number) => {
@@ -517,7 +551,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
           {(provided) => (
             <div {...provided.droppableProps} ref={(el) => { provided.innerRef(el); containerRef.current = el; }} className="space-y-0.5">
               {blocks.map((block, index) => (
-                <Draggable key={block.id} draggableId={block.id} index={index}>
+                <Draggable key={block.id} draggableId={block.id} index={index} isDragDisabled={isReadOnly}>
                   {(provided, snapshot) => {
                     const child = (
                       <div
@@ -533,11 +567,12 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                         style={provided.draggableProps.style}
                       >
                         {/* Floating Add Button Between Blocks */}
-                        <div 
-                          className="relative h-6 group/add"
-                          onMouseEnter={() => setHoveredBlockIndex(index - 0.5)}
-                          onMouseLeave={() => setHoveredBlockIndex(null)}
-                        >
+                        {!isReadOnly && (
+                          <div 
+                            className="relative h-6 group/add"
+                            onMouseEnter={() => setHoveredBlockIndex(index - 0.5)}
+                            onMouseLeave={() => setHoveredBlockIndex(null)}
+                          >
                           <div className={cn(
                             "absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-all duration-150",
                             hoveredBlockIndex === index - 0.5 && "opacity-100"
@@ -575,20 +610,10 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                 <Image className="h-3 w-3 mr-1" />
                                 <span>Image</span>
                               </Button>
-                              <div className="w-px h-3 bg-border/30" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                                onClick={() => handleCreateBlock('tikz', index - 1)}
-                              >
-                                <Code className="h-3 w-3 mr-1" />
-                                <span>TikZ</span>
-                              </Button>
                             </div>
                           </div>
                         </div>
+                        )}
 
                         {/* Clean Block Container */}
                         <div className={cn(
@@ -606,9 +631,10 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                             <div
                               {...provided.dragHandleProps}
                               className={cn(
-                                "mt-1 opacity-0 group-hover:opacity-100 transition-all duration-150",
+                                "mt-1 transition-all duration-150",
                                 "cursor-grab active:cursor-grabbing",
-                                "hover:text-foreground text-muted-foreground/40"
+                                "hover:text-foreground text-muted-foreground/40",
+                                isReadOnly ? "opacity-0 w-0 p-0 overflow-hidden pointer-events-none" : "opacity-0 group-hover:opacity-100"
                               )}
                             >
                               <GripVertical className="h-4 w-4" />
@@ -634,12 +660,22 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                   onMergePrev={() => handleMergePrev(index)}
                                   onDelete={() => handleDeleteBlock(block.id)}
                                   onInsertBlock={(type) => handleCreateBlock(type, index)}
+                                  page={block.page}
+                                  fileId={block.fileId}
+                                  fileUrl={block.fileUrl}
+                                  projectId={projectId}
+                                  isReadOnly={isReadOnly}
                                 />
                               )}
                               {block.type === 'latex' && (
                                 <LatexBlock
                                   content={block.content}
                                   onChange={(content: string) => handleUpdateBlock(block.id, content)}
+                                  page={block.page}
+                                  fileId={block.fileId}
+                                  fileUrl={block.fileUrl}
+                                  projectId={projectId}
+                                  isReadOnly={isReadOnly}
                                 />
                               )}
                               {block.type === 'pending_image' && (
@@ -648,6 +684,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                   onUpload={() => setShowUploadDialog(true)}
                                   projectId={projectId}
                                   summaryId={summaryId}
+                                  // exerciseId={exerciseId} // TODO: Update PendingImageBlock to accept exerciseId
                                   blockId={block.id}
                                 />
                               )}
@@ -655,6 +692,11 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                 <ImageBlock
                                   content={block.content}
                                   onChange={(content) => handleUpdateBlock(block.id, content)}
+                                  page={block.page}
+                                  fileId={block.fileId}
+                                  fileUrl={block.fileUrl}
+                                  projectId={projectId}
+                                  isReadOnly={isReadOnly}
                                 />
                               )}
                             </div>
@@ -664,7 +706,20 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                               "opacity-0 group-hover:opacity-100 transition-all duration-150",
                               "flex gap-0.5 mt-1"
                             )}>
-                              <Popover>
+                              {/* Page Reference Link */}
+                              {block.page && block.fileUrl && (
+                                <Link
+                                  href={`${block.fileUrl}#page=${block.page}`}
+                                  target="_blank"
+                                  className="h-6 w-6 inline-flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-accent rounded-md"
+                                  title={`Go to page ${block.page}`}
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </Link>
+                              )}
+                              
+                              {!isReadOnly && (
+                                <Popover>
                                 <PopoverTrigger asChild>
                                   <Button
                                     variant="ghost"
@@ -720,6 +775,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                   </div>
                                 </PopoverContent>
                               </Popover>
+                              )}
                             </div>
                           </div>
                         </div>

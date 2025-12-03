@@ -20,6 +20,7 @@ model Project {
   updatedAt   DateTime @updatedAt
   files       File[]
   summaries   Summary[]
+  exercises   Exercise[]
   script      String?
   formulas    Formula[]
 }
@@ -36,6 +37,8 @@ model File {
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   formulas  Formula[]
+  blocks    Block[]
+  exercises Exercise[]
 }
 
 model Summary {
@@ -51,6 +54,25 @@ model Summary {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
+model Exercise {
+  id        String   @id @default(cuid())
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  blocks    Block[]
+  chatMessages ChatMessage[]
+  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  fileId    String?
+  file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  
+  structure String? // Stores parsed tasks/subtasks as JSON string
+}
+
 model Block {
   id        String   @id @default(cuid())
   type      String   // SQLite doesn't support enums, so we use String
@@ -62,8 +84,15 @@ model Block {
   
   properties String? // SQLite doesn't support Json, so we store as stringified JSON
   
-  summaryId String
-  summary   Summary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  page      Int?
+  fileId    String?
+  file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  summaryId String?
+  summary   Summary? @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+
+  exerciseId String?
+  exercise   Exercise? @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,3 +120,19 @@ model Formula {
 //   LATEX
 //   IMAGE
 // }
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  role       String   // 'user' or 'model'
+  content    String?  // For user messages, plain text
+  blocks     String?  // For AI messages, JSON string of blocks array
+  createdAt  DateTime @default(now())
+  
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  
+  // Optional: track which subtask this message belongs to
+  subtaskId  String?  // Stores the subtask id from structure JSON
+  
+  @@index([exerciseId])
+}

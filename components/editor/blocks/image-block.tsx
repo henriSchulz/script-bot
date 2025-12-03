@@ -3,12 +3,18 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ImageIcon, Maximize2, Minimize2 } from 'lucide-react';
+import { ImageIcon, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface ImageBlockProps {
   content: string;
   onChange: (content: string) => void;
+  page?: number;
+  fileId?: string;
+  fileUrl?: string;
+  projectId?: string;
+  isReadOnly?: boolean;
 }
 
 type ImageSize = 'small' | 'medium' | 'large' | 'full';
@@ -18,7 +24,7 @@ interface ImageData {
   size?: ImageSize;
 }
 
-export function ImageBlock({ content, onChange }: ImageBlockProps) {
+export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId, isReadOnly = false }: ImageBlockProps) {
   // Parse content - it can be just a URL string or JSON with size
   const parseContent = (content: string): ImageData => {
     try {
@@ -72,7 +78,8 @@ export function ImageBlock({ content, onChange }: ImageBlockProps) {
         />
         
         {/* Controls overlay */}
-        <div className="absolute top-2 right-2 opacity-0 group-hover/image:opacity-100 transition-opacity flex gap-2">
+        {!isReadOnly && (
+          <div className="absolute top-2 right-2 opacity-0 group-hover/image:opacity-100 transition-opacity flex gap-2">
           {/* Size selector */}
           <div className="flex gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
             <Button
@@ -123,6 +130,7 @@ export function ImageBlock({ content, onChange }: ImageBlockProps) {
             Change
           </Button>
         </div>
+        )}
       </div>
     );
   }
