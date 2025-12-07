@@ -10,13 +10,13 @@ import { HorizontalRule } from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { SlashCommand, renderItems } from '../extensions/slash-command';
-import { InlineMath } from '../extensions/inline-math';
 import { EditorBubbleMenu } from '../menus/bubble-menu';
 import { useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Editor, Range } from '@tiptap/core';
 import { Text, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, Minus, Image as ImageIcon, Sigma, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { convertLatexToMarkup } from '@/lib/utils';
+import { MathExtension } from '../extensions/math-extension';
+import { parseMathToHtml } from '@/lib/math-parser';
 
 interface TextBlockProps {
   content: string;
@@ -85,6 +85,7 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
         nested: true,
       }),
       ...(isReadOnly ? [] : [
+        MathExtension,
         SlashCommand.configure({
           suggestion: {
             items: ({ query }: { query: string }) => {
@@ -180,10 +181,9 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
             render: renderItems,
           },
         }),
-        InlineMath,
       ]),
     ],
-    content: convertLatexToMarkup(content),
+    content: parseMathToHtml(content),
     editorProps: {
       attributes: {
         class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[2em] transition-all duration-200',

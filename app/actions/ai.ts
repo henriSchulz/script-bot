@@ -7,7 +7,7 @@ import { join } from "path";
 import { cwd } from "process";
 import { createSummaryBlock } from "./blocks";
 import { createSummary } from "./summaries";
-import { processMathInHtml } from "@/lib/math-utils";
+import { parseMathToHtml } from "@/lib/math-parser";
 import { getDictionary, formatString } from "@/lib/i18n";
 import JSON5 from 'json5';
 
@@ -375,7 +375,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       await createSummaryBlock(
         summaryId,
         block.type || 'text',
-        block.type === 'text' ? processMathInHtml(block.content || '') : (block.content || ''),
+        block.type === 'text' ? parseMathToHtml(block.content || '') : (block.content || ''),
         i, // Use loop index for order to ensure it's correct
         block.page,
         block.fileId
@@ -556,7 +556,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
           
           if (block.type === 'text') {
               console.log(`[AI] Original content (first 50 chars): ${originalContent.substring(0, 50)}`);
-              processedContent = processMathInHtml(originalContent);
+              processedContent = parseMathToHtml(originalContent);
               console.log(`[AI] Processed content (first 50 chars): ${processedContent.substring(0, 50)}`);
           }
           
@@ -817,7 +817,7 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
         } else if (block.type === 'text') {
              processedBlocks.push({
                 type: 'text',
-                content: processMathInHtml(block.content)
+                content: parseMathToHtml(block.content)
              });
         } else if (block.type === 'latex' && block.isImportant) {
              processedBlocks.push({

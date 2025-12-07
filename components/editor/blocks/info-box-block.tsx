@@ -5,7 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
-import { InlineMath } from '../extensions/inline-math';
+import { MathExtension } from '../extensions/math-extension';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { cn } from '@/lib/utils';
@@ -91,7 +91,7 @@ export function InfoBoxBlock({ content, onChange, isReadOnly = false }: InfoBoxB
         placeholder: "Type your content...",
       }),
       Typography,
-      InlineMath,
+      MathExtension,
     ],
     content: '',
     onUpdate: ({ editor }) => {
@@ -108,7 +108,7 @@ export function InfoBoxBlock({ content, onChange, isReadOnly = false }: InfoBoxB
         heading: { levels: [1, 2, 3] },
       }),
       Typography,
-      InlineMath,
+      MathExtension,
     ],
     content: '',
   });
