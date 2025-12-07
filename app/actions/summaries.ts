@@ -108,3 +108,22 @@ export async function deleteSummary(summaryId: string, projectId: string) {
     return { success: false, error: "Failed to delete summary" };
   }
 }
+
+export async function updateSummary(summaryId: string, projectId: string, title: string) {
+  try {
+    const summary = await db.summary.update({
+      where: {
+        id: summaryId,
+      },
+      data: {
+        title,
+      },
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true, summary };
+  } catch (error) {
+    console.error("Error updating summary:", error);
+    return { success: false, error: "Failed to update summary" };
+  }
+}

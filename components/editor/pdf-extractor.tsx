@@ -7,7 +7,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { Button } from '@/components/ui/button';
-import { Loader2, Check, ArrowLeft } from 'lucide-react';
+import { Loader2, Check, ArrowLeft, ZoomIn, ZoomOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getSummary } from '@/app/actions/summaries';
 import { updateSummaryBlock } from '@/app/actions/blocks';
@@ -32,7 +32,7 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const [scale, setScale] = useState(1.5); // Zoom level for better visibility
+  const [scale, setScale] = useState(1.0);
   const [saving, setSaving] = useState(false);
   
   const pageRef = useRef<HTMLDivElement>(null);
@@ -113,7 +113,7 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
             console.log("Update result:", updateResult);
             
             router.refresh();
-            router.push(`/projects/${projectId}/summaries/${summaryId}`);
+            router.push(`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`);
         } else {
             console.error("Upload failed:", uploadResult);
             alert("Failed to upload image");
@@ -140,7 +140,7 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <p>No file URL found for this block.</p>
         <Button asChild variant="outline">
-            <Link href={`/projects/${projectId}/summaries/${summaryId}`}>
+            <Link href={`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`}>
                 Back
             </Link>
         </Button>
@@ -155,7 +155,7 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/projects/${projectId}/summaries/${summaryId}`}>
+                    <Link href={`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`}>
                         <ArrowLeft className="h-4 w-4" />
                     </Link>
                 </Button>
@@ -165,6 +165,25 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
                 </div>
             </div>
             <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 mr-4 bg-muted/50 rounded-md p-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
+                    >
+                        <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs w-12 text-center">{Math.round(scale * 100)}%</span>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setScale(s => Math.min(3, s + 0.1))}
+                    >
+                        <ZoomIn className="h-4 w-4" />
+                    </Button>
+                </div>
                 <Button onClick={handleSave} disabled={!completedCrop || saving}>
                     {saving ? (
                         <>
@@ -198,9 +217,8 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
                     crop={crop}
                     onChange={(_, percentCrop) => setCrop(percentCrop)}
                     onComplete={(c) => setCompletedCrop(c)}
-                    className="max-w-full"
                 >
-                    <div ref={pageRef}>
+                    <div ref={pageRef} className="inline-block relative">
                         <Page 
                             pageNumber={pageNumber} 
                             scale={scale} 

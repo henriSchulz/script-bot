@@ -1,11 +1,13 @@
 'use client';
 
 import { use, useEffect, useState, useRef } from "react";
+import { useLanguage } from "@/components/language-provider";
 import { BlockEditor, BlockEditorHandle } from "@/components/editor/block-editor";
 import { getSummary } from "@/app/actions/summaries";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download, Eye, Edit3 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Progress } from "@/components/ui/progress";
@@ -31,6 +33,14 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const editorContentRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockEditorHandle>(null);
+  const router = useRouter();
+  const { dict } = useLanguage();
+
+  const handleChatAboutBlock = (content: string) => {
+    const query = dict.project.projectChat.askAboutBlock.replace("{content}", content);
+    localStorage.setItem(`project-${resolvedParams.id}-pending-query`, query);
+    window.open(`/projects/${resolvedParams.id}?tab=chat`, '_blank');
+  };
 
   const handleExportPDF = async () => {
     if (!editorContentRef.current) return;
@@ -218,6 +228,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
                   initialBlocks={summary.blocks || []} 
                   onPendingBlocksChange={setHasPendingBlocks}
                   isReadOnly={isReadOnly}
+                  onChatAboutBlock={handleChatAboutBlock}
                 />
               </div>
             </div>

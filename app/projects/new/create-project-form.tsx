@@ -18,6 +18,7 @@ const LANGUAGES = [
   "German",
   "English",
   "German & English",
+  "Russian",
   "Other"
 ];
 

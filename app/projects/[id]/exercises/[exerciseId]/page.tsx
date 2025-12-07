@@ -6,7 +6,7 @@ import { generateTheoryForExercise, analyzeExerciseStructure, chatAboutExercise 
 import { getChatMessages, saveChatMessage } from "@/app/actions/chats";
 import { BlockEditor } from "@/components/editor/block-editor";
 import dynamic from "next/dynamic";
-import { Loader2, ArrowLeft, ChevronRight, Sparkles, MessageSquare, BookOpen, CheckCircle2, Play, SkipForward, FileText, Lightbulb, Plus } from "lucide-react";
+import { Loader2, ArrowLeft, ChevronRight, Sparkles, MessageSquare, BookOpen, CheckCircle2, Play, SkipForward, FileText, Lightbulb, Plus, Send } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { useLanguage } from "@/components/language-provider";
+import { ReferenceLink, parseReferences } from "@/components/chat/reference-link";
 
 const PdfViewer = dynamic(() => import("@/components/pdf-viewer").then(mod => mod.PdfViewer), {
   ssr: false,
@@ -82,7 +83,16 @@ export default function ExercisePage({ params }: ExercisePageProps) {
   const [chatLoading, setChatLoading] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
+  const [projectFiles, setProjectFiles] = useState<any[]>([]);
+
+  const handleChatAboutBlock = (content: string) => {
+    const query = dict.project.projectChat.askAboutBlock.replace("{content}", content);
+    localStorage.setItem(`project-${resolvedParams.id}-pending-query`, query);
+    window.open(`/projects/${resolvedParams.id}?tab=chat`, '_blank');
+  };
+
   useEffect(() => {
+    // Load exercise
     getExercise(resolvedParams.exerciseId)
       .then((result) => {
         if (result.success && result.exercise) {
@@ -105,13 +115,111 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       .finally(() => {
         setLoading(false);
       });
-  }, [resolvedParams.exerciseId]);
+
+    // Load project files for references
+    import("@/app/actions/files").then(({ getFiles }) => {
+      getFiles(resolvedParams.id).then((result) => {
+        if (result.files) {
+          setProjectFiles(result.files);
+        }
+      });
+    });
+  }, [resolvedParams.exerciseId, resolvedParams.id]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
         chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [chatMessages]);
+
+  const handleReferenceClick = (fileName: string, pageNumber: number) => {
+    // Try to find file in project files
+    let file = projectFiles.find(f => f.name === fileName || f.url.endsWith(fileName));
+    
+    // If not found, check if it's the exercise file itself
+    if (!file && exercise?.file && (exercise.file.name === fileName || exercise.file.url.endsWith(fileName))) {
+      file = exercise.file;
+    }
+
+    if (file) {
+      window.open(`${file.url}#page=${pageNumber}`, '_blank');
+    } else {
+      toast.error(`File "${fileName}" not found`);
+    }
+  };
+
+  const renderContentWithReferences = (content: string) => {
+    const references = parseReferences(content);
+    if (references.length === 0) {
+      return (
+        <ReactMarkdown 
+          remarkPlugins={[remarkMath]} 
+          rehypePlugins={[rehypeKatex]}
+        >
+          {content}
+        </ReactMarkdown>
+      );
+    }
+
+    const parts = [];
+    let lastIndex = 0;
+
+    references.forEach((ref, idx) => {
+      // Add text before reference
+      if (ref.startIndex > lastIndex) {
+        parts.push(
+          <ReactMarkdown
+            key={`text-${idx}`}
+            remarkPlugins={[remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={{
+              p: ({children}) => <span className="inline">{children}</span>
+            }}
+          >
+            {content.substring(lastIndex, ref.startIndex)}
+          </ReactMarkdown>
+        );
+      }
+
+      // Add reference link
+      // Check project files first
+      let file = projectFiles.find(f => f.name === ref.fileName || f.url.endsWith(ref.fileName));
+      // Then check exercise file
+      if (!file && exercise?.file && (exercise.file.name === ref.fileName || exercise.file.url.endsWith(ref.fileName))) {
+        file = exercise.file;
+      }
+
+      parts.push(
+        <ReferenceLink
+          key={`ref-${idx}`}
+          fileName={ref.fileName}
+          pageNumber={ref.pageNumber}
+          fileUrl={file ? file.url : ''}
+          onClick={() => handleReferenceClick(ref.fileName, ref.pageNumber)}
+        />
+      );
+
+      lastIndex = ref.endIndex;
+    });
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(
+        <ReactMarkdown
+          key="text-end"
+          remarkPlugins={[remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          components={{
+            p: ({children}) => <span className="inline">{children}</span>
+          }}
+        >
+          {content.substring(lastIndex)}
+        </ReactMarkdown>
+      );
+    }
+
+    return <div className="inline-block">{parts}</div>;
+  };
 
   const handleGenerateTheory = async () => {
     setGenerating(true);
@@ -516,6 +624,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                   exerciseId={exercise.id}
                   projectId={resolvedParams.id}
                   initialBlocks={exercise.blocks || []}
+                  onChatAboutBlock={handleChatAboutBlock}
                 />
               </div>
             </div>
@@ -613,183 +722,204 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                 </div>
               </div>
             ) : (
-              <div className="h-full flex overflow-hidden">
-                {/* Left: Task Content */}
-                <div className="w-1/3 flex flex-col border-r border-border">
-                  <div className="flex flex-col h-full">
-                    <div className="flex-none px-6 py-3 border-b border-border bg-background/95 backdrop-blur-sm">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => setActiveSubtask(null)}
-                        className="text-muted-foreground hover:text-foreground pl-0 group"
-                      >
-                        <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-0.5 transition-transform" />
-                        {dict.exercises.chatInterface.backToOverview}
-                      </Button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-background via-muted/5 to-background">
-                      <div className="space-y-6 max-w-4xl mx-auto">
-                        {/* Header with breadcrumb */}
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{activeTask?.title}</span>
-                            <ChevronRight className="h-3 w-3" />
-                            <span className="text-foreground font-medium">Teil {activeSubtask.label}</span>
-                          </div>
-                          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                            Aufgabe {activeSubtask.label}
-                          </h2>
+              <div className="h-full flex">
+                {/* Left: Task Content - Collapsible Sidebar */}
+                <div className="w-72 flex-shrink-0 flex flex-col border-r border-border bg-background">
+                  <div className="flex-none px-4 py-3 border-b border-border">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setActiveSubtask(null)}
+                      className="text-muted-foreground hover:text-foreground -ml-2 gap-2"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      {dict.exercises.chatInterface.backToOverview}
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>{activeTask?.title}</span>
+                          <ChevronRight className="h-3 w-3" />
+                          <span className="text-foreground font-medium">Teil {activeSubtask.label}</span>
                         </div>
+                        <h3 className="text-lg font-semibold">
+                          Aufgabe {activeSubtask.label}
+                        </h3>
+                      </div>
 
-                        {/* Block-based Content Rendering - Simple like summaries */}
-                        <div className="space-y-3">
-                          {activeSubtask.blocks.map((block, blockIdx) => (
-                            <div key={blockIdx}>
-                              {block.type === 'latex' ? (
-                                <LatexBlock 
-                                  content={block.content} 
-                                  onChange={() => {}} 
-                                  isReadOnly={true} 
-                                  projectId={resolvedParams.id} 
-                                />
-                              ) : (
-                                <div className="prose prose-sm max-w-none">
-                                  <ReactMarkdown 
-                                    remarkPlugins={[remarkMath]} 
-                                    rehypePlugins={[rehypeKatex]}
-                                  >
-                                    {block.content}
-                                  </ReactMarkdown>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                      {/* Task Content */}
+                      <div className="space-y-3 text-sm">
+                        {activeSubtask.blocks.map((block, blockIdx) => (
+                          <div key={blockIdx}>
+                            {block.type === 'latex' ? (
+                              <LatexBlock 
+                                content={block.content} 
+                                onChange={() => {}} 
+                                isReadOnly={true} 
+                                projectId={resolvedParams.id} 
+                              />
+                            ) : (
+                              <div className="prose prose-sm max-w-none dark:prose-invert">
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkMath]} 
+                                  rehypePlugins={[rehypeKatex]}
+                                >
+                                  {block.content}
+                                </ReactMarkdown>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Chat Area */}
-                <div className="w-2/3 flex flex-col min-h-0">
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={chatScrollRef}>
-                    {chatMessages.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
-                        <div className="p-3 rounded-lg bg-muted">
-                          <MessageSquare className="h-8 w-8 text-primary" />
+                {/* Right: ChatGPT-style Chat Area */}
+                <div className="flex-1 flex flex-col bg-background">
+                  {/* Chat Messages - Single Scroll Container */}
+                  <div className="flex-1 overflow-y-auto" ref={chatScrollRef}>
+                    <div className="max-w-4xl mx-auto px-6 py-8">
+                      {chatMessages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+                          <div className="p-4 rounded-full bg-primary/10">
+                            <MessageSquare className="h-8 w-8 text-primary" />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-semibold">{dict.exercises.chatInterface.startJourney}</h3>
+                            <p className="text-muted-foreground">{dict.exercises.chatInterface.startPrompt}</p>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <p className="font-medium">{dict.exercises.chatInterface.startJourney}</p>
-                          <p className="text-muted-foreground text-sm">{dict.exercises.chatInterface.startPrompt}</p>
-                        </div>
-                      </div>
-                    )}
-                    {chatMessages.map((msg, idx) => (
-                      <div 
-                        key={idx} 
-                        className={cn(
-                          "flex w-full",
-                          msg.role === 'user' ? "justify-end" : "justify-start"
-                        )}
-                      >
-                        <div className={cn(
-                          "max-w-[85%] rounded-lg px-4 py-3 shadow-sm",
-                          msg.role === 'user' 
-                            ? "bg-primary text-white" 
-                            : "border border-border bg-card"
-                        )}>
-                          {msg.role === 'user' ? (
-                            // User messages: plain text, no markdown rendering
-                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                          ) : msg.blocks ? (
-                            // AI messages with blocks
-                            <div className="flex flex-col gap-4">
-                              {msg.blocks.map((block: any, i: number) => (
-                                block.type === 'latex' ? (
-                                  <div key={i} className="glass rounded-xl border border-border/30 overflow-hidden">
-                                    <LatexBlock 
-                                      content={block.content} 
-                                      onChange={() => {}} 
-                                      isReadOnly={true} 
-                                      projectId={resolvedParams.id} 
-                                    />
+                      )}
+                      
+                      <div className="space-y-8">
+                        {chatMessages.map((msg, idx) => (
+                          <div 
+                            key={idx} 
+                            className={cn(
+                              "flex w-full gap-5",
+                              msg.role === 'user' ? "justify-end" : "justify-start"
+                            )}
+                          >
+                            {msg.role === 'model' && (
+                              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                                <MessageSquare className="h-4 w-4 text-primary" />
+                              </div>
+                            )}
+                            
+                            <div className={cn(
+                              "flex-1",
+                              msg.role === 'user' && "max-w-[85%]"
+                            )}>
+                              <div className={cn(
+                                "rounded-2xl px-5 py-3.5",
+                                msg.role === 'user' 
+                                  ? "bg-primary text-primary-foreground ml-auto" 
+                                  : "bg-transparent"
+                              )}>
+                                {msg.role === 'user' ? (
+                                  <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                ) : msg.blocks ? (
+                                  <div className="space-y-4">
+                                    {msg.blocks.map((block: any, i: number) => (
+                                      block.type === 'latex' ? (
+                                        <div key={i} className="rounded-lg border border-border overflow-hidden bg-background">
+                                          <LatexBlock 
+                                            content={block.content} 
+                                            onChange={() => {}} 
+                                            isReadOnly={true} 
+                                            projectId={resolvedParams.id} 
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div key={i} className="prose dark:prose-invert max-w-none text-[15px] leading-relaxed">
+                                          {renderContentWithReferences(block.content)}
+                                        </div>
+                                      )
+                                    ))}
                                   </div>
                                 ) : (
-                                  <div key={i} className="prose dark:prose-invert max-w-none prose-sm">
-                                    <ReactMarkdown 
-                                      remarkPlugins={[remarkMath]} 
-                                      rehypePlugins={[rehypeKatex]}
-                                    >
-                                      {block.content}
-                                    </ReactMarkdown>
+                                  <div className="prose dark:prose-invert max-w-none text-[15px] leading-relaxed">
+                                    {renderContentWithReferences(msg.content || "")}
                                   </div>
-                                )
-                              ))}
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            // AI messages with content (fallback)
-                            <div className="prose dark:prose-invert max-w-none prose-sm">
-                              <ReactMarkdown 
-                                remarkPlugins={[remarkMath]} 
-                                rehypePlugins={[rehypeKatex]}
-                              >
-                                {msg.content || ""}
-                              </ReactMarkdown>
+                            
+                            {msg.role === 'user' && (
+                              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center mt-0.5">
+                                <span className="text-primary-foreground text-sm font-medium">U</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        
+                        {chatLoading && (
+                          <div className="flex gap-5">
+                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                              <MessageSquare className="h-4 w-4 text-primary" />
                             </div>
-                          )}
-                        </div>
+                            <div className="rounded-2xl px-5 py-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                    {chatLoading && (
-                      <div className="flex justify-start animate-in slide-in-from-bottom-2 fade-in">
-                        <div className="glass-strong rounded-2xl rounded-tl-sm px-5 py-3.5 flex items-center gap-2 backdrop-blur-xl">
-                          <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                          <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                          <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" />
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
 
-                  {/* Input Area */}
-                  <div className="flex-none p-4 border-t border-border bg-background/95 backdrop-blur-sm">
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={handleHint}
-                        title={dict.exercises.chatInterface.hint}
-                        disabled={chatLoading}
-                        className="h-10 w-10"
-                      >
-                        <Lightbulb className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={handleSkip}
-                        title={dict.exercises.chatInterface.solution}
-                        disabled={chatLoading}
-                        className="h-10 w-10"
-                      >
-                        <SkipForward className="h-4 w-4" />
-                      </Button>
-                      <Input 
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                        placeholder={dict.exercises.chatInterface.placeholder}
-                        className="flex-1 h-10"
-                        disabled={chatLoading}
-                      />
-                      <Button 
-                        onClick={handleSendMessage} 
-                        disabled={chatLoading || !inputMessage.trim()}
-                        className="h-10 px-5"
-                      >
-                        {dict.exercises.chatInterface.send}
-                      </Button>
+                  {/* Input Area - Fixed at Bottom */}
+                  <div className="flex-none border-t border-border bg-background">
+                    <div className="max-w-4xl mx-auto px-6 py-5">
+                      <div className="flex gap-2 items-end">
+                        <div className="flex gap-1 mb-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={handleHint}
+                            title={dict.exercises.chatInterface.hint}
+                            disabled={chatLoading}
+                            className="h-10 w-10 hover:bg-muted"
+                          >
+                            <Lightbulb className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={handleSkip}
+                            title={dict.exercises.chatInterface.solution}
+                            disabled={chatLoading}
+                            className="h-10 w-10 hover:bg-muted"
+                          >
+                            <SkipForward className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex-1 flex gap-2">
+                          <Input 
+                            value={inputMessage}
+                            onChange={(e) => setInputMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                            placeholder={dict.exercises.chatInterface.placeholder}
+                            className="flex-1 h-12 rounded-xl border-border bg-background focus-visible:ring-1"
+                            disabled={chatLoading}
+                          />
+                          <Button 
+                            onClick={handleSendMessage} 
+                            disabled={chatLoading || !inputMessage.trim()}
+                            size="icon"
+                            className="h-12 w-12 rounded-xl"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

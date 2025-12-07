@@ -39,7 +39,12 @@ export function CreateExerciseDialog({ projectId, onSuccess }: CreateExerciseDia
           return;
       }
       
-      const fileId = uploadResult.files![0].id;
+      const fileId = uploadResult.files?.[0]?.id;
+      
+      if (!fileId) {
+        console.error("No file ID returned");
+        return;
+      }
 
       // 2. Create Exercise
       const result = await createExercise(projectId, title, fileId);

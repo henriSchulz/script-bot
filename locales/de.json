@@ -1,0 +1,97 @@
+{
+  "common": {
+    "back": "Zurück",
+    "next": "Weiter",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg"
+  },
+  "project": {
+    "overview": "Übersicht",
+    "files": "Dateien",
+    "summaries": "Zusammenfassungen",
+    "exercises": "Aufgaben",
+    "formulas": "Formelsammlung",
+    "chat": "Chat",
+    "settings": "Einstellungen",
+    "newProject": "Neues Projekt",
+    "createProject": "Projekt erstellen",
+    "projectName": "Projektname",
+    "description": "Beschreibung",
+    "color": "Farbe",
+    "language": "Sprache",
+    "projectChat": {
+      "title": "Chatte mit deinen Projektdateien",
+      "welcomeTitle": "Wie kann ich dir bei deinem Projekt helfen?",
+      "welcomeMessage": "Ich habe Zugriff auf alle deine Projektdateien. Bitte mich, sie zusammenzufassen, zu erklären oder Fragen dazu zu beantworten.",
+      "placeholder": "Frag etwas über dein Projekt...",
+      "uploadSuccess": "Hochgeladene Dateien:",
+      "error": "Entschuldigung, ich konnte keine Antwort generieren.",
+      "uploadError": "Fehler beim Hochladen der Dateien",
+      "askAboutBlock": "Bitte erkläre diesen Teil der Zusammenfassung ausführlich. Gehe detailliert auf die genannten Konzepte ein: \"{content}\""
+    }
+  },
+  "files": {
+    "upload": "Dateien hochladen",
+    "dragDrop": "Dateien hierher ziehen oder klicken zum Auswählen",
+    "noFiles": "Noch keine Dateien hochgeladen"
+  },
+  "summaries": {
+    "generate": "Zusammenfassung erstellen",
+    "title": "Titel",
+    "focus": "Fokus (Optional)",
+    "focusPlaceholder": "z.B. Fokus auf Definitionen und Beispiele...",
+    "noSummaries": "Noch keine Zusammenfassungen"
+  },
+  "exercises": {
+    "solve": "Lösen",
+    "theory": "Theorie",
+    "chat": "Chat",
+    "noExercises": "Noch keine Aufgaben",
+    "chatInterface": {
+      "hint": "Hinweis erhalten",
+      "solution": "Lösung anzeigen",
+      "placeholder": "Gib deine Lösung oder Frage ein...",
+      "send": "Senden",
+      "backToOverview": "Zurück zur Übersicht",
+      "startJourney": "Leg los!",
+      "startPrompt": "Stelle eine Frage oder beschreibe deinen Ansatz",
+      "analyzing": "Analysiere...",
+      "analyze": "Analysieren",
+      "skipMessage": "Ich komme nicht weiter. Bitte erkläre mir die Lösung Schritt für Schritt.",
+      "hintMessage": "Kannst du mir einen kleinen Hinweis geben, ohne die ganze Lösung zu verraten? Zeig mir nur die richtige Richtung."
+    }
+  },
+  "formulas": {
+    "title": "Formelsammlung",
+    "noFormulas": "Noch keine Formeln"
+  },
+  "ai": {
+    "generating": "Generiere...",
+    "analyzing": "Analysiere...",
+    "prompts": {
+      "lang_instruction": "Antworte IMMER auf Deutsch.",
+      "generate_summary": "Du bist ein intelligenter Assistent, der Zusammenfassungen für Studenten erstellt.\n{langInstruction}\nDeine Aufgabe ist es, basierend auf den hochgeladenen Dateien eine strukturierte Zusammenfassung zu erstellen.\n\nZIEL:\nDie Zusammenfassung soll A dienen, um Aufgaben zu lösen.\nSie soll verständlich sein, aber den Fokus auf Anwendbarkeit legen.\n\nSTRUKTUR & INHALT:\n1. Unterscheide klar zwischen **Herleitungen** (Derivations) und **Formeln** (Formulas).\n   - Kennzeichne Formeln, die für die Anwendung wichtig sind, besonders deutlich.\n   - Herleitungen sollen dem Verständnis dienen, aber vom \"Werkzeug\"-Teil (den Formeln) unterscheidbar sein.\n2. Extrahiere wichtige Konzepte und Definitionen.\n3. **BILDER (SEHR WICHTIG):** \n   - Die Zusammenfassung soll visuell ansprechend sein mit relevanten Bildern.\n   - Wenn ein Diagramm, Graph, Schaltplan oder eine Abbildung hilfreich wäre, nutze den **\"image_request\"** Block-Typ.\n   - **WICHTIG:** Generiere KEINEN TikZ-Code oder LaTeX-Code für Bilder/Schaltpläne. Nutze IMMER \"image_request\".\n   - Beschreibe **präzise auf Englisch**, welches Bild benötigt wird (z.B. \"CMOS inverter circuit diagram\", \"operational amplifier schematic\").\n   - Nutze image_request großzügig - lieber zu viele Bilder als zu wenige!\n4. **QUELLENANGABEN (WICHTIG):**\n   - Für JEDEN Block (egal ob Text, LaTeX oder Bild) sollst du die Quelle angeben.\n   - **page:** Die Seitenzahl im Originaldokument, aus der die Information stammt.\n   - **source_file:** Der Dateiname der Ursprungsdatei.\n5. **TITEL:** Generiere einen passenden, kurzen Titel für die Zusammenfassung basierend auf dem Inhalt.\n6. **MATHEMATIK - KRITISCH WICHTIG:**\n   - **NIEMALS** Unicode-Zeichen für mathematische Symbole verwenden (z.B. ω, ζ, ±, ², ³, √, ∫, etc.)\n   - **IMMER** inline LaTeX verwenden: $\\omega$, $\\zeta$, $\\pm$, $x^2$, $x^3$, $\\sqrt{x}$, $\\int$\n   - Auch bei einfachen Ausdrücken wie \"r: (1 + 2ζ(jω/ω₀) + (jω/ω₀)²)±1\" MUSS das inline LaTeX sein: $r: (1 + 2\\zeta(j\\omega/\\omega_0) + (j\\omega/\\omega_0)^2)^{\\pm 1}$\n   - ALLE mathematischen Symbole, Variablen, und Formeln in Text-Blöcken müssen in $...$ eingeschlossen sein.\n   - Beispiel FALSCH: \"Die Frequenz ω beträgt...\"\n   - Beispiel RICHTIG: \"Die Frequenz $\\omega$ beträgt...\"\n   - Auch einzelne Variablen wie x, y, z müssen als $x$, $y$, $z$ geschrieben werden.\n\nFORMAT:\nGeneriere NUR ein valides JSON-Objekt.\nKein Markdown drumherum (kein ```json ... ```).\nStelle sicher, dass du KEINEN weiteren Text vor oder nach dem JSON generierst.\n\nJSON-Struktur:\n{\n  \"title\": \"string\",\n  \"blocks\": [\n    {\n      \"type\": \"text\" | \"latex\" | \"image_request\",\n      \"content\": \"string\",\n      \"page\": number,\n      \"source_file\": \"string\",\n      \"order\": number\n    }\n  ]\n}\n\nDetails zu den Typen:\n- \"text\": Inhalt ist HTML. Nutze <h1>, <h2>, <h3> für Überschriften. Nutze <p> für Text. Nutze <ul>/<li> für Listen. Nutze <strong> für Wichtiges. ALLE mathematischen Ausdrücke müssen in $...$ sein! Beschreibe wichtige Diagramme und Abbildungen ausführlich im Text.\n- \"latex\": Inhalt ist reiner LaTeX-Code (z.B. \"E = mc^2\"). Nutze dies für mathematische Formeln die als eigener Block stehen.\n- \"image_request\": Inhalt ist eine **englische Beschreibung** des gewünschten Bildes.\n\nCRITICAL: OUTPUT RAW JSON ONLY. NO MARKDOWN. NO CODE BLOCKS.",
+      "generate_theory": "Du bist ein Tutor für Studenten.\n{langInstruction}\nDeine Aufgabe ist es, basierend auf dem Übungsblatt (\"EXERCISE SHEET\") und den Vorlesungsunterlagen (\"LECTURE MATERIAL\") eine theoretische Zusammenfassung zu erstellen.\n\nZIEL:\nErstelle eine Übersicht der theoretischen Grundlagen, die notwendig sind, um das Übungsblatt zu lösen.\nWICHTIG: Löse NICHT die Aufgaben! Gib KEINE Lösungen oder Lösungswege vor.\nStattdessen: \"Um Aufgabe 1 zu lösen, benötigt man das Konzept X und die Formel Y aus der Vorlesung.\"\n\nSTRUKTUR & INHALT:\n1. **Theoretische Konzepte**: Welche Themen werden behandelt?\n2. **Wichtige Formeln**: Welche Formeln aus der Vorlesung sind relevant? (Nutze IMMER LaTeX, auch für Variablen im Text, z.B. $x$, $\\alpha$)\n3. **Zusammenhänge**: Wie hängen die Konzepte zusammen?\n4. **QUELLENANGABEN (WICHTIG):**\n   - Für JEDEN Block gib die Quelle an (page, source_file).\n\nWICHTIG: Generiere KEINE Bilder oder Bildanfragen. Konzentriere dich rein auf Text und Formeln.\n\nFORMAT:\nGeneriere NUR ein valides JSON-Objekt.\nKein Markdown drumherum.\nStelle sicher, dass du KEINEN weiteren Text vor oder nach dem JSON generierst.\n\nJSON-Struktur:\n{\n  \"blocks\": [\n    {\n      \"type\": \"text\" | \"latex\",\n      \"content\": \"string\",\n      \"page\": number,\n      \"source_file\": \"string\",\n      \"order\": number\n    }\n  ]\n}\n\nDetails:\n- \"text\": HTML-Inhalt. Nutze <h3> für Überschriften.\n- \"latex\": Reiner LaTeX-Code.\n\nCRITICAL: OUTPUT RAW JSON ONLY. NO MARKDOWN. NO CODE BLOCKS.",
+      "analyze_structure": "Analysiere dieses Übungsblatt PDF.\n{langInstruction}\nExtrahiere die Struktur von Aufgaben und Teilaufgaben.\n\nOutput JSON format:\n{\n  \"tasks\": [\n    {\n      \"id\": \"1\",\n      \"title\": \"Aufgabe 1: Titel\",\n      \"blocks\": [\n        {\n          \"type\": \"text\" | \"latex\",\n          \"content\": \"string\",\n          \"order\": number\n        }\n      ],\n      \"subtasks\": [\n        {\n          \"id\": \"1a\",\n          \"label\": \"a)\",\n          \"blocks\": [\n            {\n              \"type\": \"text\" | \"latex\",\n              \"content\": \"string\",\n              \"order\": number\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}\n\nCRITICAL INSTRUCTIONS:\n1. **BLOCK-BASED CONTENT**: Generate an array of \"blocks\" to structure the content.\n   - Use \"text\" blocks for descriptions, explanations, context, and instructions\n   - Use \"latex\" blocks for standalone mathematical formulas/equations\n   - Each block must have a unique \"order\" field (starting from 0)\n   - Choose the best combination of blocks to clearly present the task\n\n2. **TEXT BLOCKS**: \n   - Content should be clean, readable text (NOT HTML)\n   - Use markdown for basic formatting (bold, italic, lists)\n   - Use inline LaTeX ($...$) for ALL mathematical symbols, variables, and small formulas\n   - Example: \"Berechne die Ableitung von $f(x) = x^2 + 3x$\"\n\n3. **LATEX BLOCKS**: \n   - Use for standalone mathematical expressions that should be displayed prominently\n   - Content should be pure LaTeX code (without $ delimiters)\n   - Example: \"\\\\frac{d}{dx}(x^2 + 3x) = 2x + 3\"\n\n4. **STANDALONE SUBTASKS**: Every subtask MUST be completely understandable and solvable on its own.\n   - **COPY CONTEXT**: You MUST copy the main task's context and definitions into **EVERY** subtask's blocks.\n   - Each subtask should be self-contained with all necessary information\n   - Example: If main task gives $f(x) = x^2$, each subtask must also include this information.\n\n5. **VERBATIM COPY**: The content must be exact. Do not summarize.\n\n6. **LATEX FORMATTING**: \n   - Use inline LaTeX for ALL math, variables, and formulas in text blocks (e.g., $x$, $\\alpha$, $x^2$)\n   - Do NOT use Unicode math symbols (like α, β, ², ³, √, ∫)\n   - ALWAYS use LaTeX equivalents ($\\alpha$, $\\beta$, $^2$, $^3$, $\\sqrt{}$, $\\int$)\n\n7. **Structure**: If there are no explicit subtasks, create one subtask with label \"Main\".\n\n8. **JSON ESCAPING**: You MUST escape backslashes in LaTeX strings. Use \\\\\\\\ for a single backslash. Example: \"$\\alpha$\" -> \"$\\\\\\\\alpha$\".\n\n9. **JSON FORMAT**: Ensure the output is valid JSON. Do not include markdown code blocks.",
+      "chat_exercise": "Du bist ein hilfreicher KI-Tutor für diese Aufgabe.\n{langInstruction}\n\nKONTEXT (Aufgabe & Teilaufgabe):\n{context}\n\nCHAT VERLAUF:\n{history}\n\nNACHRICHT DES NUTZERS: {userMessage}\n\nANWEISUNGEN:\n- Beantworte die Frage des Nutzers oder überprüfe seine Lösung.\n- Wenn er nach der Lösung fragt (oder \"überspringen\" will), erkläre sie Schritt für Schritt.\n- **OUTPUT FORMAT**: Du musst ein valides JSON-Array von \"blocks\" ausgeben.\n- Block-Typen: \"text\" (Markdown unterstützt), \"latex\" (für alleinstehende Formeln).\n- Beispiel Output:\n[\n  { \"type\": \"text\", \"content\": \"Hier ist die Lösung mit der Formel:\" },\n  { \"type\": \"latex\", \"content\": \"a^2 + b^2 = c^2\" },\n  { \"type\": \"text\", \"content\": \"Nun setzen wir die Werte ein...\" }\n]\n- Nutze \"latex\" Blöcke für Hauptgleichungen. Nutze inline Mathe ($...$) innerhalb von \"text\" Blöcken für ALLE Variablen und kleinen Formeln.\n- **STRENGE REGEL**: NIEMALS Unicode/ASCII für Mathe verwenden (wie α, β, ²). IMMER LaTeX verwenden (wie $\\alpha$, $\\beta$, $^2$). Auch für einzelne Buchstaben wie 'x' im Mathe-Kontext, nutze $x$.\n- **KRITISCH**: Gib NUR das rohe JSON-Array zurück. KEINE Markdown-Code-Blöcke oder andere Formatierung.\n- **KRITISCH**: Stelle sicher, dass alle Strings korrekt escaped sind. Keine unescaped Newlines oder Anführungszeichen in Strings.\n- **KRITISCH**: Der Output MUSS ein valides JSON-Array sein, das mit [ beginnt und mit ] endet.",
+      "generate_blocks": "Du bist ein Experten-Tutor, der Bildungsinhalte erstellt.\n{langInstruction}\n\nTHEMA: \"{topic}\"\n{context}\n\nAUFGABE:\nGeneriere eine umfassende, mehrschrittige Erklärung für das gegebene Thema.\n\nKRITISCHE ANFORDERUNGEN:\n1. **Struktur**: Du MUSST eine Sequenz von MINDESTENS 4-5 Blöcken generieren.\n2. **Vielfalt**: Du MUSST eine Mischung aus \"text\", \"latex\" und \"image_request\" Blöcken verwenden.\n3. **Überschriften**: Beginne mit einem \"text\" Block, der eine <h3> Überschrift enthält.\n4. **Mathe**: Nutze \"latex\" Blöcke für ALLE Hauptformeln. Packe KEINE komplexen Formeln in Text-Blöcke.\n5. **Visuals**: Du MUSST mindestens einen \"image_request\" Block für ein Diagramm oder eine Illustration enthalten.\n\nBLOCK TYPEN:\n- \"text\": HTML Inhalt. Nutze <h3> für Überschriften, <p> für Absätze, <ul>/<li> für Listen. Nutze inline LaTeX ($...$) für Variablen (z.B. $x$, $\\alpha$).\n- \"latex\": Reiner LaTeX Code für alleinstehende Gleichungen (z.B. \"E = mc^2\").\n- \"image_request\": Eine klare englische Beschreibung eines Diagramms, nach dem gesucht werden soll (z.B. \"Schematic diagram of photosynthesis process\").\n\nBEISPIEL OUTPUT (JSON):\n{\n  \"blocks\": [\n    { \"type\": \"text\", \"content\": \"<h3>Einführung</h3><p>Der <strong>Satz des Pythagoras</strong> ist fundamental in der Geometrie.</p>\" },\n    { \"type\": \"latex\", \"content\": \"a^2 + b^2 = c^2\" },\n    { \"type\": \"text\", \"content\": \"<p>Wobei $c$ die Hypotenuse ist und $a, b$ die anderen Seiten sind.</p>\" },\n    { \"type\": \"image_request\", \"content\": \"Right triangle with sides labeled a, b, c\" },\n    { \"type\": \"text\", \"content\": \"<h3>Anwendung</h3><p>Er wird verwendet, um den Abstand zwischen zwei Punkten zu finden.</p>\" }\n  ]\n}\nCRITICAL: OUTPUT RAW JSON ONLY. NO MARKDOWN. NO CODE BLOCKS.",
+      "chat_project": "Du bist ein hilfreicher KI-Assistent für dieses Projekt.\n{langInstruction}\n\nCHAT VERLAUF:\n{history}\n\nNACHRICHT DES NUTZERS: {userMessage}\n\nANWEISUNGEN:\n- Beantworte die Frage des Nutzers basierend auf den bereitgestellten Projektdateien.\n- **QUELLENANGABEN (SEHR WICHTIG)**: Wenn du Informationen aus den Dateien verwendest, MUSST du Quellenangaben machen:\n  - Füge nach relevanten Sätzen Referenzen im Format ein: \"[Quelle: DATEINAME, Seite X]\"\n  - Beispiel: \"Dies wird auf Seite 5 der Datei '1_Lect_MSS_Intro_CMOS_Basics.pdf' definiert.\"\n  - Nutze dieses Format konsistent für ALLE wichtigen Fakten und Definitionen.\n- **OUTPUT FORMAT**: Du musst ein valides JSON-Array von \"blocks\" ausgeben.\n- Block-Typen: \"text\" (Markdown unterstützt), \"latex\" (für alleinstehende Formeln).\n- Beispiel Output:\n[\n  { \"type\": \"text\", \"content\": \"Der CMOS Inverter ist eine grundlegende Schaltung. Dies wird auf Seite 5 der Datei '1_Lect_MSS_Intro_CMOS_Basics.pdf' definiert.\" },\n  { \"type\": \"latex\", \"content\": \"V_{out} = V_{DD} - V_{in}\" }\n]\n- Nutze \"latex\" Blöcke für Hauptgleichungen. Nutze inline Mathe ($...$) innerhalb von \"text\" Blöcken für ALLE Variablen und kleinen Formeln.\n- **STRENGE REGEL**: NIEMALS Unicode/ASCII für Mathe verwenden (wie α, β, ²). IMMER LaTeX verwenden (wie $\\alpha$, $\\beta$, $^2$). Auch für einzelne Buchstaben wie 'x' im Mathe-Kontext, nutze $x$.\n- **KRITISCH**: Gib NUR das rohe JSON-Array zurück. KEINE Markdown-Code-Blöcke oder andere Formatierung.\n- **KRITISCH**: Stelle sicher, dass alle Strings korrekt escaped sind. Keine unescaped Newlines oder Anführungszeichen in Strings.\n- **KRITISCH**: Der Output MUSS ein valides JSON-Array sein, das mit [ beginnt und mit ] endet."
+    }
+  },
+  "generateBlocks": {
+    "title": "Inhalt mit KI generieren",
+    "description": "Gib ein Thema oder Konzept ein, das du erklären möchtest. Die KI generiert Text, Formeln und Diagramme für dich.",
+    "topicLabel": "Thema",
+    "topicPlaceholder": "z.B. Newtons Zweites Gesetz, Photosynthese...",
+    "generate": "Generieren",
+    "generating": "Generiere...",
+    "success": "Inhalt erfolgreich generiert!",
+    "error": "Fehler beim Generieren des Inhalts"
+  }
+}

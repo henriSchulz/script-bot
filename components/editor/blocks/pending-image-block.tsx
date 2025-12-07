@@ -6,6 +6,7 @@ import { useState, useRef } from "react"
 import { uploadImage } from "@/app/actions/upload"
 import { updateSummaryBlock } from "@/app/actions/blocks"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface PendingImageBlockProps {
   content: string
@@ -45,6 +46,8 @@ export function PendingImageBlock({ content, onUpload, projectId, summaryId, exe
     if (!file || !blockId) return;
 
     setIsUploading(true);
+    const toastId = toast.loading("Uploading image...");
+
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -52,15 +55,20 @@ export function PendingImageBlock({ content, onUpload, projectId, summaryId, exe
       const uploadResult = await uploadImage(formData);
       if (uploadResult.success && uploadResult.url) {
         await updateSummaryBlock(blockId, uploadResult.url, "image");
+        toast.success("Image uploaded successfully", { id: toastId });
         router.refresh();
       } else {
-        alert("Failed to upload image");
+        toast.error("Failed to upload image", { id: toastId });
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("An error occurred during upload");
+      toast.error("An error occurred during upload", { id: toastId });
     } finally {
       setIsUploading(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -101,8 +109,8 @@ export function PendingImageBlock({ content, onUpload, projectId, summaryId, exe
                 onChange={handleFileChange}
             />
 
-            {/* Extract from PDF Button */}
-            {page && extractUrl && (
+            {/* Extract from PDF Button - Always show if IDs are present */}
+            {extractUrl && (
                 <Button 
                     variant="default" 
                     size="sm" 
@@ -111,7 +119,7 @@ export function PendingImageBlock({ content, onUpload, projectId, summaryId, exe
                 >
                     <Link href={extractUrl}>
                         <Crop className="mr-2 h-4 w-4" />
-                        Extract from Page {page}
+                        Extract from Slides
                     </Link>
                 </Button>
             )}

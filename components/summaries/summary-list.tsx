@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { getSummaries, deleteSummary } from "@/app/actions/summaries";
 import { Button } from "@/components/ui/button";
-import { Trash2, FileText, LayoutGrid, List, ArrowUpDown, Loader2 } from "lucide-react";
+import { Trash2, FileText, LayoutGrid, List, ArrowUpDown, Loader2, Pen } from "lucide-react";
 import { CreateSummaryDialog } from "./create-summary-dialog";
 import { GenerateSummaryButton } from "./generate-summary-button";
 import Link from "next/link"; 
@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useLanguage } from "@/components/language-provider";
+
+import { RenameSummaryDialog } from "./rename-summary-dialog";
 
 // Simple date formatter
 const formatDate = (date: Date) => {
@@ -54,6 +56,9 @@ export function SummaryList({ projectId }: SummaryListProps) {
   const [isDeleting, startDeleteTransition] = useTransition();
   const [summaryToDelete, setSummaryToDelete] = useState<string | null>(null);
   
+  // Rename state
+  const [summaryToRename, setSummaryToRename] = useState<Summary | null>(null);
+
   // UI States with localStorage persistence
   const [sortBy, setSortBy] = useLocalStorage<"date" | "name">("summary-sort-by", "date");
   const [sortOrder, setSortOrder] = useLocalStorage<"asc" | "desc">("summary-sort-order", "desc");
@@ -188,24 +193,38 @@ export function SummaryList({ projectId }: SummaryListProps) {
                 
                 {/* Content */}
                 <div className="relative z-10 p-6 space-y-4">
-                  {/* Icon and Delete Button */}
+                  {/* Icon and Actions */}
                   <div className="flex items-start justify-between">
                     <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors duration-300">
                       <FileText className="h-6 w-6" />
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setSummaryToDelete(summary.id);
-                      }}
-                      disabled={isDeleting}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setSummaryToRename(summary);
+                        }}
+                      >
+                        <Pen className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setSummaryToDelete(summary.id);
+                        }}
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Title */}
@@ -259,19 +278,33 @@ export function SummaryList({ projectId }: SummaryListProps) {
                   {formatDate(summary.updatedAt)}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-all duration-300 text-destructive hover:text-destructive hover:bg-destructive/10 hover:scale-110 h-9 w-9"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setSummaryToDelete(summary.id);
-                }}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-110 h-9 w-9"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setSummaryToRename(summary);
+                  }}
+                >
+                  <Pen className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 hover:scale-110 h-9 w-9"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setSummaryToDelete(summary.id);
+                  }}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -300,6 +333,15 @@ export function SummaryList({ projectId }: SummaryListProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RenameSummaryDialog
+        projectId={projectId}
+        summaryId={summaryToRename?.id || null}
+        currentTitle={summaryToRename?.title || ""}
+        open={!!summaryToRename}
+        onOpenChange={(open) => !open && setSummaryToRename(null)}
+        onSuccess={fetchSummaries}
+      />
     </div>
   );
 }

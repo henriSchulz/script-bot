@@ -1,6 +1,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { 
   Book, 
@@ -38,13 +39,14 @@ import {
 import { use, useState, useEffect, useTransition } from "react";
 import { uploadFile, deleteFile, getFiles } from "@/app/actions/files";
 import { getProject } from "@/app/actions/projects";
+import { useSearchParams, useRouter } from "next/navigation";
 import { SummaryList } from "@/components/summaries/summary-list";
 import { Editor } from "@/components/editor/editor";
 import { FormulaList } from "@/components/formulas/formula-list";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 
-import { ChatInterface } from "@/components/chat/chat-interface";
+
 import { useLanguage } from "@/components/language-provider";
 
 interface ProjectPageProps {
@@ -118,6 +120,7 @@ const getFileIconSmall = (file: FileData) => {
   return <FileIcon className="h-4 w-4" />;
 };
 
+
 export default function ProjectPage({ params }: ProjectPageProps) {
   const { dict } = useLanguage();
   const resolvedParams = use(params);
@@ -133,6 +136,38 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [sortBy, setSortBy] = useLocalStorage<"date" | "name">("files-sort-by", "date");
   const [sortOrder, setSortOrder] = useLocalStorage<"asc" | "desc">("files-sort-order", "desc");
   const [viewMode, setViewMode] = useLocalStorage<"grid" | "list">("files-view-mode", "grid");
+  
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [chatInitialMessage, setChatInitialMessage] = useState<string | null>(null);
+
+  // Handle URL params for tab switching and chat query
+  useEffect(() => {
+    if (!projectName) return; // Wait for project to load first
+
+    const tabParam = searchParams.get('tab');
+    const queryParam = searchParams.get('query');
+    const pendingQuery = localStorage.getItem(`project-${resolvedParams.id}-pending-query`);
+
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+    
+    if (queryParam) {
+      setChatInitialMessage(queryParam);
+    } else if (pendingQuery) {
+      setChatInitialMessage(pendingQuery);
+      localStorage.removeItem(`project-${resolvedParams.id}-pending-query`);
+    }
+
+    // Clear query param if present (keep tab param)
+    if (queryParam) {
+      console.log('[ProjectPage] Clearing query param');
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete('query');
+      router.replace(`/projects/${resolvedParams.id}?${newParams.toString()}`, { scroll: false });
+    }
+  }, [searchParams, setActiveTab, resolvedParams.id, router, projectName]);
 
   const sortedFiles = [...files].sort((a, b) => {
     if (sortBy === "date") {
@@ -148,7 +183,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Fetch project details on mount
   useEffect(() => {
+    console.log('[ProjectPage] Fetching project details...');
     getProject(resolvedParams.id).then((result) => {
+      console.log('[ProjectPage] Project details fetched:', result.success);
       if (result.success && result.project) {
         setProjectName(result.project.name);
         setProjectScript(result.project.script || "");
@@ -259,6 +296,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       bg: "bg-purple-500/10",
       content: <FormulaList projectId={resolvedParams.id} />
     },
+
     {
       id: "files",
       label: dict.project.files,
@@ -427,14 +465,60 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           )}
         </div>
       )
+    },
+    {
+      id: "export",
+      label: "Export", // Should be localized ideally, but hardcoding for now as quick feature
+      icon: Upload, // Using Upload icon for now or I can import Download if available
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      content: (
+        <div className="w-full max-w-xl mx-auto space-y-8 py-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-2xl font-bold">Project Export</h2>
+            <p className="text-muted-foreground">
+              Download your entire project as a LaTeX structured archive. 
+              Includes all summaries as chapters and referenced images.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-primary/10 text-primary">
+                  <FileText className="h-8 w-8" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <h3 className="font-semibold text-lg">LaTeX Archive</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Full LaTeX project with main.tex, chapters, and assets. Ready to compile.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6">
+                <Button 
+                  className="w-full"
+                  size="lg"
+                  asChild
+                >
+                  <a href={`/api/projects/${resolvedParams.id}/export/latex`} download>
+                     <Upload className="h-4 w-4 mr-2 rotate-180" />
+                     Download ZIP
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="space-y-2">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <div className="flex-none p-6 md:p-8 pb-4 space-y-2">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
               {projectName || dict.common.loading}
@@ -455,14 +539,16 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             Manage your study materials, chat with your AI assistant, and track your progress.
           </p>
         </div>
+      </div>
 
-        {/* Tabs Interface */}
+      {/* Tabs Interface */}
+      <div className="flex-1 min-h-0 px-6 md:px-8 pb-6 md:pb-8">
         <Tabs 
           value={activeTab}
-          className="w-full space-y-4"
+          className="h-full flex flex-col max-w-7xl mx-auto w-full"
           onValueChange={setActiveTab}
         >
-          <TabsList className="w-full justify-start h-auto p-1 bg-muted/30 border border-border overflow-x-auto">
+          <TabsList className="flex-none w-full justify-start h-auto p-1 bg-muted/30 border border-border overflow-x-auto mb-4">
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
@@ -481,55 +567,65 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             ))}
           </TabsList>
 
-          {tabs.map((tab) => (
-            <TabsContent
-              key={tab.id}
-              value={tab.id}
-              className="outline-none mt-0"
-            >
-              <div className="clean-card p-6 min-h-[500px]">
-                {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "chat" ? (
-                  tab.content
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
-                    <div className={cn(
-                      "p-4 rounded-xl",
-                      tab.bg
-                    )}>
-                      <tab.icon className={cn("h-8 w-8", tab.color)} />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="text-xl font-semibold">{tab.label}</h3>
-                      <p className="text-muted-foreground max-w-md text-sm">
-                        {tab.content}
-                      </p>
-                    </div>
+          <div className="flex-1 min-h-0 border rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden relative">
+            {tabs.map((tab) => (
+              <TabsContent
+                key={tab.id}
+                value={tab.id}
+                className="h-full m-0 data-[state=inactive]:hidden"
+              >
+                {tab.id === 'chat' ? (
+                  <div className="h-full">
+                    {tab.content}
                   </div>
+                ) : (
+                  <ScrollArea className="h-full">
+                    <div className="p-6">
+                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" ? (
+                        tab.content
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
+                          <div className={cn(
+                            "p-4 rounded-xl",
+                            tab.bg
+                          )}>
+                            <tab.icon className={cn("h-8 w-8", tab.color)} />
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="text-xl font-semibold">{tab.label}</h3>
+                            <p className="text-muted-foreground max-w-md text-sm">
+                              {tab.content}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
                 )}
-              </div>
-            </TabsContent>
-          ))}
+              </TabsContent>
+            ))}
+          </div>
         </Tabs>
-
-        <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{dict.common.delete}</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete this file? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setFileToDelete(null)}>
-                {dict.common.cancel}
-              </Button>
-              <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : dict.common.delete}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dict.common.delete}</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this file? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFileToDelete(null)}>
+              {dict.common.cancel}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : dict.common.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

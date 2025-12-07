@@ -9,6 +9,7 @@ import { LatexBlock } from './blocks/latex-block';
 import { ImageBlock } from './blocks/image-block';
 import { PendingImageBlock } from './blocks/pending-image-block';
 import { BatchUploadDialog } from './batch-upload-dialog';
+import { GenerateBlocksDialog } from './generate-blocks-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,13 +37,15 @@ interface BlockEditorProps {
   initialBlocks: Block[];
   onPendingBlocksChange?: (hasPending: boolean) => void;
   isReadOnly?: boolean;
+  onChatAboutBlock?: (content: string) => void;
 }
 
-export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false }, ref) => {
+export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false, onChatAboutBlock }, ref) => {
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
   const [hoveredBlockIndex, setHoveredBlockIndex] = useState<number | null>(null);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const blockRefs = useRef<Map<string, TextBlockRef | null>>(new Map());
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const lastSelectedBlockIdRef = useRef<string | null>(null);
@@ -56,7 +59,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
     // Map file.url to fileUrl if present
     const mappedBlocks = initialBlocks.map((block: any) => ({
       ...block,
-      fileUrl: block.fileUrl || block.file?.url
+      fileUrl: block.fileUrl || block.file?.url,
+      page: block.page === null ? undefined : block.page
     }));
     setBlocks(mappedBlocks);
   }, [initialBlocks]);
@@ -64,6 +68,24 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
   useEffect(() => {
     onPendingBlocksChange?.(blocks.some(b => b.type === 'pending_image'));
   }, [blocks, onPendingBlocksChange]);
+
+  // Handle scroll to block from hash
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#block-')) {
+      // Small timeout to ensure DOM is ready
+      setTimeout(() => {
+        const id = hash.substring(1); // remove #
+        const el = document.getElementById(id);
+        if (el) {
+          console.log("Scrolling to block:", id);
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Clear hash to prevent re-scrolling on re-renders
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }, 500);
+    }
+  }, []); // Run once on mount
 
   const handleBlockClick = (e: React.MouseEvent, blockId: string, index: number) => {
     // If clicking inside an input/contenteditable, do not select (unless it's a handle click, handled separately)
@@ -193,12 +215,11 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
     const tempId = `temp-${Date.now()}`;
     const newBlock = { id: tempId, type, content: initialContent, order: newOrder };
     
-    const updatedBlocks = [
-      ...blocks.slice(0, index + 1),
+    setBlocks(prev => [
+      ...prev.slice(0, index + 1),
       newBlock,
-      ...blocks.slice(index + 1).map(b => ({ ...b, order: b.order + 1 }))
-    ];
-    setBlocks(updatedBlocks);
+      ...prev.slice(index + 1).map(b => ({ ...b, order: b.order + 1 }))
+    ]);
 
     // Focus the new block after render
     setTimeout(() => {
@@ -219,7 +240,24 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
     }
     if (result.success && result.block) {
       // Replace temp block with real block
-      setBlocks(prev => prev.map(b => b.id === tempId ? result.block! : b));
+      setBlocks(prev => prev.map(b => b.id === tempId ? { ...result.block!, page: result.block!.page ?? undefined, fileId: result.block!.fileId ?? undefined } : b));
+    }
+  };
+
+  const handleGeneratedBlocks = async (newBlocks: any[]) => {
+    // Determine insertion index
+    let insertIndex = blocks.length;
+    if (hoveredBlockIndexRef.current !== null) {
+        insertIndex = Math.ceil(hoveredBlockIndexRef.current);
+    } else if (focusedBlockId) {
+        const focusedIndex = blocks.findIndex(b => b.id === focusedBlockId);
+        if (focusedIndex !== -1) insertIndex = focusedIndex + 1;
+    }
+
+    // Create blocks sequentially
+    for (let i = 0; i < newBlocks.length; i++) {
+        const block = newBlocks[i];
+        await handleCreateBlock(block.type, insertIndex + i - 1, 'start', block.content);
     }
   };
 
@@ -336,7 +374,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
   }, [handleCreateBlock]);
 
   const handleUpdateBlock = async (id: string, content: string, type?: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content, ...(type ? { type } : {}) } : b));
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content, ...(type ? { type } : {}), page: b.page === null ? undefined : b.page } : b));
     
     // Don't try to update temporary blocks that haven't been created in the database yet
     if (id.startsWith('temp-')) {
@@ -503,6 +541,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
   // Empty state
   if (blocks.length === 0) {
     return (
+      <>
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-6 max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="relative">
@@ -538,9 +577,24 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
               <Image className="h-4 w-4 mr-2" />
               Add Image
             </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowGenerateDialog(true)}
+              className="border-primary/20 hover:bg-primary/5 hover:text-primary"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate with AI
+            </Button>
           </div>
         </div>
       </div>
+      <GenerateBlocksDialog 
+        open={showGenerateDialog} 
+        onOpenChange={setShowGenerateDialog} 
+        projectId={projectId}
+        onSuccess={handleGeneratedBlocks}
+      />
+    </>
     );
   }
 
@@ -600,19 +654,30 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                 <span>LaTeX</span>
                               </Button>
                               <div className="w-px h-3 bg-border/30" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                                onClick={() => handleCreateBlock('image', index - 1)}
-                              >
-                                <Image className="h-3 w-3 mr-1" />
-                                <span>Image</span>
-                              </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
+                                  onClick={() => handleCreateBlock('image', index - 1)}
+                                >
+                                  <Image className="h-3 w-3 mr-1" />
+                                  <span>Image</span>
+                                </Button>
+                                <div className="w-px h-3 bg-border/30" />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 hover:bg-accent text-xs transition-colors text-primary hover:text-primary"
+                                  onClick={() => setShowGenerateDialog(true)}
+                                >
+                                  <Sparkles className="h-3 w-3 mr-1" />
+                                  <span>AI</span>
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
                         )}
 
                         {/* Clean Block Container */}
@@ -717,6 +782,17 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </Link>
                               )}
+
+                              {/* AI Chat Button */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-md"
+                                title="Ask ChatGPT about this"
+                                onClick={() => window.open(`https://chatgpt.com/?q=${encodeURIComponent(block.content)}`, '_blank')}
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                              </Button>
                               
                               {!isReadOnly && (
                                 <Popover>
@@ -834,6 +910,17 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                       <Image className="h-3 w-3 mr-1" />
                       <span>Image</span>
                     </Button>
+                    <div className="w-px h-3 bg-border/30" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1.5 hover:bg-accent text-xs transition-colors text-primary hover:text-primary"
+                      onClick={() => setShowGenerateDialog(true)}
+                    >
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      <span>AI</span>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -866,6 +953,12 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
             // But the dialog handles multiple uploads.
             window.location.reload();
         }}
+      />
+      <GenerateBlocksDialog 
+        open={showGenerateDialog} 
+        onOpenChange={setShowGenerateDialog} 
+        projectId={projectId}
+        onSuccess={handleGeneratedBlocks}
       />
     </div>
   );

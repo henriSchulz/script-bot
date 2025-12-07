@@ -14,7 +14,7 @@ export const en = {
     success: "Success",
   },
   project: {
-    overview: "Overview",
+    overview: "Projects",
     files: "Files",
     summaries: "Summaries",
     exercises: "Exercises",
@@ -27,6 +27,15 @@ export const en = {
     description: "Description",
     color: "Color",
     language: "Language",
+    projectChat: {
+      title: "Chat with your project files",
+      welcomeTitle: "How can I help with your project?",
+      welcomeMessage: "I have access to all your project files. Ask me to summarize, explain, or answer questions about them.",
+      placeholder: "Ask anything about your project...",
+      uploadSuccess: "Uploaded files:",
+      error: "Sorry, I couldn't generate a response.",
+      uploadError: "Failed to upload files",
+    }
   },
   files: {
     upload: "Upload Files",
@@ -64,6 +73,16 @@ export const en = {
   ai: {
     generating: "Generating...",
     analyzing: "Analyzing...",
+  },
+  generateBlocks: {
+    title: "Generate Content with AI",
+    description: "Enter a topic or concept you want to explain. The AI will generate text, formulas, and diagrams for you.",
+    topicLabel: "Topic",
+    topicPlaceholder: "e.g., Newton's Second Law, Photosynthesis...",
+    generate: "Generate",
+    generating: "Generating...",
+    success: "Content generated successfully!",
+    error: "Failed to generate content"
   }
 };
 
@@ -81,7 +100,7 @@ export const de: Dictionary = {
     success: "Erfolg",
   },
   project: {
-    overview: "Übersicht",
+    overview: "Projekte",
     files: "Dateien",
     summaries: "Zusammenfassungen",
     exercises: "Aufgaben",
@@ -94,6 +113,15 @@ export const de: Dictionary = {
     description: "Beschreibung",
     color: "Farbe",
     language: "Sprache",
+    projectChat: {
+      title: "Chatte mit deinen Projektdateien",
+      welcomeTitle: "Wie kann ich dir bei deinem Projekt helfen?",
+      welcomeMessage: "Ich habe Zugriff auf alle deine Projektdateien. Bitte mich, sie zusammenzufassen, zu erklären oder Fragen dazu zu beantworten.",
+      placeholder: "Frag etwas über dein Projekt...",
+      uploadSuccess: "Hochgeladene Dateien:",
+      error: "Entschuldigung, ich konnte keine Antwort generieren.",
+      uploadError: "Fehler beim Hochladen der Dateien",
+    }
   },
   files: {
     upload: "Dateien hochladen",
@@ -131,6 +159,16 @@ export const de: Dictionary = {
   ai: {
     generating: "Generiere...",
     analyzing: "Analysiere...",
+  },
+  generateBlocks: {
+    title: "Inhalt mit KI generieren",
+    description: "Gib ein Thema oder Konzept ein, das du erklären möchtest. Die KI generiert Text, Formeln und Diagramme für dich.",
+    topicLabel: "Thema",
+    topicPlaceholder: "z.B. Newtons Zweites Gesetz, Photosynthese...",
+    generate: "Generieren",
+    generating: "Generiere...",
+    success: "Inhalt erfolgreich generiert!",
+    error: "Fehler beim Generieren des Inhalts"
   }
 };
 

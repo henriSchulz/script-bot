@@ -105,7 +105,12 @@ export async function processPdfChunk(
       
       WICHTIG: Da dies ein Ausschnitt ist (Seite ${startPage} bis ${endPage} des Originaldokuments), addiere ${startPage - 1} zur gefundenen Seitenzahl, um die korrekte absolute Seitenzahl zu erhalten.
       
-      Ignoriere triviale Formeln oder einfache Rechenbeispiele, es sei denn, sie illustrieren ein wichtiges Konzept.
+      **WICHTIG - FILTERUNG:**
+      - **Ignoriere triviale Formeln** (z.B. $x=y$, $a+b=c$, einfache Umformungen).
+      - **Ignoriere Rechenbeispiele** mit konkreten Zahlen.
+      - **Ignoriere Zwischenschritte** von Herleitungen, es sei denn, sie sind essenziell.
+      - Gib **NUR** relevante, benannte oder wichtige Formeln/Definitionen zurück.
+      - Wenn eine Seite nur Text oder triviale Rechnungen enthält, gib ein leeres Array zurück.
 
       **MATHEMATIK - KRITISCH WICHTIG:**
       - **NIEMALS** Unicode-Zeichen für mathematische Symbole verwenden (z.B. ω, ζ, ±, ², ³, √, ∫, etc.)

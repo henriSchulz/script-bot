@@ -12,17 +12,25 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 
 interface PdfViewerProps {
   url: string;
+  initialPage?: number;
 }
 
-export function PdfViewer({ url }: PdfViewerProps) {
+export function PdfViewer({ url, initialPage = 1 }: PdfViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pageNumber, setPageNumber] = useState<number>(initialPage);
   const [scale, setScale] = useState<number>(1.0);
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
+  useEffect(() =>{
     setIsClient(true);
   }, []);
+
+  // Update page when initialPage prop changes
+  useEffect(() => {
+    if (initialPage && initialPage > 0 && initialPage <= numPages) {
+      setPageNumber(initialPage);
+    }
+  }, [initialPage, numPages]);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);

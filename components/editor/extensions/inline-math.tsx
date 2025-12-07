@@ -113,7 +113,7 @@ export const InlineMath = Node.create({
         getAttrs: (node) => {
             if (typeof node === 'string') return {};
             return {
-                content: node.getAttribute('data-content'),
+                content: node.getAttribute('data-content') || '',
             };
         }
       },
@@ -121,7 +121,7 @@ export const InlineMath = Node.create({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'inline-math', 'data-content': node.attrs.content }), node.attrs.content];
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'inline-math', 'data-content': node.attrs.content || '' })];
   },
 
   addNodeView() {
