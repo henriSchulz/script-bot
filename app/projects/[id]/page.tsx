@@ -61,6 +61,7 @@ type FileData = {
   url: string;
   mimeType: string | null;
   size: number | null;
+  category: string;
   createdAt: Date;
 };
 
@@ -387,80 +388,370 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">{dict.files.noFiles}</p>
             </div>
-          ) : viewMode === "grid" ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {sortedFiles.map((file) => (
-                <div 
-                  key={file.id} 
-                  className="group relative flex items-start gap-4 p-4 rounded-xl bg-background border border-border/50 hover:border-primary/50 transition-colors"
-                >
-                  <div className="p-3 rounded-lg bg-primary/10 text-primary">
-                    {getFileIcon(file)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <a 
-                      href={file.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="font-medium hover:underline truncate block"
-                    >
-                      {file.name}
-                    </a>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteFile(file.id)}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
           ) : (
-            <div className="space-y-2">
-              {sortedFiles.map((file) => (
-                <div 
-                  key={file.id}
-                  className="group flex items-center gap-4 p-3 rounded-lg bg-background border border-border/50 hover:border-primary/50 transition-colors"
-                >
-                  <div className="p-2 rounded-md bg-primary/10 text-primary">
-                    {getFileIconSmall(file)}
+            <div className="space-y-8">
+              {/* Uploaded Files */}
+              {(() => {
+                const uploadFiles = sortedFiles.filter(f => f.category === "upload");
+                if (uploadFiles.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      {dict.files.categories.uploads}
+                    </h4>
+                    {viewMode === "grid" ? (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {uploadFiles.map((file) => (
+                          <div 
+                            key={file.id} 
+                            className="group relative flex items-start gap-4 p-4 rounded-xl bg-background border border-border/50 hover:border-primary/50 transition-colors"
+                          >
+                            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                              {file.mimeType?.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : file.mimeType === 'application/pdf' ? (
+                                <embed 
+                                  src={`${file.url}#page=1`} 
+                                  type="application/pdf"
+                                  className="w-full h-full pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary">
+                                  {getFileIcon(file)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <a 
+                                href={file.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="font-medium hover:underline truncate block"
+                              >
+                                {file.name}
+                              </a>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteFile(file.id)}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {uploadFiles.map((file) => (
+                          <div 
+                            key={file.id}
+                            className="group flex items-center gap-4 p-3 rounded-lg bg-background border border-border/50 hover:border-primary/50 transition-colors"
+                          >
+                            <div className="relative w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                              {file.mimeType?.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : file.mimeType === 'application/pdf' ? (
+                                <embed 
+                                  src={`${file.url}#page=1`} 
+                                  type="application/pdf"
+                                  className="w-full h-full pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary">
+                                  {getFileIconSmall(file)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
+                              <div className="col-span-6">
+                                <a 
+                                  href={file.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="font-medium hover:underline truncate block"
+                                >
+                                  {file.name}
+                                </a>
+                              </div>
+                              <div className="col-span-3 text-sm text-muted-foreground">
+                                {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                              </div>
+                              <div className="col-span-3 text-sm text-muted-foreground">
+                                {new Date(file.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                              onClick={() => handleDeleteFile(file.id)}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
-                    <div className="col-span-6">
-                      <a 
-                        href={file.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="font-medium hover:underline truncate block"
-                      >
-                        {file.name}
-                      </a>
-                    </div>
-                    <div className="col-span-3 text-sm text-muted-foreground">
-                      {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
-                    </div>
-                    <div className="col-span-3 text-sm text-muted-foreground">
-                      {new Date(file.createdAt).toLocaleDateString()}
-                    </div>
+                );
+              })()}
+
+              {/* Exercise Worksheets */}
+              {(() => {
+                const exerciseFiles = sortedFiles.filter(f => f.category === "exercise");
+                if (exerciseFiles.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      {dict.files.categories.exercises}
+                    </h4>
+                    {viewMode === "grid" ? (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {exerciseFiles.map((file) => (
+                          <div 
+                            key={file.id} 
+                            className="group relative flex items-start gap-4 p-4 rounded-xl bg-background border border-border/50 hover:border-primary/50 transition-colors"
+                          >
+                            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                              {file.mimeType?.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : file.mimeType === 'application/pdf' ? (
+                                <embed 
+                                  src={`${file.url}#page=1`} 
+                                  type="application/pdf"
+                                  className="w-full h-full pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-green-500/10 text-green-500">
+                                  {getFileIcon(file)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <a 
+                                href={file.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="font-medium hover:underline truncate block"
+                              >
+                                {file.name}
+                              </a>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteFile(file.id)}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {exerciseFiles.map((file) => (
+                          <div 
+                            key={file.id}
+                            className="group flex items-center gap-4 p-3 rounded-lg bg-background border border-border/50 hover:border-primary/50 transition-colors"
+                          >
+                            <div className="relative w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                              {file.mimeType?.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : file.mimeType === 'application/pdf' ? (
+                                <embed 
+                                  src={`${file.url}#page=1`} 
+                                  type="application/pdf"
+                                  className="w-full h-full pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-green-500/10 text-green-500">
+                                  {getFileIconSmall(file)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
+                              <div className="col-span-6">
+                                <a 
+                                  href={file.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="font-medium hover:underline truncate block"
+                                >
+                                  {file.name}
+                                </a>
+                              </div>
+                              <div className="col-span-3 text-sm text-muted-foreground">
+                                {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                              </div>
+                              <div className="col-span-3 text-sm text-muted-foreground">
+                                {new Date(file.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                              onClick={() => handleDeleteFile(file.id)}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                    onClick={() => handleDeleteFile(file.id)}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })()}
+
+              {/* Cropped Images */}
+              {(() => {
+                const croppedFiles = sortedFiles.filter(f => f.category === "cropped");
+                if (croppedFiles.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      {dict.files.categories.cropped}
+                    </h4>
+                    {viewMode === "grid" ? (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {croppedFiles.map((file) => (
+                          <div 
+                            key={file.id} 
+                            className="group relative flex items-start gap-4 p-4 rounded-xl bg-background border border-border/50 hover:border-primary/50 transition-colors"
+                          >
+                            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                              {file.mimeType?.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : file.mimeType === 'application/pdf' ? (
+                                <embed 
+                                  src={`${file.url}#page=1`} 
+                                  type="application/pdf"
+                                  className="w-full h-full pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-orange-500/10 text-orange-500">
+                                  {getFileIcon(file)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <a 
+                                href={file.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="font-medium hover:underline truncate block"
+                              >
+                                {file.name}
+                              </a>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteFile(file.id)}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {croppedFiles.map((file) => (
+                          <div 
+                            key={file.id}
+                            className="group flex items-center gap-4 p-3 rounded-lg bg-background border border-border/50 hover:border-primary/50 transition-colors"
+                          >
+                            <div className="relative w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                              {file.mimeType?.startsWith('image/') ? (
+                                <img 
+                                  src={file.url} 
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : file.mimeType === 'application/pdf' ? (
+                                <embed 
+                                  src={`${file.url}#page=1`} 
+                                  type="application/pdf"
+                                  className="w-full h-full pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-orange-500/10 text-orange-500">
+                                  {getFileIconSmall(file)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
+                              <div className="col-span-6">
+                                <a 
+                                  href={file.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="font-medium hover:underline truncate block"
+                                >
+                                  {file.name}
+                                </a>
+                              </div>
+                              <div className="col-span-3 text-sm text-muted-foreground">
+                                {(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                              </div>
+                              <div className="col-span-3 text-sm text-muted-foreground">
+                                {new Date(file.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                              onClick={() => handleDeleteFile(file.id)}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

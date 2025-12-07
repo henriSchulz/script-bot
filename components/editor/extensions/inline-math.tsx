@@ -158,21 +158,8 @@ export const InlineMath = Node.create({
 
   addKeyboardShortcuts() {
     return {
-      // Insert inline math on $ keypress
-      '$': () => {
-        return this.editor.commands.insertContent([
-          {
-            type: this.name,
-            attrs: {
-              content: '',
-            },
-          },
-          {
-            type: 'text',
-            text: ' ',
-          },
-        ]);
-      },
+      // Allow standard input for dollar sign to support $math$ input rule
+      // We removed the aggressive $ shortcut that prevented typing multiple dollar signs
     };
   },
 });

@@ -41,6 +41,11 @@ export const en = {
     upload: "Upload Files",
     dragDrop: "Drag & drop files here, or click to select files",
     noFiles: "No files uploaded yet",
+    categories: {
+      uploads: "Uploaded Files",
+      exercises: "Exercise Worksheets",
+      cropped: "Cropped Images",
+    },
   },
   summaries: {
     generate: "Generate Summary",
@@ -127,6 +132,11 @@ export const de: Dictionary = {
     upload: "Dateien hochladen",
     dragDrop: "Dateien hierher ziehen oder klicken zum Auswählen",
     noFiles: "Noch keine Dateien hochgeladen",
+    categories: {
+      uploads: "Hochgeladene Dateien",
+      exercises: "Übungsblätter",
+      cropped: "Ausgeschnittene Bilder",
+    },
   },
   summaries: {
     generate: "Zusammenfassung erstellen",

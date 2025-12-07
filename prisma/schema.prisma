@@ -33,6 +33,7 @@ model File {
   url       String
   mimeType  String?
   size      Int?
+  category  String   @default("upload") // "upload", "exercise", or "cropped"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -87,6 +88,8 @@ model Block {
   properties String? // SQLite doesn't support Json, so we store as stringified JSON
   
   page      Int?
+  isImportant Boolean @default(false)
+  isHighlighted Boolean @default(false)
   fileId    String?
   file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
 

@@ -3,8 +3,9 @@
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { cwd } from "process";
+import { db } from "@/lib/db";
 
-export async function uploadImage(formData: FormData) {
+export async function uploadImage(formData: FormData, projectId?: string) {
   try {
     const file = formData.get("file") as File;
     if (!file) {
@@ -12,7 +13,7 @@ export async function uploadImage(formData: FormData) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const filename = `manual-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`;
+    const filename = `cropped-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`;
     
     // Ensure directory exists
     const uploadDir = join(cwd(), "public", "uploads", "manual");
@@ -21,7 +22,23 @@ export async function uploadImage(formData: FormData) {
     const filepath = join(uploadDir, filename);
     await writeFile(filepath, buffer);
 
-    return { success: true, url: `/uploads/manual/${filename}` };
+    const url = `/uploads/manual/${filename}`;
+
+    // Create DB record if projectId is provided
+    if (projectId) {
+      await db.file.create({
+        data: {
+          name: file.name,
+          url: url,
+          mimeType: file.type,
+          size: file.size,
+          category: "cropped",
+          projectId: projectId,
+        },
+      });
+    }
+
+    return { success: true, url };
   } catch (error) {
     console.error("Upload error:", error);
     return { success: false, error: "Failed to upload file" };

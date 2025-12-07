@@ -6,7 +6,7 @@ import { writeFile, unlink, mkdir } from "fs/promises";
 import { join } from "path";
 import { cwd } from "process";
 
-export async function uploadFile(projectId: string, formData: FormData) {
+export async function uploadFile(projectId: string, formData: FormData, category: string = "upload") {
   try {
     const files = formData.getAll("file") as File[];
     if (!files || files.length === 0) {
@@ -37,6 +37,7 @@ export async function uploadFile(projectId: string, formData: FormData) {
             url: `/uploads/${projectId}/${filename}`,
             mimeType: file.type,
             size: file.size,
+            category: category,
             projectId: projectId,
           },
         });

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ImageIcon, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { ImageIcon, Maximize2, Minimize2, ExternalLink, CropIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -14,6 +14,8 @@ interface ImageBlockProps {
   fileId?: string;
   fileUrl?: string;
   projectId?: string;
+  summaryId?: string;
+  blockId?: string;
   isReadOnly?: boolean;
 }
 
@@ -24,7 +26,7 @@ interface ImageData {
   size?: ImageSize;
 }
 
-export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId, isReadOnly = false }: ImageBlockProps) {
+export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId, summaryId, blockId, isReadOnly = false }: ImageBlockProps) {
   // Parse content - it can be just a URL string or JSON with size
   const parseContent = (content: string): ImageData => {
     try {
@@ -120,6 +122,7 @@ export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId
             </Button>
           </div>
           
+          
           {/* Change button */}
           <Button
             variant="secondary"
@@ -129,6 +132,21 @@ export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId
           >
             Change
           </Button>
+
+          {/* Edit Crop Button */}
+          {projectId && summaryId && blockId && (fileId || fileUrl) && (
+             <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 shadow-lg ml-1"
+                asChild
+             >
+                <Link href={`/projects/${projectId}/summaries/${summaryId}/extract/${blockId}`}>
+                    <CropIcon className="h-3 w-3 mr-1" />
+                    Crop
+                </Link>
+             </Button>
+          )}
         </div>
         )}
       </div>

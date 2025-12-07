@@ -2,6 +2,8 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { unlink, access } from "fs/promises";
+import { join } from "path";
 
 export async function getSummaries(projectId: string) {
   try {
@@ -95,11 +97,53 @@ export async function createSummary(projectId: string, title: string) {
 
 export async function deleteSummary(summaryId: string, projectId: string) {
   try {
+    // Get all blocks with files (cropped images) belonging to this summary
+    const blocks = await db.block.findMany({
+      where: {
+        summaryId: summaryId,
+        fileId: { not: null },
+      },
+      include: { file: true },
+    });
+
+    // Delete the summary (cascade will handle blocks)
     await db.summary.delete({
       where: {
         id: summaryId,
       },
     });
+
+    // Delete all associated files (cropped images)
+    for (const block of blocks) {
+      if (block.file) {
+        try {
+          // Delete physical file from filesystem
+          const filePath = join(process.cwd(), 'public', block.file.url);
+          
+          // Check if file exists before trying to delete
+          try {
+            await access(filePath);
+            await unlink(filePath);
+          } catch (fsError: any) {
+            // File doesn't exist on disk, that's ok - just log it
+            if (fsError.code !== 'ENOENT') {
+              console.error("Error accessing/deleting file:", fsError);
+            }
+          }
+          
+          // Always delete file record from database
+          await db.file.delete({
+            where: { id: block.file.id },
+          });
+        } catch (fileError: any) {
+          // Ignore P2025 (Record to delete does not exist) as it means the goal is already achieved
+          if (fileError.code !== 'P2025') {
+            console.error("Error deleting summary block file:", fileError);
+          }
+          // Continue with other files
+        }
+      }
+    }
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true };

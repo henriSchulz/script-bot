@@ -109,18 +109,22 @@ export async function createExerciseBlock(exerciseId: string, type: string, cont
   }
 }
 
-export async function updateSummaryBlock(blockId: string, content: string, type?: string, page?: number, fileId?: string) {
+export async function updateSummaryBlock(blockId: string, content: string, type?: string, page?: number, fileId?: string, isImportant?: boolean, isHighlighted?: boolean) {
   try {
-    const data: any = { content };
-    if (type) data.type = type;
-    if (page !== undefined) data.page = page;
-    if (fileId !== undefined) data.fileId = fileId;
+    const updateData: any = {
+      content,
+      updatedAt: new Date()
+    };
+    
+    if (type !== undefined) updateData.type = type;
+    if (page !== undefined) updateData.page = page;
+    if (fileId !== undefined) updateData.fileId = fileId;
+    if (isImportant !== undefined) updateData.isImportant = isImportant;
+    if (isHighlighted !== undefined) updateData.isHighlighted = isHighlighted;
 
     const block = await db.block.update({
-      where: {
-        id: blockId,
-      },
-      data,
+      where: { id: blockId },
+      data: updateData,
       include: {
         summary: true,
         exercise: true

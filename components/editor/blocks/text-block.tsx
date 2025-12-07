@@ -16,6 +16,7 @@ import { useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Editor, Range } from '@tiptap/core';
 import { Text, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, Minus, Image as ImageIcon, Sigma, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { convertLatexToMarkup } from '@/lib/utils';
 
 interface TextBlockProps {
   content: string;
@@ -83,104 +84,106 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
       TaskItem.configure({
         nested: true,
       }),
-      SlashCommand.configure({
-        suggestion: {
-          items: ({ query }: { query: string }) => {
-            return [
-              {
-                title: 'Text',
-                icon: <Text className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setParagraph().run();
+      ...(isReadOnly ? [] : [
+        SlashCommand.configure({
+          suggestion: {
+            items: ({ query }: { query: string }) => {
+              return [
+                {
+                  title: 'Text',
+                  icon: <Text className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).setParagraph().run();
+                  },
                 },
-              },
-              {
-                title: 'Heading 1',
-                icon: <Heading1 className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setHeading({ level: 1 }).run();
+                {
+                  title: 'Heading 1',
+                  icon: <Heading1 className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                   editor.chain().focus().deleteRange(range).setHeading({ level: 1 }).run();
+                  },
                 },
-              },
-              {
-                title: 'Heading 2',
-                icon: <Heading2 className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setHeading({ level: 2 }).run();
+                {
+                  title: 'Heading 2',
+                  icon: <Heading2 className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).setHeading({ level: 2 }).run();
+                  },
                 },
-              },
-              {
-                title: 'Heading 3',
-                icon: <Heading3 className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run();
+                {
+                  title: 'Heading 3',
+                  icon: <Heading3 className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run();
+                  },
                 },
-              },
-              {
-                title: 'Bullet List',
-                icon: <List className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).toggleBulletList().run();
+                {
+                  title: 'Bullet List',
+                  icon: <List className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).toggleBulletList().run();
+                  },
                 },
-              },
-              {
-                title: 'Numbered List',
-                icon: <ListOrdered className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+                {
+                  title: 'Numbered List',
+                  icon: <ListOrdered className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+                  },
                 },
-              },
-              {
-                title: 'Task List',
-                icon: <ListTodo className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).toggleTaskList().run();
+                {
+                  title: 'Task List',
+                  icon: <ListTodo className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).toggleTaskList().run();
+                  },
                 },
-              },
-              {
-                title: 'Quote',
-                icon: <Quote className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setBlockquote().run();
+                {
+                  title: 'Quote',
+                  icon: <Quote className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).setBlockquote().run();
+                  },
                 },
-              },
-              {
-                title: 'Code Block',
-                icon: <Code className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setCodeBlock().run();
+                {
+                  title: 'Code Block',
+                  icon: <Code className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).setCodeBlock().run();
+                  },
                 },
-              },
-              {
-                title: 'Divider',
-                icon: <Minus className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+                {
+                  title: 'Divider',
+                  icon: <Minus className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+                  },
                 },
-              },
-              {
-                title: 'Image',
-                icon: <ImageIcon className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).run();
-                  onInsertBlock?.('image');
+                {
+                  title: 'Image',
+                  icon: <ImageIcon className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).run();
+                    onInsertBlock?.('image');
+                  },
                 },
-              },
-              {
-                title: 'LaTeX',
-                icon: <Sigma className="h-4 w-4" />,
-                command: ({ editor, range }: { editor: Editor; range: Range }) => {
-                  editor.chain().focus().deleteRange(range).run();
-                  onInsertBlock?.('latex');
+                {
+                  title: 'LaTeX',
+                  icon: <Sigma className="h-4 w-4" />,
+                  command: ({ editor, range }: { editor: Editor; range: Range }) => {
+                    editor.chain().focus().deleteRange(range).run();
+                    onInsertBlock?.('latex');
+                  },
                 },
-              },
-            ].filter(item => item.title.toLowerCase().startsWith(query.toLowerCase()));
+              ].filter(item => item.title.toLowerCase().startsWith(query.toLowerCase()));
+            },
+            render: renderItems,
           },
-          render: renderItems,
-        },
-      }),
-      InlineMath,
+        }),
+        InlineMath,
+      ]),
     ],
-    content,
+    content: convertLatexToMarkup(content),
     editorProps: {
       attributes: {
         class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[2em] transition-all duration-200',

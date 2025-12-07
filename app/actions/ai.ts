@@ -146,7 +146,10 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
     }
 
     const files = await db.file.findMany({
-      where: whereClause,
+      where: {
+        ...whereClause,
+        category: "upload" // Only use uploaded files, not cropped images
+      },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -277,6 +280,12 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       if (block.type === 'image_request') {
         console.log(`[AI] Processing image request: ${block.content}, Page: ${block.page}`);
         
+        if (imageSource === 'none') {
+          // Skip image requests entirely when imageSource is 'none'
+          console.log('[AI] Skipping image request (imageSource=none)');
+          continue;
+        }
+        
         if (imageSource === 'google') {
            const imageUrl = await fetchImageFromGoogle(block.content, projectId);
            if (imageUrl) {
@@ -323,20 +332,30 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
              page: block.page,
              fileId: fileId
            });
-        } else {
-           // imageSource === 'none'
-           processedBlocks.push({
-             type: 'text',
-             content: `<p class="text-muted-foreground italic border-l-2 border-primary/20 pl-4 py-2 my-4 bg-muted/10 rounded-r">🖼️ <strong>Image Placeholder:</strong> ${block.content} ${block.page ? `(Page ${block.page})` : ''}</p>`,
-             order: block.order,
+        }
+      } else if (block.type === 'info_box') {
+         // info_box content comes as an object/JSON from AI, we need to stringify it for the DB
+         let content = block.content;
+         if (typeof content !== 'string') {
+             content = JSON.stringify(content);
+         }
+         processedBlocks.push({
+             ...block,
+             content: content,
              page: block.page,
              fileId: fileId
-           });
-        }
+         });
       } else {
         // Add page and fileId to normal blocks
+        // For LATEX blocks, verify if they have isImportant flag and serialize to JSON if needed
+        let content = block.content;
+        if (block.type === 'latex' && block.isImportant) {
+            content = JSON.stringify({ latex: block.content, isImportant: true });
+        }
+
         processedBlocks.push({
             ...block,
+            content: content,
             page: block.page,
             fileId: fileId
         });
@@ -393,11 +412,12 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
-    // 2. Fetch Project Files (Lecture Material)
+    // 2. Fetch Project Files (Lecture Material) - only uploaded files, not cropped
     const projectFiles = await db.file.findMany({
       where: { 
         projectId,
-        id: { not: exercise.file.id } 
+        id: { not: exercise.file.id },
+        category: "upload"
       },
       orderBy: { createdAt: 'desc' },
       take: 5 
@@ -513,8 +533,23 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
 
       const pageNumber = typeof block.page === 'number' ? block.page : parseInt(block.page);
 
-      // Only process text and latex blocks
-      if (block.type === 'text' || block.type === 'latex') {
+      if (block.type === 'info_box') {
+          console.log(`[AI] Processing info_box block`);
+          let content = block.content;
+          if (typeof content !== 'string') {
+              content = JSON.stringify(content);
+          }
+          await db.block.create({
+            data: {
+                exerciseId,
+                type: 'info_box',
+                content: content,
+                order: startOrder++,
+                page: isNaN(pageNumber) ? undefined : pageNumber,
+                fileId: fileId
+            }
+          });
+      } else if (block.type === 'text' || block.type === 'latex') {
           console.log(`[AI] Processing block type: ${block.type}`);
           const originalContent = block.content || '';
           let processedContent = originalContent;
@@ -529,7 +564,9 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
             data: {
                 exerciseId,
                 type: block.type,
-                content: processedContent,
+                content: (block.type === 'latex' && block.isImportant) 
+                    ? JSON.stringify({ latex: processedContent, isImportant: true }) 
+                    : processedContent,
                 order: startOrder++,
                 page: isNaN(pageNumber) ? undefined : pageNumber,
                 fileId: fileId
@@ -704,7 +741,19 @@ export async function chatAboutExercise(exerciseId: string, context: string, mes
             }];
         }
 
-        return { success: true, blocks };
+        return { success: true, blocks: blocks.map((b: any) => {
+             if (b.type === 'latex' && b.isImportant) {
+                 return { ...b, content: JSON.stringify({ latex: b.content, isImportant: true }) };
+             }
+             if (b.type === 'info_box') {
+                 let content = b.content;
+                 if (typeof content !== 'string') {
+                     content = JSON.stringify(content);
+                 }
+                 return { ...b, content };
+             }
+             return b;
+        }) };
 
     } catch (error) {
         console.error("[Chat] Error:", error);
@@ -769,6 +818,24 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
              processedBlocks.push({
                 type: 'text',
                 content: processMathInHtml(block.content)
+             });
+        } else if (block.type === 'latex' && block.isImportant) {
+             processedBlocks.push({
+                 type: 'latex',
+                 content: JSON.stringify({ latex: block.content, isImportant: true }),
+                 isImportant: true // Keep it on top level too if needed by UI before DB save? (Actually generateBlocks returns to UI dialog, which usually creates blocks via API or handles them. Let's see... generate-blocks-dialog calls onSuccess. onSuccess is passed to BlockEditor? No, onSuccess does something. Ah, let's verify what onSuccess does in generate-blocks-dialog.)
+             });
+             // appendBlocks iterates and calls createBlock/updateBlock.
+             // If I return JSON content here, the BlockEditor/createBlock must handle it. 
+             // createBlock usually just takes content string. So returning JSON string as content is correct.
+        } else if (block.type === 'info_box') {
+             let content = block.content;
+             if (typeof content !== 'string') {
+                 content = JSON.stringify(content);
+             }
+             processedBlocks.push({
+                 type: 'info_box',
+                 content: content
              });
         } else {
             processedBlocks.push(block);
@@ -939,6 +1006,13 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
                     .replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '')
                     .replace(/^\\\(\s*/, '').replace(/\s*\\\)$/, '')
                     .replace(/^\$\s*/, '').replace(/\s*\$$/, '');
+            }
+            if (b.type === 'info_box') {
+                let content = b.content;
+                if (typeof content !== 'string') {
+                    content = JSON.stringify(content);
+                }
+                b.content = content;
             }
             return b;
         });

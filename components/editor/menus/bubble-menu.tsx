@@ -205,10 +205,22 @@ export function EditorBubbleMenu({ editor, className }: EditorBubbleMenuProps) {
         </button>
         <div className="w-px bg-border/50" />
         <button
-          onClick={() => {
-            const { from, to } = editor.state.selection;
+          onClick={(e) => {
+            e.preventDefault();
+            const { from, to, empty } = editor.state.selection;
+            if (empty) return;
+            
             const text = editor.state.doc.textBetween(from, to);
-            editor.chain().focus().insertContent({ type: 'inlineMath', attrs: { content: text } }).run();
+            
+            // Should properly replace the selection with the inline math node
+            editor
+              .chain()
+              .focus()
+              .insertContent({ 
+                type: 'inlineMath', 
+                attrs: { content: text } 
+              })
+              .run();
           }}
           className={cn(
             "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",

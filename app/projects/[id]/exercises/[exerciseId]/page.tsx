@@ -19,7 +19,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, preprocessLaTeX } from "@/lib/utils";
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { useLanguage } from "@/components/language-provider";
 import { ReferenceLink, parseReferences } from "@/components/chat/reference-link";
@@ -156,7 +156,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           remarkPlugins={[remarkMath]} 
           rehypePlugins={[rehypeKatex]}
         >
-          {content}
+          {preprocessLaTeX(content)}
         </ReactMarkdown>
       );
     }
@@ -176,7 +176,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
               p: ({children}) => <span className="inline">{children}</span>
             }}
           >
-            {content.substring(lastIndex, ref.startIndex)}
+            {preprocessLaTeX(content.substring(lastIndex, ref.startIndex))}
           </ReactMarkdown>
         );
       }
@@ -213,7 +213,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
             p: ({children}) => <span className="inline">{children}</span>
           }}
         >
-          {content.substring(lastIndex)}
+          {preprocessLaTeX(content.substring(lastIndex))}
         </ReactMarkdown>
       );
     }
@@ -767,7 +767,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                                   remarkPlugins={[remarkMath]} 
                                   rehypePlugins={[rehypeKatex]}
                                 >
-                                  {block.content}
+                                  {preprocessLaTeX(block.content)}
                                 </ReactMarkdown>
                               </div>
                             )}

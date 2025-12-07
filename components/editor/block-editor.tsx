@@ -8,10 +8,11 @@ import { TextBlock, TextBlockRef } from './blocks/text-block';
 import { LatexBlock } from './blocks/latex-block';
 import { ImageBlock } from './blocks/image-block';
 import { PendingImageBlock } from './blocks/pending-image-block';
+import { InfoBoxBlock } from './blocks/info-box-block';
 import { BatchUploadDialog } from './batch-upload-dialog';
 import { GenerateBlocksDialog } from './generate-blocks-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Code, ExternalLink } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, ExternalLink, Copy, Scissors, Star, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Link from 'next/link';
@@ -24,6 +25,8 @@ interface Block {
   page?: number;
   fileId?: string;
   fileUrl?: string;
+  isImportant?: boolean;
+  isHighlighted?: boolean;
 }
 
 export interface BlockEditorHandle {
@@ -88,6 +91,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
   }, []); // Run once on mount
 
   const handleBlockClick = (e: React.MouseEvent, blockId: string, index: number) => {
+    if (isReadOnly) return;
+
     // If clicking inside an input/contenteditable, do not select (unless it's a handle click, handled separately)
     // But we might want to allow selecting the block wrapper even if clicking text if modifier is held?
     // Standard behavior: Click on text -> Edit text. Click on border/handle -> Select block.
@@ -142,6 +147,21 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
         }
     }
   };
+
+  // Global click handler to deselect blocks when clicking outside
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const clickedOnBlock = target.closest('[id^="block-"]');
+      
+      if (!clickedOnBlock && selectedBlockIds.size > 0) {
+        setSelectedBlockIds(new Set());
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, [selectedBlockIds]);
 
   // Global keydown for deletion
   useEffect(() => {
@@ -210,10 +230,23 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
 
 
   const handleCreateBlock = async (type: string, index: number, focusPosition: 'start' | 'end' = 'start', initialContent: string = '') => {
-    // Optimistic update
     const newOrder = index + 1;
+
+    // Default content for specific block types
+    let content = initialContent;
+    if (type === 'latex' && !content) {
+      content = '';
+    } else if (type === 'info_box' && !content) {
+      // Default info box with template
+      content = JSON.stringify({
+        label: 'IMPORTANT',
+        color: 'red',
+        latex: 'your formula here'
+      });
+    }
+
     const tempId = `temp-${Date.now()}`;
-    const newBlock = { id: tempId, type, content: initialContent, order: newOrder };
+    const newBlock = { id: tempId, type, content: content, order: newOrder };
     
     setBlocks(prev => [
       ...prev.slice(0, index + 1),
@@ -231,9 +264,9 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
 
     let result;
     if (summaryId) {
-      result = await createSummaryBlock(summaryId, type, initialContent, newOrder);
+      result = await createSummaryBlock(summaryId, type, content, newOrder);
     } else if (exerciseId) {
-      result = await createExerciseBlock(exerciseId, type, initialContent, newOrder);
+      result = await createExerciseBlock(exerciseId, type, content, newOrder);
     } else {
         console.error("No summaryId or exerciseId provided");
         return;
@@ -373,8 +406,21 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
     return () => document.removeEventListener('paste', handlePaste);
   }, [handleCreateBlock]);
 
-  const handleUpdateBlock = async (id: string, content: string, type?: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content, ...(type ? { type } : {}), page: b.page === null ? undefined : b.page } : b));
+  const handleUpdateBlock = async (id: string, content: string, type?: string, isImportant?: boolean, isHighlighted?: boolean) => {
+    // Optimistically update UI immediately
+    setBlocks(prev => prev.map(b => {
+      if (b.id === id) {
+        // Always create a new object to trigger React re-render
+        return {
+          ...b,
+          content,
+          ...(type !== undefined && { type }),
+          ...(isImportant !== undefined && { isImportant }),
+          ...(isHighlighted !== undefined && { isHighlighted })
+        };
+      }
+      return b;
+    }));
     
     // Don't try to update temporary blocks that haven't been created in the database yet
     if (id.startsWith('temp-')) {
@@ -382,7 +428,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
       return;
     }
     
-    const result = await updateSummaryBlock(id, content, type);
+    const result = await updateSummaryBlock(id, content, type, undefined, undefined, isImportant, isHighlighted);
     if (!result.success) {
       console.error('Failed to update block:', result.error);
       // Optionally show toast here if you want to notify the user
@@ -599,11 +645,18 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-0.5 px-2">
+    <div 
+      className="w-full"
+    >
+      <div className="max-w-4xl mx-auto space-y-0.5 px-2">
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="blocks">
           {(provided) => (
-            <div {...provided.droppableProps} ref={(el) => { provided.innerRef(el); containerRef.current = el; }} className="space-y-0.5">
+            <div 
+              {...provided.droppableProps} 
+              ref={(el) => { provided.innerRef(el); containerRef.current = el; }} 
+              className="space-y-0.5 min-h-[400px]"
+            >
               {blocks.map((block, index) => (
                 <Draggable key={block.id} draggableId={block.id} index={index} isDragDisabled={isReadOnly}>
                   {(provided, snapshot) => {
@@ -612,84 +665,26 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                         id={`block-${block.id}`}
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        onClick={(e) => handleBlockClick(e, block.id, index)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent deselection when clicking on block
+                          handleBlockClick(e, block.id, index);
+                        }}
                         className={cn(
-                          "group relative outline-none",
+                          "group relative outline-none transition-all duration-200",
                           snapshot.isDragging && "z-50",
-                          selectedBlockIds.has(block.id) && "ring-2 ring-primary ring-offset-2 rounded-lg z-10"
+                          selectedBlockIds.has(block.id) && "relative z-10"
                         )}
                         style={provided.draggableProps.style}
                       >
-                        {/* Floating Add Button Between Blocks */}
-                        {!isReadOnly && (
-                          <div 
-                            className="relative h-6 group/add"
-                            onMouseEnter={() => setHoveredBlockIndex(index - 0.5)}
-                            onMouseLeave={() => setHoveredBlockIndex(null)}
-                          >
-                          <div className={cn(
-                            "absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-all duration-150",
-                            hoveredBlockIndex === index - 0.5 && "opacity-100"
-                          )}>
-                            <div className="flex items-center gap-0.5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg px-1.5 py-0.5 shadow-sm hover:shadow-md transition-all">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                                onClick={() => handleCreateBlock('text', index - 1)}
-                              >
-                                <Type className="h-3 w-3 mr-1" />
-                                <span>Text</span>
-                              </Button>
-                              <div className="w-px h-3 bg-border/30" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                                onClick={() => handleCreateBlock('latex', index - 1)}
-                              >
-                                <Sigma className="h-3 w-3 mr-1" />
-                                <span>LaTeX</span>
-                              </Button>
-                              <div className="w-px h-3 bg-border/30" />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                                  onClick={() => handleCreateBlock('image', index - 1)}
-                                >
-                                  <Image className="h-3 w-3 mr-1" />
-                                  <span>Image</span>
-                                </Button>
-                                <div className="w-px h-3 bg-border/30" />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 px-1.5 hover:bg-accent text-xs transition-colors text-primary hover:text-primary"
-                                  onClick={() => setShowGenerateDialog(true)}
-                                >
-                                  <Sparkles className="h-3 w-3 mr-1" />
-                                  <span>AI</span>
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
+                        {/* Subtle Selection Indicator */}
+                        {!isReadOnly && selectedBlockIds.has(block.id) && (
+                          <div className="absolute inset-0 rounded-lg border border-primary/20 bg-primary/[0.02]" />
                         )}
-
+                        
                         {/* Clean Block Container */}
                         <div className={cn(
                           "relative rounded-lg transition-all duration-150 ease-out",
-                          snapshot.isDragging 
-                            ? "bg-background/95 shadow-xl border-2 border-primary/50 scale-[1.01] cursor-grabbing" 
-                            : cn(
-                                "bg-transparent border border-transparent",
-                                "hover:bg-accent/20 hover:border-border/30"
-                              ),
-                          focusedBlockId === block.id && "border-l-4 border-l-primary/70 bg-accent/10 pl-2"
+                          snapshot.isDragging && "cursor-grabbing"
                         )}>
                           <div className="relative flex items-start gap-2 py-2 px-3">
                             {/* Clean Drag Handle */}
@@ -753,14 +748,23 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                   blockId={block.id}
                                 />
                               )}
-                              {block.type === 'image' && (
-                                <ImageBlock
+                                {block.type === 'image' && (
+                                 <ImageBlock
                                   content={block.content}
                                   onChange={(content) => handleUpdateBlock(block.id, content)}
                                   page={block.page}
                                   fileId={block.fileId}
                                   fileUrl={block.fileUrl}
                                   projectId={projectId}
+                                  summaryId={summaryId}
+                                  blockId={block.id}
+                                  isReadOnly={isReadOnly}
+                                />
+                              )}
+                              {block.type === 'info_box' && (
+                                <InfoBoxBlock
+                                  content={block.content}
+                                  onChange={(content) => handleUpdateBlock(block.id, content)}
                                   isReadOnly={isReadOnly}
                                 />
                               )}
@@ -771,6 +775,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                               "opacity-0 group-hover:opacity-100 transition-all duration-150",
                               "flex gap-0.5 mt-1"
                             )}>
+                              {/* Page Reference Link */}
                               {/* Page Reference Link */}
                               {block.page && block.fileUrl && (
                                 <Link
@@ -807,38 +812,43 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                 </PopoverTrigger>
                                 <PopoverContent align="end" className="w-52 p-1 bg-background/98 backdrop-blur-xl border-border/50 shadow-lg">
                                   <div className="flex flex-col gap-0.5">
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Turn into</div>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'paragraph')}>
-                                      <Type className="h-4 w-4 mr-2" /> Text
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="justify-start h-8 px-2 font-normal"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(block.content);
+                                      }}
+                                    >
+                                      <Copy className="h-4 w-4 mr-2" /> Copy
                                     </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'heading', 1)}>
-                                      <Heading1 className="h-4 w-4 mr-2" /> Heading 1
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="justify-start h-8 px-2 font-normal"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(block.content);
+                                        handleDeleteBlock(block.id);
+                                      }}
+                                    >
+                                      <Scissors className="h-4 w-4 mr-2" /> Cut
                                     </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'heading', 2)}>
-                                      <Heading2 className="h-4 w-4 mr-2" /> Heading 2
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'heading', 3)}>
-                                      <Heading3 className="h-4 w-4 mr-2" /> Heading 3
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'bulletList')}>
-                                      <List className="h-4 w-4 mr-2" /> Bullet List
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'orderedList')}>
-                                      <ListOrdered className="h-4 w-4 mr-2" /> Numbered List
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'taskList')}>
-                                      <ListTodo className="h-4 w-4 mr-2" /> Task List
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'blockquote')}>
-                                      <Quote className="h-4 w-4 mr-2" /> Quote
-                                    </Button>
-                                    <div className="h-px bg-border/50 my-1" />
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'latex')}>
-                                      <Sigma className="h-4 w-4 mr-2" /> LaTeX
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="justify-start h-8 px-2 font-normal" onClick={() => handleBlockTypeChange(block, 'image')}>
-                                      <Image className="h-4 w-4 mr-2" /> Image
-                                    </Button>
+                                    
+                                    {/* Mark Important - only for LaTeX blocks */}
+                                    {block.type === 'latex' && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="justify-start h-8 px-2 font-normal"
+                                        onClick={() => {
+                                          const isCurrentlyImportant = block.isImportant || false;
+                                          handleUpdateBlock(block.id, block.content, undefined, !isCurrentlyImportant, undefined);
+                                        }}
+                                      >
+                                        <Star className={cn("h-4 w-4 mr-2", block.isImportant && "fill-current")} /> Mark Important
+                                      </Button>
+                                    )}
+                                    
                                     <div className="h-px bg-border/50 my-1" />
                                     <Button 
                                       variant="ghost" 
@@ -866,64 +876,6 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                 </Draggable>
               ))}
               {provided.placeholder}
-
-              {/* Add button after last block */}
-              <div 
-                className="relative h-12 group/add"
-                onMouseEnter={() => setHoveredBlockIndex(blocks.length - 0.5)}
-                onMouseLeave={() => setHoveredBlockIndex(null)}
-              >
-                <div className={cn(
-                  "absolute inset-0 flex items-center justify-center opacity-0 group-hover/add:opacity-100 transition-all duration-150",
-                  hoveredBlockIndex === blocks.length - 0.5 && "opacity-100"
-                )}>
-                  <div className="flex items-center gap-0.5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg px-1.5 py-0.5 shadow-sm hover:shadow-md transition-all">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                      onClick={() => handleCreateBlock('text', blocks.length - 1)}
-                    >
-                      <Type className="h-3 w-3 mr-1" />
-                      <span>Text</span>
-                    </Button>
-                    <div className="w-px h-3 bg-border/30" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                      onClick={() => handleCreateBlock('latex', blocks.length - 1)}
-                    >
-                      <Sigma className="h-3 w-3 mr-1" />
-                      <span>LaTeX</span>
-                    </Button>
-                    <div className="w-px h-3 bg-border/30" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 px-1.5 hover:bg-accent text-xs transition-colors"
-                      onClick={() => handleCreateBlock('image', blocks.length - 1)}
-                    >
-                      <Image className="h-3 w-3 mr-1" />
-                      <span>Image</span>
-                    </Button>
-                    <div className="w-px h-3 bg-border/30" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 px-1.5 hover:bg-accent text-xs transition-colors text-primary hover:text-primary"
-                      onClick={() => setShowGenerateDialog(true)}
-                    >
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      <span>AI</span>
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </Droppable>
@@ -960,6 +912,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
         projectId={projectId}
         onSuccess={handleGeneratedBlocks}
       />
+      </div>
     </div>
   );
 });

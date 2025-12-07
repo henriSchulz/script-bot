@@ -44,12 +44,31 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
         const foundBlock = result.summary.blocks.find((b: any) => b.id === blockId);
         if (foundBlock) {
           setBlock(foundBlock);
+          let parsedContent: any = {};
           try {
-            const content = JSON.parse(foundBlock.content);
-            if (content.fileUrl) setFileUrl(content.fileUrl);
-            if (content.page) setPageNumber(content.page);
+            parsedContent = JSON.parse(foundBlock.content);
           } catch (e) {
-            console.error("Failed to parse block content", e);
+            // Content might be a simple string (old format)
+            console.log("Block content is not JSON, treating as raw string/legacy");
+          }
+
+          if (parsedContent.crop) {
+               setCrop(parsedContent.crop);
+               setCompletedCrop(parsedContent.crop);
+          }
+          
+          // Determine File URL
+          if (parsedContent.fileUrl) {
+              setFileUrl(parsedContent.fileUrl);
+          } else if (foundBlock.file?.url) {
+              setFileUrl(foundBlock.file.url);
+          }
+          
+          // Determine Page
+          if (parsedContent.page) {
+               setPageNumber(parsedContent.page);
+          } else if (foundBlock.page) {
+               setPageNumber(foundBlock.page);
           }
         }
       }
@@ -104,12 +123,23 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
         const formData = new FormData();
         formData.append("file", file);
 
-        const uploadResult = await uploadImage(formData);
+        const uploadResult = await uploadImage(formData, projectId);
         console.log("Upload result:", uploadResult);
         
         if (uploadResult.success && uploadResult.url) {
             console.log("Updating block:", blockId, uploadResult.url);
-            const updateResult = await updateSummaryBlock(blockId, uploadResult.url, "image");
+            console.log("Updating block:", blockId, uploadResult.url);
+            
+            // Construct new content JSON preserving crop data
+            const newContent = JSON.stringify({
+                url: uploadResult.url,
+                crop: crop, // Save percentage crop
+                page: pageNumber,
+                fileUrl: fileUrl, // Keep original file URL for future re-cropping
+                size: block?.content ? tryParse(block.content)?.size : 'medium' // Preserve size if exists
+            });
+            
+            const updateResult = await updateSummaryBlock(blockId, newContent, "image");
             console.log("Update result:", updateResult);
             
             router.refresh();
@@ -232,4 +262,12 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
       </div>
     </div>
   );
+}
+// Helper to safely parse JSON
+function tryParse(str: string) {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return null;
+    }
 }
