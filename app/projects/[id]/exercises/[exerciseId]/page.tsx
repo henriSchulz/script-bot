@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { useLanguage } from "@/components/language-provider";
 import { ReferenceLink, parseReferences } from "@/components/chat/reference-link";
+import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
 
 const PdfViewer = dynamic(() => import("@/components/pdf-viewer").then(mod => mod.PdfViewer), {
   ssr: false,
@@ -84,6 +85,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const [projectFiles, setProjectFiles] = useState<any[]>([]);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const handleChatAboutBlock = (content: string) => {
     const query = dict.project.projectChat.askAboutBlock.replace("{content}", content);
@@ -115,6 +117,18 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       .finally(() => {
         setLoading(false);
       });
+
+    // Global keyboard shortcut for search (Cmd/Ctrl + K)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchModalOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+
 
     // Load project files for references
     import("@/app/actions/files").then(({ getFiles }) => {
@@ -724,7 +738,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
             ) : (
               <div className="h-full flex">
                 {/* Left: Task Content - Collapsible Sidebar */}
-                <div className="w-72 flex-shrink-0 flex flex-col border-r border-border bg-background">
+                <div className="w-[450px] flex-shrink-0 flex flex-col border-r border-border bg-background">
                   <div className="flex-none px-4 py-3 border-b border-border">
                     <Button 
                       variant="ghost" 
@@ -950,6 +964,13 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           ) : null}
         </div>
       </div>
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal 
+        projectId={resolvedParams.id}
+        open={searchModalOpen}
+        onOpenChange={setSearchModalOpen}
+      />
     </div>
   );
 }

@@ -148,7 +148,7 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
   }
 }
 
-export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileId?: string, imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, reduced: boolean = false) {
+export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, reduced: boolean = false) {
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set in environment variables" };
   }
@@ -162,6 +162,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       select: { language: true }
     });
     
+    // Fallback to English if no language set or other than 'de'
     const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
     const dict = await getDictionary(language);
     
@@ -169,8 +170,10 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
     // 1. Fetch files for the project
     const whereClause: any = { projectId };
-    if (fileId) {
-      whereClause.id = fileId;
+    
+    // If specific files are selected, filter by them
+    if (fileIds && fileIds.length > 0) {
+      whereClause.id = { in: fileIds };
     }
 
     const files = await db.file.findMany({
@@ -182,7 +185,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
     });
 
     if (files.length === 0) {
-      return { success: false, error: "No files found in project" };
+      return { success: false, error: "No files found in project (or none selected)" };
     }
 
     // 2. Prepare files for Gemini

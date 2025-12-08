@@ -25,7 +25,8 @@ import {
   Code,
   Archive,
   FileJson,
-  FileCode
+  FileCode,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +46,8 @@ import { Editor } from "@/components/editor/editor";
 import { FormulaList } from "@/components/formulas/formula-list";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
+import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
+import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
 
 
 import { useLanguage } from "@/components/language-provider";
@@ -141,6 +144,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [chatInitialMessage, setChatInitialMessage] = useState<string | null>(null);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   // Handle URL params for tab switching and chat query
   useEffect(() => {
@@ -169,6 +173,19 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       router.replace(`/projects/${resolvedParams.id}?${newParams.toString()}`, { scroll: false });
     }
   }, [searchParams, setActiveTab, resolvedParams.id, router, projectName]);
+
+  // Global keyboard shortcut for search (Cmd/Ctrl + K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchModalOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const sortedFiles = [...files].sort((a, b) => {
     if (sortBy === "date") {
@@ -296,6 +313,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       color: "text-purple-500",
       bg: "bg-purple-500/10",
       content: <FormulaList projectId={resolvedParams.id} />
+    },
+    {
+      id: "search",
+      label: "Search", // TODO: Add to locale
+      icon: Search,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      content: <GlobalSearchTab projectId={resolvedParams.id} />
     },
 
     {
@@ -827,7 +852,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 ) : (
                   <ScrollArea className="h-full">
                     <div className="p-6">
-                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" ? (
+                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" || tab.id === "search" ? (
                         tab.content
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
@@ -872,6 +897,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal 
+        projectId={resolvedParams.id}
+        open={searchModalOpen}
+        onOpenChange={setSearchModalOpen}
+      />
     </div>
   );
 }
