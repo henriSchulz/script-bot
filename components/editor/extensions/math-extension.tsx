@@ -75,8 +75,12 @@ const MathComponent = ({ node, updateAttributes, getPos, editor }: NodeViewProps
       ) : (
         <span
           ref={previewRef}
-          onClick={() => setIsEditing(true)}
-          className={`cursor-pointer rounded px-1 py-0.5 hover:bg-muted/50 transition-colors ${!latex ? 'text-muted-foreground bg-muted' : ''}`}
+          onClick={() => {
+            if (editor.isEditable) {
+              setIsEditing(true);
+            }
+          }}
+          className={`rounded px-1 py-0.5 transition-colors ${editor.isEditable ? 'cursor-pointer hover:bg-muted/50' : ''} ${!latex ? 'text-muted-foreground bg-muted' : ''}`}
         />
       )}
     </NodeViewWrapper>

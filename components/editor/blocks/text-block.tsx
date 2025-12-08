@@ -73,8 +73,9 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
           keepAttributes: false,
         },
       }),
+      MathExtension,
       Placeholder.configure({
-        placeholder: "Type '/' for commands...",
+        placeholder: 'Enter text or type / for commands...',
       }),
       Highlight,
       Typography,

@@ -87,6 +87,26 @@ export default function SummaryPage({ params }: SummaryPageProps) {
     });
   }, [resolvedParams.summaryId]);
 
+  // Keyboard shortcut to toggle read-only mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'e') {
+        const activeElement = document.activeElement;
+        const isInput = activeElement instanceof HTMLInputElement || 
+                        activeElement instanceof HTMLTextAreaElement || 
+                        (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+        
+        if (!isInput) {
+          e.preventDefault(); // Prevent standard 'e' action if any (unlikely outside input)
+          setIsReadOnly((prev) => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-accent/5">

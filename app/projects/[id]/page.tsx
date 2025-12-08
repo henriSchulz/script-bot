@@ -757,52 +757,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         </div>
       )
     },
-    {
-      id: "export",
-      label: "Export", // Should be localized ideally, but hardcoding for now as quick feature
-      icon: Upload, // Using Upload icon for now or I can import Download if available
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
-      content: (
-        <div className="w-full max-w-xl mx-auto space-y-8 py-12">
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold">Project Export</h2>
-            <p className="text-muted-foreground">
-              Download your entire project as a LaTeX structured archive. 
-              Includes all summaries as chapters and referenced images.
-            </p>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-lg bg-primary/10 text-primary">
-                  <FileText className="h-8 w-8" />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <h3 className="font-semibold text-lg">LaTeX Archive</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Full LaTeX project with main.tex, chapters, and assets. Ready to compile.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6">
-                <Button 
-                  className="w-full"
-                  size="lg"
-                  asChild
-                >
-                  <a href={`/api/projects/${resolvedParams.id}/export/latex`} download>
-                     <Upload className="h-4 w-4 mr-2 rotate-180" />
-                     Download ZIP
-                  </a>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    }
+    // Export tab removed as per user request
   ];
 
   return (

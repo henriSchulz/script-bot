@@ -99,10 +99,15 @@ export async function deleteFile(fileId: string, projectId: string) {
   }
 }
 
-export async function getFiles(projectId: string) {
+export async function getFiles(projectId: string, category?: string) {
   try {
+    const where: any = { projectId };
+    if (category) {
+      where.category = category;
+    }
+    
     const files = await db.file.findMany({
-      where: { projectId },
+      where,
       orderBy: { createdAt: "desc" },
     });
     return { files };

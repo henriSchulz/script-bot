@@ -3,15 +3,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import en from '@/locales/en.json';
 import de from '@/locales/de.json';
-import ru from '@/locales/ru.json';
 
-type Locale = 'en' | 'de' | 'ru';
+type Locale = 'en' | 'de';
 type Dictionary = typeof en;
 
 const dictionaries: Record<Locale, Dictionary> = {
   en,
-  de,
-  ru
+  de
 };
 
 interface LanguageContextType {
@@ -33,7 +31,6 @@ export function LanguageProvider({
   // Normalize initial language to supported types
   const normalizeLanguage = (lang?: string): Locale => {
     if (lang === 'German' || lang === 'de') return 'de';
-    if (lang === 'Russian' || lang === 'ru') return 'ru';
     return 'en';
   };
 

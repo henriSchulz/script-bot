@@ -3,13 +3,7 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { cwd } from 'process';
 
-export type Locale = 'en' | 'de' | 'ru';
-
-// Infer the dictionary type from the English locale file structure
-// We can't import JSON directly in all setups easily without "resolveJsonModule", 
-// so we'll define a recursive type or just use 'any' for deep keys if needed, 
-// but for type safety let's try to define the shape based on usage or a base type.
-// For now, let's define a flexible Dictionary type.
+export type Locale = 'en' | 'de';
 
 export interface Dictionary {
   [key: string]: string | Dictionary;
@@ -18,7 +12,6 @@ export interface Dictionary {
 const dictionaries: Record<Locale, () => Promise<Dictionary>> = {
   en: () => loadDictionary('en'),
   de: () => loadDictionary('de'),
-  ru: () => loadDictionary('ru'),
 };
 
 async function loadDictionary(locale: Locale): Promise<Dictionary> {
@@ -38,7 +31,7 @@ async function loadDictionary(locale: Locale): Promise<Dictionary> {
 
 export async function getDictionary(locale: string): Promise<Dictionary> {
   // Normalize locale
-  const normalizedLocale = (['en', 'de', 'ru'].includes(locale) ? locale : 'en') as Locale;
+  const normalizedLocale = (['en', 'de'].includes(locale) ? locale : 'en') as Locale;
   return dictionaries[normalizedLocale]();
 }
 

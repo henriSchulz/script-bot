@@ -97,11 +97,14 @@ export async function createSummary(projectId: string, title: string) {
 
 export async function deleteSummary(summaryId: string, projectId: string) {
   try {
-    // Get all blocks with files (cropped images) belonging to this summary
+    // Get all blocks with files that are strictly 'cropped' images belonging to this summary
+    // We do NOT want to delete uploaded source files.
     const blocks = await db.block.findMany({
       where: {
         summaryId: summaryId,
-        fileId: { not: null },
+        file: {
+          category: 'cropped'
+        }
       },
       include: { file: true },
     });

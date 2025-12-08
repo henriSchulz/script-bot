@@ -154,7 +154,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       return (
         <ReactMarkdown 
           remarkPlugins={[remarkMath]} 
-          rehypePlugins={[rehypeKatex]}
+          rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
         >
           {content}
         </ReactMarkdown>
@@ -171,7 +171,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           <ReactMarkdown
             key={`text-${idx}`}
             remarkPlugins={[remarkMath]}
-            rehypePlugins={[rehypeKatex]}
+            rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
             components={{
               p: ({children}) => <span className="inline">{children}</span>
             }}
@@ -208,7 +208,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
         <ReactMarkdown
           key="text-end"
           remarkPlugins={[remarkMath]}
-          rehypePlugins={[rehypeKatex]}
+          rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
           components={{
             p: ({children}) => <span className="inline">{children}</span>
           }}
@@ -765,7 +765,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                               <div className="prose prose-sm max-w-none dark:prose-invert">
                                 <ReactMarkdown 
                                   remarkPlugins={[remarkMath]} 
-                                  rehypePlugins={[rehypeKatex]}
+
+                                  rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
                                 >
                                   {block.content}
                                 </ReactMarkdown>

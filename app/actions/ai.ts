@@ -16,6 +16,34 @@ const apiKey = process.env.GEMINI_API_KEY;
 const googleApiKey = process.env.GOOGLE_API_KEY;
 const googleCseId = process.env.GOOGLE_CSE_ID;
 
+// Helper to clean latex content (remove delimiters that cause double-math-mode errors)
+function cleanLatex(latex: string): string {
+  if (!latex) return "";
+  let clean = latex.trim();
+  
+  // Remove wrapping $$ ... $$
+  if (clean.startsWith('$$') && clean.endsWith('$$')) {
+    clean = clean.substring(2, clean.length - 2).trim();
+  }
+  
+  // Remove wrapping $ ... $
+  if (clean.startsWith('$') && clean.endsWith('$')) {
+    clean = clean.substring(1, clean.length - 1).trim();
+  }
+  
+  // Remove wrapping \[ ... \]
+  if (clean.startsWith('\\[') && clean.endsWith('\\]')) {
+    clean = clean.substring(2, clean.length - 2).trim();
+  }
+
+  // Remove wrapping \( ... \)
+  if (clean.startsWith('\\(') && clean.endsWith('\\)')) {
+    clean = clean.substring(2, clean.length - 2).trim();
+  }
+
+  return clean;
+}
+
 // Helper to reliably parse JSON from Gemini response
 function parseGeminiResponse(text: string): any {
   // 1. Remove markdown code blocks
@@ -120,7 +148,7 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
   }
 }
 
-export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileId?: string, imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string) {
+export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileId?: string, imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, reduced: boolean = false) {
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set in environment variables" };
   }
@@ -134,7 +162,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       select: { language: true }
     });
     
-    const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : (project?.language === 'Russian' ? 'ru' : 'en');
+    const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
     const dict = await getDictionary(language);
     
     // Get language instruction from dictionary
@@ -214,6 +242,12 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
     if (focus) {
       systemPrompt += `\n\nUSER FOCUS INSTRUCTION:\nThe user has specified a focus for this summary: "${focus}". ensure you prioritize this aspect in the summary generation.`;
     }
+
+    if (reduced) {
+      systemPrompt += `\n\nREDUCED VERSION INSTRUCTION:\nCreate a REDUCED version of the summary. OMIT all derivations (Herleitungen) and proofs. Focus rigidly on FACTS, IMPORTANT FORMULAS, and TOOLS. The content must be well-reduced and concise.`;
+    }
+
+    systemPrompt += `\n\nTITLE INSTRUCTION:\nThe title of the summary must be SHORT and PRECISE. Do not make it unnecessarily long.`;
 
     // 4. Call Gemini
     const model = genAI.getGenerativeModel({ 
@@ -349,8 +383,13 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
         // Add page and fileId to normal blocks
         // For LATEX blocks, verify if they have isImportant flag and serialize to JSON if needed
         let content = block.content;
-        if (block.type === 'latex' && block.isImportant) {
-            content = JSON.stringify({ latex: block.content, isImportant: true });
+        if (block.type === 'latex') {
+             // Clean latex content
+             content = cleanLatex(content);
+             
+             if (block.isImportant) {
+                 content = JSON.stringify({ latex: content, isImportant: true });
+             }
         }
 
         processedBlocks.push({
@@ -408,7 +447,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
       return { success: false, error: "Exercise or exercise file not found" };
     }
 
-    const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : (exercise.project.language === 'Russian' ? 'ru' : 'en');
+    const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : 'en';
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -564,8 +603,10 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
             data: {
                 exerciseId,
                 type: block.type,
-                content: (block.type === 'latex' && block.isImportant) 
-                    ? JSON.stringify({ latex: processedContent, isImportant: true }) 
+                content: (block.type === 'latex')
+                    ? ((block.isImportant) 
+                        ? JSON.stringify({ latex: cleanLatex(processedContent), isImportant: true }) 
+                        : cleanLatex(processedContent))
                     : processedContent,
                 order: startOrder++,
                 page: isNaN(pageNumber) ? undefined : pageNumber,
@@ -600,7 +641,7 @@ export async function analyzeExerciseStructure(exerciseId: string) {
       return { success: false, error: "Exercise file not found" };
     }
 
-    const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : (exercise.project.language === 'Russian' ? 'ru' : 'en');
+    const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : 'en';
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -671,7 +712,7 @@ export async function chatAboutExercise(exerciseId: string, context: string, mes
 
         if (!exercise || !exercise.file) return { success: false, error: "Exercise not found" };
 
-        const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : (exercise.project.language === 'Russian' ? 'ru' : 'en');
+        const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : 'en';
         const dict = await getDictionary(language);
         const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -742,8 +783,12 @@ export async function chatAboutExercise(exerciseId: string, context: string, mes
         }
 
         return { success: true, blocks: blocks.map((b: any) => {
-             if (b.type === 'latex' && b.isImportant) {
-                 return { ...b, content: JSON.stringify({ latex: b.content, isImportant: true }) };
+             if (b.type === 'latex') {
+                 const cleanContent = cleanLatex(b.content);
+                 if (b.isImportant) {
+                     return { ...b, content: JSON.stringify({ latex: cleanContent, isImportant: true }) };
+                 }
+                 return { ...b, content: cleanContent };
              }
              if (b.type === 'info_box') {
                  let content = b.content;
@@ -775,7 +820,7 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
       select: { language: true }
     });
     
-    const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : (project?.language === 'Russian' ? 'ru' : 'en');
+    const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -867,7 +912,7 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
 
         if (!project) return { success: false, error: "Project not found" };
 
-        const language = (project.language === 'German' || project.language === 'de') ? 'de' : (project.language === 'Russian' ? 'ru' : 'en');
+        const language = (project.language === 'German' || project.language === 'de') ? 'de' : 'en';
         const dict = await getDictionary(language);
         const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
