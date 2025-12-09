@@ -7,13 +7,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { searchProjectBlocks, SearchResult } from '@/app/actions/search';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import 'katex/dist/katex.min.css';
-import katex from 'katex';
+import { BlockPreview } from './block-preview';
 
 export function GlobalSearchTab({ projectId }: { projectId: string }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -40,102 +40,48 @@ export function GlobalSearchTab({ projectId }: { projectId: string }) {
     router.push(`/projects/${projectId}/summaries/${result.summaryId}#block-${result.id}`);
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'text':
-        return <Type className="h-3.5 w-3.5" />;
-      case 'latex':
-        return <Sigma className="h-3.5 w-3.5" />;
-      case 'image':
-        return <Image className="h-3.5 w-3.5" />;
-      default:
-        return <FileText className="h-3.5 w-3.5" />;
-    }
-  };
-
-  // Highlight matching text in content
-  const highlightMatch = (text: string, match: string): React.ReactNode => {
-    if (!match) return text;
-    const regex = new RegExp(`(${match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.split(regex);
-    return parts.map((part, i) =>
-      part.toLowerCase() === match.toLowerCase() ? (
-        <mark key={i} className="bg-muted-foreground/20 text-foreground px-0.5 rounded">
-          {part}
-        </mark>
-      ) : (
-        part
-      )
-    );
-  };
-
-  // Render block content with proper formatting
-  const renderBlockContent = (result: SearchResult) => {
-    let { type, content } = result;
-
-    // Handle JSON-wrapped content (e.g., {"latex": "...", "isImportant": true})
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed.latex) {
-        content = parsed.latex;
-        type = 'latex';
+  const getTypeIcon = (type: string, isHovered: boolean = false) => {
+    const iconClass = "h-4 w-4";
+    const icon = (() => {
+      switch (type) {
+        case 'text':
+          return <Type className={iconClass} />;
+        case 'latex':
+          return <Sigma className={iconClass} />;
+        case 'image':
+          return <Image className={iconClass} />;
+        default:
+          return <FileText className={iconClass} />;
       }
-    } catch {
-      // Not JSON, use as-is
-    }
+    })();
 
-    if (type === 'latex') {
-      // Render LaTeX with KaTeX
-      try {
-        const html = katex.renderToString(content, {
-          throwOnError: false,
-          displayMode: true,
-          trust: true,
-        });
-        return (
-          <div 
-            className="overflow-x-auto py-2"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        );
-      } catch {
-        return <code className="text-sm font-mono text-muted-foreground">{content}</code>;
-      }
-    }
-
-    if (type === 'image') {
-      return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground italic">
-          <Image className="h-3.5 w-3.5" />
-          <span>{highlightMatch(content, query)}</span>
-        </div>
-      );
-    }
-
-    // Text block - strip HTML and highlight
-    const cleanText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     return (
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        {highlightMatch(cleanText, query)}
-      </p>
+      <div className={cn(
+        "p-2.5 rounded-lg border transition-all duration-200",
+        isHovered ? "bg-muted/60 border-border" : "bg-muted/30 border-border/50"
+      )}>
+        {icon}
+      </div>
     );
   };
+
+
 
   return (
     <div className="h-full flex flex-col w-full">
       {/* Search Input */}
-      <div className="flex-none px-5 py-4 border-b">
+      <div className="flex-none px-6 py-5 border-b bg-muted/20">
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
           <Input
             placeholder="Search summaries..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-10 pr-10 h-11 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-[15px] placeholder:text-muted-foreground/50 font-normal"
+            className="pl-11 pr-11 h-12 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base placeholder:text-muted-foreground/50 font-normal"
             autoFocus
           />
           {loading && (
-            <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground/50" />
+            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground/60" />
           )}
         </div>
       </div>
@@ -144,47 +90,73 @@ export function GlobalSearchTab({ projectId }: { projectId: string }) {
       <ScrollArea className="flex-1">
         {results.length > 0 ? (
           <div className="divide-y divide-border/40">
-            {results.map((result) => (
-              <button
-                key={result.id}
-                onClick={() => handleSelect(result)}
-                className="w-full text-left group px-5 py-3.5 hover:bg-muted/60 cursor-pointer transition-all duration-150 focus:outline-none focus:bg-muted/60"
-              >
-                {/* Header */}
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="text-muted-foreground/60 group-hover:text-muted-foreground/80 transition-colors">
-                    {getTypeIcon(result.type)}
-                  </div>
-                  <p className="font-medium text-[13px] text-foreground/90 truncate group-hover:text-foreground transition-colors">
-                    {result.summaryTitle}
-                  </p>
-                  <span className="text-[11px] text-muted-foreground/50 capitalize ml-auto tracking-wide">
-                    {result.type}
-                  </span>
-                </div>
+            {results.map((result) => {
+              const isHovered = hoveredId === result.id;
+              return (
+                <button
+                  key={result.id}
+                  onClick={() => handleSelect(result)}
+                  onMouseEnter={() => setHoveredId(result.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  className={cn(
+                    "w-full text-left px-6 py-5 transition-all duration-200 focus:outline-none group",
+                    isHovered
+                      ? "bg-gradient-to-r from-muted/80 to-muted/60 shadow-sm"
+                      : "hover:bg-muted/40"
+                  )}
+                >
+                  <div className="flex items-start gap-4">
+                    {getTypeIcon(result.type, isHovered)}
+                    
+                    <div className="flex-1 min-w-0 space-y-2.5">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <p className={cn(
+                          "font-semibold text-sm truncate transition-colors",
+                          isHovered ? "text-foreground" : "text-foreground/85"
+                        )}>
+                          {result.summaryTitle}
+                        </p>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider border transition-all",
+                          result.type === 'text' && "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+                          result.type === 'latex' && "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20",
+                          result.type === 'image' && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+                          !['text', 'latex', 'image'].includes(result.type) && "bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-500/20"
+                        )}>
+                          {result.type}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <BlockPreview type={result.type} content={result.content} query={query} />
+                      </div>
+                    </div>
 
-                {/* Content Preview */}
-                <div className="pl-6">
-                  {renderBlockContent(result)}
-                </div>
-              </button>
-            ))}
+                    {isHovered && (
+                      <kbd className="hidden sm:inline-flex h-6 px-2.5 items-center rounded-md border border-border/70 bg-background/50 font-mono text-xs text-muted-foreground shadow-sm">
+                        ↵
+                      </kbd>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : query.length >= 2 && !loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-            <div className="mb-4 p-3 rounded-full bg-muted/30">
-              <Search className="h-6 w-6 text-muted-foreground/30" />
+          <div className="flex flex-col items-center justify-center py-28 text-center px-4">
+            <div className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/30">
+              <Search className="h-8 w-8 text-muted-foreground/40" />
             </div>
-            <p className="text-[13px] font-medium text-muted-foreground/80">No results found</p>
-            <p className="text-xs text-muted-foreground/50 mt-1">Try different keywords</p>
+            <p className="text-base font-semibold text-muted-foreground/90">No results found</p>
+            <p className="text-sm text-muted-foreground/60 mt-2">Try different keywords or check your spelling</p>
           </div>
         ) : !loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-            <div className="mb-4 p-3 rounded-full bg-muted/20">
-              <Search className="h-6 w-6 text-muted-foreground/30" />
+          <div className="flex flex-col items-center justify-center py-28 text-center px-4">
+            <div className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border/20">
+              <Search className="h-8 w-8 text-muted-foreground/40" />
             </div>
-            <p className="text-[13px] font-medium text-muted-foreground/70">Search your summaries</p>
-            <p className="text-xs text-muted-foreground/50 mt-1 max-w-[240px]">Find text, formulas, and images across all content</p>
+            <p className="text-base font-semibold text-muted-foreground/80">Search your summaries</p>
+            <p className="text-sm text-muted-foreground/60 mt-2 max-w-[280px]">Find text, formulas, and images across all content</p>
           </div>
         ) : null}
       </ScrollArea>
