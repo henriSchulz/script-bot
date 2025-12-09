@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from "@/components/ui/progress";
 import { exportSummaryToPDF } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
+import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
 
 interface SummaryPageProps {
   params: Promise<{
@@ -31,6 +32,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
   const editorContentRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockEditorHandle>(null);
   const router = useRouter();
@@ -87,9 +89,17 @@ export default function SummaryPage({ params }: SummaryPageProps) {
     });
   }, [resolvedParams.summaryId]);
 
-  // Keyboard shortcut to toggle read-only mode
+  // Keyboard shortcuts: toggle read-only mode and open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K or Ctrl+K to open search
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+      
+      // 'e' to toggle read-only mode
       if (e.key.toLowerCase() === 'e') {
         const activeElement = document.activeElement;
         const isInput = activeElement instanceof HTMLInputElement || 
@@ -97,7 +107,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
                         (activeElement instanceof HTMLElement && activeElement.isContentEditable);
         
         if (!isInput) {
-          e.preventDefault(); // Prevent standard 'e' action if any (unlikely outside input)
+          e.preventDefault();
           setIsReadOnly((prev) => !prev);
         }
       }
@@ -137,6 +147,12 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      {/* Global Search Modal */}
+      <GlobalSearchModal 
+        projectId={resolvedParams.id}
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+      />
       {/* Fullscreen Loading Overlay */}
       {isExporting && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">

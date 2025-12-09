@@ -12,6 +12,8 @@ import { getFiles } from "@/app/actions/files";
 
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { InfoBoxBlock } from "@/components/editor/blocks/info-box-block";
+import { InlineMathRenderer } from "@/components/chat/inline-math-renderer";
+import { ExternalLink } from "lucide-react";
 
 interface Message {
   id: string;
@@ -35,20 +37,21 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
   const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
+  const [files, setFiles] = useState<{ id: string; name: string; url: string }[]>([]);
 
   // Fetch file names for context display
   useEffect(() => {
     if (contextFileIds && contextFileIds.length > 0) {
       getFiles(projectId).then(res => {
         if (res.files) {
-          const names = res.files
-            .filter(f => contextFileIds.includes(f.id))
-            .map(f => f.name);
-          setFileNames(names);
+          const contextFiles = res.files.filter(f => contextFileIds.includes(f.id));
+          setFileNames(contextFiles.map(f => f.name));
+          setFiles(contextFiles.map(f => ({ id: f.id, name: f.name, url: f.url })));
         }
       });
     } else {
         setFileNames([]);
+        setFiles([]);
     }
   }, [projectId, contextFileIds]);
 
@@ -151,10 +154,10 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* Context Header */}
       {fileNames.length > 0 && (
-          <div className="px-4 py-2 border-b bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground overflow-hidden">
+          <div className="px-4 py-2 border-b bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground overflow-hidden flex-shrink-0">
               <FileText className="h-3 w-3 shrink-0" />
               <span className="font-medium shrink-0">Context:</span>
               <div className="flex gap-1 overflow-x-auto no-scrollbar">
@@ -168,48 +171,113 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
       )}
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-4">
-          {loading ? (
-             <div className="flex justify-center py-10">
-                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-             </div>
-          ) : messages.length === 0 ? (
-              <div className="text-center py-20 text-muted-foreground">
-                  <Bot className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                  <p>Start a conversation with your project files.</p>
-              </div>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex gap-4 w-full",
-                  msg.role === 'user' ? "justify-end" : "justify-start"
-                )}
-              >
-                {msg.role === 'model' && (
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Bot className="h-5 w-5 text-primary" />
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="p-4">
+            <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-4">
+              {loading ? (
+                 <div className="flex justify-center py-10">
+                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                 </div>
+              ) : messages.length === 0 ? (
+                  <div className="text-center py-20 text-muted-foreground">
+                      <Bot className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                      <p>Start a conversation with your project files.</p>
                   </div>
-                )}
+              ) : (
+                messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      "flex gap-4 w-full",
+                      msg.role === 'user' ? "justify-end" : "justify-start"
+                    )}
+                  >
+                    {msg.role === 'model' && (
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Bot className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
 
-                <div
-                  className={cn(
-                    "rounded-2xl px-5 py-3 max-w-[85%]",
-                    msg.role === 'user'
-                      ? "bg-primary text-primary-foreground rounded-tr-sm"
-                      : "bg-muted/50 border border-border rounded-tl-sm"
-                  )}
-                >
-                  {msg.role === 'user' ? (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                  ) : (
+                    <div
+                      className={cn(
+                        "rounded-2xl px-5 py-3 max-w-[85%]",
+                        msg.role === 'user'
+                          ? "bg-primary text-primary-foreground rounded-tr-sm"
+                          : "bg-muted/50 border border-border rounded-tl-sm"
+                      )}
+                    >
+                      {msg.role === 'user' ? (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      ) : (
                     <div className="space-y-4">
-                      {msg.blocks && msg.blocks.map((block: any, idx: number) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
-                          <div key={idx}>
+                      {msg.blocks && msg.blocks.map((block: any, idx: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                          // Extract sources from text content
+                          let content = block.content;
+                          const sources: { file: string; page: number }[] = [];
+                          
+                          if (block.type === 'text') {
+                            // Match [Quelle: filename.pdf, Seite X] or [Source: filename.pdf, Page X]
+                            const sourceRegex = /\[(Quelle|Source):\s*([^,]+),\s*(Seite|Page)\s+(\d+)\]/g;
+                            let match;
+                            while ((match = sourceRegex.exec(content)) !== null) {
+                              sources.push({
+                                file: match[2].trim(),
+                                page: parseInt(match[4])
+                              });
+                            }
+                            // Remove source citations from content
+                            const cleanedContent = content.replace(sourceRegex, '').trim();
+                            // Only update if we still have content after cleanup
+                            if (cleanedContent) {
+                              content = cleanedContent;
+                            }
+                          }
+                          
+                          return (
+                            <div key={idx}>
                               {block.type === 'text' && (
-                                  <div dangerouslySetInnerHTML={{ __html: block.content }} className="prose dark:prose-invert max-w-none text-sm" />
+                                <div className="space-y-2">
+                                  <div 
+                                    dangerouslySetInnerHTML={{ __html: content }} 
+                                    className="text-sm text-foreground"
+                                    style={{ color: 'currentColor', opacity: 1 }}
+                                  />
+                                  {sources.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {sources.map((source, i) => {
+                                        // Find the actual file URL from our files state
+                                        const file = files.find(f => f.name === source.file || f.name.includes(source.file));
+                                        
+                                        return (
+                                          <button
+                                            key={i}
+                                            onClick={() => {
+                                              if (file) {
+                                                window.open(`${file.url}#page=${source.page}`, '_blank');
+                                              } else {
+                                                console.warn(`File not found in context: ${source.file}`);
+                                              }
+                                            }}
+                                            disabled={!file}
+                                            className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs border rounded-md transition-colors group ${
+                                              file 
+                                                ? 'bg-muted/50 hover:bg-muted border-border cursor-pointer' 
+                                                : 'bg-muted/20 border-border/50 cursor-not-allowed opacity-50'
+                                            }`}
+                                            title={file ? `${source.file}, Page ${source.page}` : `File not in context: ${source.file}`}
+                                          >
+                                            <FileText className={`h-3 w-3 ${file ? 'text-muted-foreground group-hover:text-foreground' : 'text-muted-foreground/50'}`} />
+                                            <span className={file ? 'text-muted-foreground group-hover:text-foreground' : 'text-muted-foreground/50'}>
+                                              {source.file.split('.')[0].substring(0, 15)}... p. {source.page}
+                                            </span>
+                                            {file && <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/50 group-hover:text-foreground/70" />}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                               {block.type === 'latex' && (
                                   <LatexBlock
@@ -226,40 +294,43 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
                                   />
                               )}
                               {/* Add other block types as needed */}
-                          </div>
-                      ))}
+                            </div>
+                          );
+                      })}
                       {!msg.blocks && msg.content && (
                           <div className="whitespace-pre-wrap">{msg.content}</div>
                       )}
                     </div>
                   )}
-                </div>
+                    </div>
 
-                {msg.role === 'user' && (
-                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                    <User className="h-5 w-5 text-primary-foreground" />
+                    {msg.role === 'user' && (
+                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <User className="h-5 w-5 text-primary-foreground" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))
-          )}
-          {isSending && (
-             <div className="flex gap-4 w-full justify-start">
-                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Bot className="h-5 w-5 text-primary" />
+                ))
+              )}
+              {isSending && (
+                 <div className="flex gap-4 w-full justify-start">
+                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Bot className="h-5 w-5 text-primary" />
+                     </div>
+                     <div className="bg-muted/50 border border-border rounded-2xl rounded-tl-sm px-5 py-3 flex items-center gap-2">
+                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                         <span className="text-sm text-muted-foreground">Thinking...</span>
+                     </div>
                  </div>
-                 <div className="bg-muted/50 border border-border rounded-2xl rounded-tl-sm px-5 py-3 flex items-center gap-2">
-                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                     <span className="text-sm text-muted-foreground">Thinking...</span>
-                 </div>
-             </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-      </ScrollArea>
+              )}
+              <div ref={bottomRef} />
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-background border-t mt-auto">
+      <div className="p-4 bg-background border-t flex-shrink-0">
         <div className="max-w-3xl mx-auto flex gap-2">
           <Textarea
             value={input}

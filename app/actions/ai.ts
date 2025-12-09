@@ -1050,11 +1050,12 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
             }
         }
         
+        
         blocks = blocks.filter((b: any) => {
             if (!b.type || !b.content) return false;
             return true;
         }).map((b: any) => {
-            // Clean LaTeX delimiters
+            // Clean LaTeX delimiters for latex blocks
             if (b.type === 'latex') {
                 // Remove \[ ... \] or $$ ... $$ or \( ... \)
                 b.content = b.content
@@ -1062,6 +1063,10 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
                     .replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '')
                     .replace(/^\\\(\s*/, '').replace(/\s*\\\)$/, '')
                     .replace(/^\$\s*/, '').replace(/\s*\$$/, '');
+            }
+            // Process inline math in text blocks and extract sources
+            if (b.type === 'text') {
+                b.content = parseMathToHtml(b.content);
             }
             if (b.type === 'info_box') {
                 let content = b.content;
