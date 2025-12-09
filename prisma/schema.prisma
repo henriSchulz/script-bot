@@ -160,6 +160,8 @@ model ChatThread {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
   messages  ChatMessage[]
+
+  contextFileIds String? // JSON string of file IDs
   
   @@index([projectId])
 }

@@ -121,12 +121,13 @@ export async function clearChatMessages(exerciseId?: string, subtaskId?: string,
   }
 }
 
-export async function createChatThread(projectId: string, title: string = "New Chat") {
+export async function createChatThread(projectId: string, title: string = "New Chat", fileIds?: string[]) {
   try {
     const thread = await db.chatThread.create({
       data: {
         projectId,
-        title
+        title,
+        contextFileIds: fileIds ? JSON.stringify(fileIds) : null
       }
     });
     return { success: true, thread };

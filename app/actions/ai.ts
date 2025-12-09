@@ -898,7 +898,7 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
   }
 }
 
-export async function chatAboutProject(projectId: string, messages: { role: string, content: string }[]) {
+export async function chatAboutProject(projectId: string, messages: { role: string, content: string }[], fileIds?: string[]) {
     if (!apiKey) return { success: false, error: "No API Key" };
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -920,10 +920,15 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
         const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
         // Fetch project files for context
+        const whereClause: any = { projectId, category: "upload" };
+        if (fileIds && fileIds.length > 0) {
+            whereClause.id = { in: fileIds };
+        }
+
         const files = await db.file.findMany({
-            where: { projectId },
+            where: whereClause,
             orderBy: { createdAt: 'desc' },
-            take: 10 // Limit to 10 most recent files to avoid context limit issues
+            take: fileIds ? undefined : 10 // Limit to 10 only if no specific files selected
         });
 
         const parts: Part[] = [];

@@ -48,6 +48,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
 import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
+import { ChatTab } from "@/components/chat/chat-tab";
 
 
 import { useLanguage } from "@/components/language-provider";
@@ -297,6 +298,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       color: "text-orange-500",
       bg: "bg-orange-500/10",
       content: <SummaryList projectId={resolvedParams.id} />
+    },
+    {
+      id: "chat",
+      label: "Chat", // TODO: Add to locale
+      icon: MessageSquare,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      content: <ChatTab projectId={resolvedParams.id} />
     },
     {
       id: "exercises",
