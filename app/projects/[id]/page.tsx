@@ -301,7 +301,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     },
     {
       id: "chat",
-      label: "Chat", // TODO: Add to locale
+      label: dict.project.chat,
       icon: MessageSquare,
       color: "text-blue-500",
       bg: "bg-blue-500/10",

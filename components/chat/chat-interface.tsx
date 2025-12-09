@@ -6,8 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2, Bot, User, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { chatAboutProject } from "@/app/actions/ai";
-import { getChatMessages, saveChatMessage } from "@/app/actions/chats";
+import { chatAboutProject, generateChatTitle } from "@/app/actions/ai";
+import { getChatMessages, saveChatMessage, updateChatThreadTitle } from "@/app/actions/chats";
 import { getFiles } from "@/app/actions/files";
 
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
@@ -25,9 +25,10 @@ interface ChatInterfaceProps {
   projectId: string;
   threadId: string;
   contextFileIds?: string[];
+  onTitleChange?: () => void;
 }
 
-export function ChatInterface({ projectId, threadId, contextFileIds }: ChatInterfaceProps) {
+export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChange }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -103,6 +104,26 @@ export function ChatInterface({ projectId, threadId, contextFileIds }: ChatInter
          const savedAiMsg = await saveChatMessage(undefined, 'model', undefined, aiResponse.blocks, undefined, projectId, threadId);
          if (savedAiMsg.success && savedAiMsg.message) {
              setMessages(prev => [...prev, savedAiMsg.message!]);
+
+             // Check if we need to auto-generate title (if it's the first exchange or title is default)
+             // We can check messages.length. Before this exchange it was messages.length.
+             // If messages.length was 0 (now 2 with user+ai), we should generate title.
+             // Or we can check if messages were empty at start of handleSend (captured in variable or state).
+             // Let's rely on current messages state length being 0 before we updated it optimistically?
+             // Actually state updates are async/batched.
+             // Safer: check if messages.length === 1 (the optimistic user message we just added)
+             // Wait, we added user message optimistically. So length is 1.
+             // Then we got AI response.
+
+             if (messages.length <= 1) {
+                 // Generate title in background
+                 generateChatTitle(projectId, userContent).then(async (res) => {
+                     if (res.success && res.title) {
+                         await updateChatThreadTitle(threadId, res.title);
+                         onTitleChange?.();
+                     }
+                 });
+             }
          }
       } else {
           // Handle error

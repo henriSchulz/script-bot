@@ -123,6 +123,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
             projectId={projectId}
             threadId={derivedActiveThread.id}
             contextFileIds={derivedActiveThread.contextFileIds ? JSON.parse(derivedActiveThread.contextFileIds) : []}
+            onTitleChange={fetchThreads}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-muted/5">

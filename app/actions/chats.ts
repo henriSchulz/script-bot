@@ -167,3 +167,16 @@ export async function deleteChatThread(threadId: string) {
     return { success: false, error: "Failed to delete chat thread" };
   }
 }
+
+export async function updateChatThreadTitle(threadId: string, title: string) {
+    try {
+      await db.chatThread.update({
+        where: { id: threadId },
+        data: { title }
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Update chat thread title error:", error);
+      return { success: false, error: "Failed to update chat thread title" };
+    }
+  }

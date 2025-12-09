@@ -116,12 +116,15 @@ export function NewChatDialog({ projectId, onSuccess, trigger }: NewChatDialogPr
 
         <div className="grid gap-6 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="title">Chat Title</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="title">Chat Title (Optional)</Label>
+              <span className="text-xs text-muted-foreground">Auto-generated if empty</span>
+            </div>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Exam Prep, Chapter 1 Questions..."
+              placeholder="e.g. Exam Prep (or leave blank)"
               disabled={isPending}
             />
           </div>

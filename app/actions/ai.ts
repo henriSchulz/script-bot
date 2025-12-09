@@ -921,14 +921,17 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
 
         // Fetch project files for context
         const whereClause: any = { projectId, category: "upload" };
-        if (fileIds && fileIds.length > 0) {
+
+        // If fileIds is provided (even if empty), we strictly follow it.
+        // If fileIds is undefined/null, we default to recent 10.
+        if (fileIds) {
             whereClause.id = { in: fileIds };
         }
 
         const files = await db.file.findMany({
             where: whereClause,
             orderBy: { createdAt: 'desc' },
-            take: fileIds ? undefined : 10 // Limit to 10 only if no specific files selected
+            take: fileIds ? undefined : 10 // Limit to 10 only if no specific files selected (undefined fileIds)
         });
 
         const parts: Part[] = [];
@@ -1075,5 +1078,37 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
     } catch (error) {
         console.error("[ProjectChat] Error:", error);
         return { success: false, error: "Failed to generate chat response" };
+    }
+}
+
+export async function generateChatTitle(projectId: string, message: string) {
+    if (!apiKey) return { success: false, error: "No API Key" };
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+    });
+
+    try {
+        const project = await db.project.findUnique({
+            where: { id: projectId },
+            select: { language: true }
+        });
+        const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
+
+        const prompt = `Generate a very short title (max 5 words) for a chat conversation that starts with this message.
+        The title should be in ${language === 'de' ? 'German' : 'English'}.
+        Do not use quotes.
+
+        Message: "${message}"`;
+
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const title = response.text().trim();
+
+        return { success: true, title };
+    } catch (error) {
+        console.error("Generate Chat Title Error:", error);
+        return { success: false, error: "Failed to generate title" };
     }
 }
