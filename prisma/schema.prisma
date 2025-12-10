@@ -99,6 +99,8 @@ model Block {
   exerciseId String?
   exercise   Exercise? @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
+  explanation BlockExplanation?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -164,4 +166,13 @@ model ChatThread {
   contextFileIds String? // JSON string of file IDs
   
   @@index([projectId])
+}
+
+model BlockExplanation {
+  id          String   @id @default(cuid())
+  blockId     String   @unique
+  block       Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  explanation String   // JSON string of blocks array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

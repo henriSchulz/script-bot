@@ -47,7 +47,7 @@ import { FormulaList } from "@/components/formulas/formula-list";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
-import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
+import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 import { ChatTab } from "@/components/chat/chat-tab";
 
 
@@ -157,6 +157,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
     if (tabParam) {
       setActiveTab(tabParam);
+      // Clear tab param from URL after applying it
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete('tab');
+      const newUrl = newParams.toString() 
+        ? `/projects/${resolvedParams.id}?${newParams.toString()}`
+        : `/projects/${resolvedParams.id}`;
+      router.replace(newUrl, { scroll: false });
     }
     
     if (queryParam) {
@@ -166,12 +173,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       localStorage.removeItem(`project-${resolvedParams.id}-pending-query`);
     }
 
-    // Clear query param if present (keep tab param)
+    // Clear query param if present
     if (queryParam) {
       console.log('[ProjectPage] Clearing query param');
       const newParams = new URLSearchParams(searchParams.toString());
       newParams.delete('query');
-      router.replace(`/projects/${resolvedParams.id}?${newParams.toString()}`, { scroll: false });
+      const newUrl = newParams.toString() 
+        ? `/projects/${resolvedParams.id}?${newParams.toString()}`
+        : `/projects/${resolvedParams.id}`;
+      router.replace(newUrl, { scroll: false });
     }
   }, [searchParams, setActiveTab, resolvedParams.id, router, projectName]);
 
@@ -908,7 +918,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       </Dialog>
 
       {/* Global Search Modal */}
-      <GlobalSearchModal 
+      <UnifiedSearchModal 
         projectId={resolvedParams.id}
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}

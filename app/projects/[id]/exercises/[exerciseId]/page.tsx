@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { useLanguage } from "@/components/language-provider";
 import { ReferenceLink, parseReferences } from "@/components/chat/reference-link";
-import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
+import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 
 const PdfViewer = dynamic(() => import("@/components/pdf-viewer").then(mod => mod.PdfViewer), {
   ssr: false,
@@ -966,7 +966,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       </div>
 
       {/* Global Search Modal */}
-      <GlobalSearchModal 
+      <UnifiedSearchModal 
         projectId={resolvedParams.id}
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}

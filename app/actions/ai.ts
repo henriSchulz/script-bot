@@ -76,7 +76,14 @@ function parseGeminiResponse(text: string): any {
 
   // 4. Attempt repair for truncation
   // Common missing endings due to token limit
+  
+  // First, check if we have an unclosed string (odd number of unescaped quotes)
+  // This is a simple heuristic - count quotes that aren't preceded by backslash
+  const quoteCount = (cleanText.match(/(?<!\\)"/g) || []).length;
+  const hasUnclosedString = quoteCount % 2 !== 0;
+  
   const closers = [
+      ...(hasUnclosedString ? ['"', '" }', '" }]', '" } ]'] : []),
       '}', 
       ']', 
       '"}', 
@@ -1117,3 +1124,162 @@ export async function generateChatTitle(projectId: string, message: string) {
         return { success: false, error: "Failed to generate title" };
     }
 }
+
+export async function generateExplanationForBlock(blockContent: string, blockType: string, projectId: string) {
+    if (!apiKey) {
+        return { success: false, error: "GEMINI_API_KEY is not set" };
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+
+    try {
+        // Fetch project language
+        const project = await db.project.findUnique({
+            where: { id: projectId },
+            select: { language: true }
+        });
+
+        const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
+        const dict = await getDictionary(language);
+        const langInstruction = (dict.ai as any).prompts.lang_instruction;
+
+        // Fetch project files for context (limit to 3 most recent)
+        const files = await db.file.findMany({
+            where: {
+                projectId,
+                category: "upload"
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 3
+        });
+
+        // Prepare file parts
+        const parts: Part[] = [];
+        
+        for (const file of files) {
+            const filename = file.url.split("/").pop();
+            if (!filename) continue;
+            
+            const filepath = join(cwd(), "public", "uploads", projectId, filename);
+            try {
+                const fileBuffer = await readFile(filepath);
+                
+                if (file.mimeType === "application/pdf") {
+                    parts.push({
+                        text: `Context File: ${file.name}`
+                    });
+                    parts.push({
+                        inlineData: {
+                            data: fileBuffer.toString("base64"),
+                            mimeType: "application/pdf"
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn(`Could not read file ${filename}, skipping`);
+            }
+        }
+
+        // Create prompt
+        const promptTemplate = (dict.ai as any).prompts?.explain_block || `You are an expert tutor. {langInstruction}
+
+EXPLAIN THIS BLOCK:
+{blockContent}
+
+TYPE: {blockType}
+
+CRITICAL: Explain ONLY this specific content. Do not discuss other topics.
+
+Your explanation must:
+- Be detailed and comprehensive (3-5 blocks minimum)
+- Start with a <h3> heading in a text block
+- Use "latex" blocks for key formulas
+- Use inline math ($x$, $\\\\alpha$) in text, NEVER Unicode
+- Be focused strictly on this topic
+
+Output ONLY a JSON array of blocks:
+[
+  { "type": "text", "content": "<h3>Title</h3><p>...</p>" },
+  { "type": "latex", "content": "formula", "isImportant": true }
+]
+
+CRITICAL: Raw JSON only. Double-escape backslashes (\\\\\\\\frac). No markdown.`;
+
+        const systemPrompt = formatString(promptTemplate, { 
+            langInstruction,
+            blockContent,
+            blockType 
+        });
+
+        // Call Gemini
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            generationConfig: {
+                responseMimeType: "application/json"
+            },
+            safetySettings: [
+                {
+                    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+                {
+                    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+                {
+                    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+                {
+                    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+            ],
+        });
+
+        const result = await model.generateContent([systemPrompt, ...parts]);
+        const response = await result.response;
+        const text = response.text();
+
+        // Parse JSON
+        let blocks;
+        try {
+            blocks = parseGeminiResponse(text);
+
+            // Validate it's an array
+            if (!Array.isArray(blocks)) {
+                if (blocks && typeof blocks === 'object' && Array.isArray((blocks as any).blocks)) {
+                    blocks = (blocks as any).blocks;
+                } else {
+                    throw new Error("Parsed JSON is not an array");
+                }
+            }
+
+            // Process blocks (clean latex, etc)
+            blocks = blocks.map((b: any) => {
+                if (b.type === 'latex') {
+                    const cleanContent = cleanLatex(b.content);
+                    if (b.isImportant) {
+                        return { ...b, content: JSON.stringify({ latex: cleanContent, isImportant: true }) };
+                    }
+                    return { ...b, content: cleanContent };
+                }
+                if (b.type === 'text') {
+                    return { ...b, content: parseMathToHtml(b.content) };
+                }
+                return b;
+            });
+
+        } catch (e) {
+            console.error("Failed to parse explanation response:", e);
+            return { success: false, error: "Failed to parse AI response" };
+        }
+
+        return { success: true, blocks };
+
+    } catch (error) {
+        console.error("Generate Explanation Error:", error);
+        return { success: false, error: "Failed to generate explanation" };
+    }
+}
+

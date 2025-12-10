@@ -35,7 +35,9 @@ export const BlockPreview = memo(({ type, content, query }: BlockPreviewProps) =
   // Highlight matching text
   const highlightMatch = (text: string, match?: string): React.ReactNode => {
     if (!match) return text;
-    const regex = new RegExp(`(${match.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')})`, 'gi');
+    // Escape special regex characters
+    const escapedMatch = match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedMatch})`, 'gi');
     const parts = text.split(regex);
     return parts.map((part, i) =>
       part.toLowerCase() === match.toLowerCase() ? (

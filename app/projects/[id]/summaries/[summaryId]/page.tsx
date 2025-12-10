@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from "@/components/ui/progress";
 import { exportSummaryToPDF } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
-import { GlobalSearchModal } from "@/components/experiments/global-search-modal";
+import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 
 interface SummaryPageProps {
   params: Promise<{
@@ -148,7 +148,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       {/* Global Search Modal */}
-      <GlobalSearchModal 
+      <UnifiedSearchModal 
         projectId={resolvedParams.id}
         open={searchOpen}
         onOpenChange={setSearchOpen}

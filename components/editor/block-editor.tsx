@@ -11,6 +11,7 @@ import { PendingImageBlock } from './blocks/pending-image-block';
 import { InfoBoxBlock } from './blocks/info-box-block';
 import { BatchUploadDialog } from './batch-upload-dialog';
 import { GenerateBlocksDialog } from './generate-blocks-dialog';
+import { BlockExplanationModal } from './block-explanation-modal';
 import { Button } from '@/components/ui/button';
 import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, ExternalLink, Copy, Scissors, Star, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const blockRefs = useRef<Map<string, TextBlockRef | null>>(new Map());
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
+  const [explanationModalOpen, setExplanationModalOpen] = useState(false);
+  const [selectedBlockForExplanation, setSelectedBlockForExplanation] = useState<string | null>(null);
   const lastSelectedBlockIdRef = useRef<string | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -793,8 +796,11 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-md"
-                                title="Ask ChatGPT about this"
-                                onClick={() => window.open(`https://chatgpt.com/?q=${encodeURIComponent(block.content)}`, '_blank')}
+                                title="Get AI Explanation"
+                                onClick={() => {
+                                  setSelectedBlockForExplanation(block.id);
+                                  setExplanationModalOpen(true);
+                                }}
                               >
                                 <Sparkles className="h-3.5 w-3.5" />
                               </Button>
@@ -912,6 +918,14 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
         projectId={projectId}
         onSuccess={handleGeneratedBlocks}
       />
+      {selectedBlockForExplanation && (
+        <BlockExplanationModal
+          open={explanationModalOpen}
+          onOpenChange={setExplanationModalOpen}
+          blockId={selectedBlockForExplanation}
+          projectId={projectId}
+        />
+      )}
       </div>
     </div>
   );
