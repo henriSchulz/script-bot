@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import en from '@/locales/en.json';
 import de from '@/locales/de.json';
 
@@ -47,6 +48,7 @@ export function LanguageProvider({
   children: React.ReactNode;
   initialLang?: Locale;
 }) {
+  const router = useRouter();
   const [language, setLanguageState] = useState<Locale>(initialLang);
   const [dict, setDict] = useState<Dictionary>(dictionaries[initialLang]);
   // We still track mounted state to know when we can safely access window/localStorage
@@ -77,6 +79,7 @@ export function LanguageProvider({
       localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
       // Also set a cookie so server actions can access it
       document.cookie = `app-language=${lang}; path=/; max-age=31536000; SameSite=Lax`;
+      router.refresh();
     }
   };
 

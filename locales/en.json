@@ -11,7 +11,18 @@
     "error": "Error",
     "success": "Success"
   },
+  "home": {
+    "welcome": "Welcome to",
+    "subtitle": "Get started by managing your projects",
+    "goToProjects": "Go to Projects"
+  },
   "project": {
+    "title": "Projects",
+    "subtitle": "Manage your projects and files.",
+    "noProjects": "No projects yet",
+    "startCreating": "Get started by creating your first project.",
+    "file": "file",
+    "files": "files",
     "overview": "Overview",
     "files": "Files",
     "summaries": "Summaries",

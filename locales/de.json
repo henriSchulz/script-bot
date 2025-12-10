@@ -11,7 +11,18 @@
     "error": "Fehler",
     "success": "Erfolg"
   },
+  "home": {
+    "welcome": "Willkommen bei",
+    "subtitle": "Beginnen Sie mit der Verwaltung Ihrer Projekte",
+    "goToProjects": "Zu den Projekten"
+  },
   "project": {
+    "title": "Projekte",
+    "subtitle": "Verwalten Sie Ihre Projekte und Dateien.",
+    "noProjects": "Noch keine Projekte",
+    "startCreating": "Erstellen Sie Ihr erstes Projekt.",
+    "file": "Datei",
+    "files": "Dateien",
     "overview": "Übersicht",
     "files": "Dateien",
     "summaries": "Zusammenfassungen",
