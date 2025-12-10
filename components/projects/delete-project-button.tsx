@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { deleteProject } from "@/app/actions/projects";
 import { toast } from "sonner";
+import { useLanguage } from "@/components/language-provider";
 
 interface DeleteProjectButtonProps {
   projectId: string;
@@ -26,6 +27,7 @@ interface DeleteProjectButtonProps {
 export function DeleteProjectButton({ projectId, projectName }: DeleteProjectButtonProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
+  const { t } = useLanguage();
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation if inside a link
@@ -35,13 +37,13 @@ export function DeleteProjectButton({ projectId, projectName }: DeleteProjectBut
     try {
       const result = await deleteProject(projectId);
       if (result.success) {
-        toast.success("Project deleted successfully");
+        toast.success(t('deleteProject.success'));
         router.refresh();
       } else {
-        toast.error("Failed to delete project");
+        toast.error(t('deleteProject.error'));
       }
     } catch (error) {
-      toast.error("An error occurred while deleting the project");
+      toast.error(t('common.error'));
     } finally {
       setIsDeleting(false);
     }
@@ -63,26 +65,25 @@ export function DeleteProjectButton({ projectId, projectName }: DeleteProjectBut
             className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Delete project</span>
+            <span className="sr-only">{t('common.delete')}</span>
           </Button>
         </AlertDialogTrigger>
       </div>
       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>{t('deleteProject.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the project
-            "{projectName}" and all its files and summaries.
+            {t('deleteProject.description')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? t('deleteProject.deleting') : t('common.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

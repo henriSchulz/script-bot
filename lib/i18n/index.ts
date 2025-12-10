@@ -5,6 +5,7 @@ import { cwd } from 'process';
 
 export type Locale = 'en' | 'de';
 
+// Weakly typed dictionary to allow traversal
 export interface Dictionary {
   [key: string]: string | Dictionary;
 }
