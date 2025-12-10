@@ -72,7 +72,14 @@
   },
   "formulas": {
     "title": "Formulas",
-    "noFormulas": "No formulas yet"
+    "noFormulas": "No formulas yet",
+    "search": "Search formulas...",
+    "category": "Category",
+    "categoryPlaceholder": "e.g., Thermodynamics",
+    "description": "Description",
+    "descriptionPlaceholder": "A brief explanation of the formula...",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes"
   },
   "ai": {
     "generating": "Generating...",
@@ -96,5 +103,51 @@
     "generating": "Generating...",
     "success": "Content generated successfully!",
     "error": "Failed to generate content"
+  },
+  "editor": {
+    "imageUrl": "Enter image URL...",
+    "addImage": "Add Image",
+    "crop": "Crop",
+    "upload": "Upload",
+    "latexPlaceholder": "Enter LaTeX formula, e.g., \\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}",
+    "viewPdfPage": "View PDF Page",
+    "paragraph": "Paragraph",
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "heading3": "Heading 3",
+    "numberedList": "Numbered List",
+    "bulletList": "Bullet List"
+  },
+  "search": {
+    "placeholder": "Search summaries, exercises, files or content...",
+    "summariesPlaceholder": "Search summaries...",
+    "filesPlaceholder": "Search files..."
+  },
+  "chat": {
+    "newChat": "New Chat",
+    "noChats": "No chats yet",
+    "titlePlaceholder": "e.g., Exam Prep (or leave blank)",
+    "noFilesAvailable": "No files available.",
+    "loadingFiles": "Loading files..."
+  },
+  "deleteProject": {
+    "title": "Are you absolutely sure?",
+    "description": "This action cannot be undone. This will permanently delete the project and all its files and summaries.",
+    "deleting": "Deleting...",
+    "success": "Project deleted successfully",
+    "error": "Failed to delete project"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your application preferences",
+    "languageTitle": "Language",
+    "languageDescription": "Choose your preferred language for the entire application",
+    "applicationLanguage": "Application Language",
+    "appliesToAll": "This setting applies to all projects and the entire user interface",
+    "note": "Your language preference is saved in your browser and will persist across sessions.",
+    "futureSettings": "More settings will be available in future updates"
+  },
+  "reference": {
+    "page": "Page"
   }
 }

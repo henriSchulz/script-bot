@@ -10,6 +10,19 @@ import { createSummary } from "./summaries";
 import { parseMathToHtml } from "@/lib/math-parser";
 import { getDictionary, formatString } from "@/lib/i18n";
 import JSON5 from 'json5';
+import { cookies } from 'next/headers';
+
+// Helper to get global language from browser storage (via cookies)
+async function getGlobalLanguage(): Promise<'en' | 'de'> {
+  try {
+    const cookieStore = await cookies();
+    const lang = cookieStore.get('app-language')?.value;
+    return (lang === 'de' || lang === 'en') ? lang : 'en';
+  } catch (e) {
+    return 'en';
+  }
+}
+
 
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -163,14 +176,8 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
   const genAI = new GoogleGenerativeAI(apiKey);
 
   try {
-    // Fetch project language
-    const project = await db.project.findUnique({
-      where: { id: projectId },
-      select: { language: true }
-    });
-    
-    // Fallback to English if no language set or other than 'de'
-    const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
+    // Get global language from user settings
+    const language = await getGlobalLanguage();
     const dict = await getDictionary(language);
     
     // Get language instruction from dictionary
@@ -457,7 +464,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
       return { success: false, error: "Exercise or exercise file not found" };
     }
 
-    const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : 'en';
+    const language = await getGlobalLanguage();
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -651,7 +658,7 @@ export async function analyzeExerciseStructure(exerciseId: string) {
       return { success: false, error: "Exercise file not found" };
     }
 
-    const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : 'en';
+    const language = await getGlobalLanguage();
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -722,7 +729,7 @@ export async function chatAboutExercise(exerciseId: string, context: string, mes
 
         if (!exercise || !exercise.file) return { success: false, error: "Exercise not found" };
 
-        const language = (exercise.project.language === 'German' || exercise.project.language === 'de') ? 'de' : 'en';
+        const language = await getGlobalLanguage();
         const dict = await getDictionary(language);
         const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -825,12 +832,7 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
 
   try {
     // Fetch project language
-    const project = await db.project.findUnique({
-      where: { id: projectId },
-      select: { language: true }
-    });
-    
-    const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
+    const language = await getGlobalLanguage();
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -915,14 +917,7 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
     });
     
     try {
-        const project = await db.project.findUnique({
-            where: { id: projectId },
-            select: { language: true }
-        });
-
-        if (!project) return { success: false, error: "Project not found" };
-
-        const language = (project.language === 'German' || project.language === 'de') ? 'de' : 'en';
+        const language = await getGlobalLanguage();
         const dict = await getDictionary(language);
         const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
@@ -1102,11 +1097,7 @@ export async function generateChatTitle(projectId: string, message: string) {
     });
 
     try {
-        const project = await db.project.findUnique({
-            where: { id: projectId },
-            select: { language: true }
-        });
-        const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
+        const language = await getGlobalLanguage();
 
         const prompt = `Generate a very short title (max 5 words) for a chat conversation that starts with this message.
         The title should be in ${language === 'de' ? 'German' : 'English'}.
@@ -1134,12 +1125,7 @@ export async function generateExplanationForBlock(blockContent: string, blockTyp
 
     try {
         // Fetch project language
-        const project = await db.project.findUnique({
-            where: { id: projectId },
-            select: { language: true }
-        });
-
-        const language = (project?.language === 'German' || project?.language === 'de') ? 'de' : 'en';
+        const language = await getGlobalLanguage();
         const dict = await getDictionary(language);
         const langInstruction = (dict.ai as any).prompts.lang_instruction;
 

@@ -21,25 +21,64 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+const LANGUAGE_STORAGE_KEY = 'app-language';
+
+// Get initial language from localStorage or browser default
+function getInitialLanguage(): Locale {
+  if (typeof window === 'undefined') return 'en';
+  
+  // Try to get from localStorage
+  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (stored === 'de' || stored === 'en') {
+    return stored;
+  }
+  
+  // Fallback to browser language
+  const browserLang = navigator.language.toLowerCase();
+  if (browserLang.startsWith('de')) return 'de';
+  
+  return 'en';
+}
+
 export function LanguageProvider({ 
-  children, 
-  initialLanguage = 'en' 
+  children,
+  initialLang = 'en'
 }: { 
-  children: React.ReactNode; 
-  initialLanguage?: string;
+  children: React.ReactNode;
+  initialLang?: Locale;
 }) {
-  // Normalize initial language to supported types
-  const normalizeLanguage = (lang?: string): Locale => {
-    if (lang === 'German' || lang === 'de') return 'de';
-    return 'en';
-  };
+  const [language, setLanguageState] = useState<Locale>(initialLang);
+  const [dict, setDict] = useState<Dictionary>(dictionaries[initialLang]);
+  // We still track mounted state to know when we can safely access window/localStorage
+  const [mounted, setMounted] = useState(false);
 
-  const [language, setLanguage] = useState<Locale>(normalizeLanguage(initialLanguage));
-  const [dict, setDict] = useState<Dictionary>(dictionaries[normalizeLanguage(initialLanguage)]);
+  // Initialize language on mount
+  useEffect(() => {
+    setMounted(true);
+    
+    // Check localStorage - it might have a more recent value than the cookie/default
+    const localLang = getInitialLanguage();
+    
+    // If localStorage has a valid value and it differs from our initial (server) value, use it
+    if (localLang && localLang !== language) {
+       setLanguageState(localLang);
+       setDict(dictionaries[localLang]);
+    }
+  }, []); // Run once on mount
 
+  // Update dictionary when language changes
   useEffect(() => {
     setDict(dictionaries[language]);
   }, [language]);
+
+  const setLanguage = (lang: Locale) => {
+    setLanguageState(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+      // Also set a cookie so server actions can access it
+      document.cookie = `app-language=${lang}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+  };
 
   const t = (path: string, params?: Record<string, string | number>): string => {
     const keys = path.split('.');
@@ -80,3 +119,4 @@ export function useLanguage() {
   }
   return context;
 }
+

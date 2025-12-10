@@ -36,7 +36,6 @@ export async function createProject(prevState: any, formData: FormData) {
       name: validatedFields.data.name,
       description: validatedFields.data.description,
       color: validatedFields.data.color,
-      language: validatedFields.data.language,
     },
   });
 

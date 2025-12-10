@@ -74,7 +74,14 @@
   },
   "formulas": {
     "title": "Formelsammlung",
-    "noFormulas": "Noch keine Formeln"
+    "noFormulas": "Noch keine Formeln",
+    "search": "Formeln suchen...",
+    "category": "Kategorie",
+    "categoryPlaceholder": "z.B. Thermodynamik",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Eine kurze Erklärung der Formel...",
+    "cancel": "Abbrechen",
+    "saveChanges": "Änderungen speichern"
   },
   "ai": {
     "generating": "Generiere...",
@@ -98,5 +105,51 @@
     "generating": "Generiere...",
     "success": "Inhalt erfolgreich generiert!",
     "error": "Fehler beim Generieren des Inhalts"
+  },
+  "editor": {
+    "imageUrl": "Bild-URL eingeben...",
+    "addImage": "Bild hinzufügen",
+    "crop": "Zuschneiden",
+    "upload": "Hochladen",
+    "latexPlaceholder": "LaTeX Formel eingeben, z.B. \\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}",
+    "viewPdfPage": "PDF Seite ansehen",
+    "paragraph": "Absatz",
+    "heading1": "Überschrift 1",
+    "heading2": "Überschrift 2",
+    "heading3": "Überschrift 3",
+    "numberedList": "Nummerierte Liste",
+    "bulletList": "Aufzählungsliste"
+  },
+  "search": {
+    "placeholder": "Suche Zusammenfassungen, Aufgaben, Dateien oder Inhalte...",
+    "summariesPlaceholder": "Suche Zusammenfassungen...",
+    "filesPlaceholder": "Suche Dateien..."
+  },
+  "chat": {
+    "newChat": "Neuer Chat",
+    "noChats": "Noch keine Chats",
+    "titlePlaceholder": "z.B. Prüfungsvorbereitung (oder leer lassen)",
+    "noFilesAvailable": "Keine Dateien verfügbar.",
+    "loadingFiles": "Lade Dateien..."
+  },
+  "deleteProject": {
+    "title": "Bist du dir absolut sicher?",
+    "description": "Diese Aktion kann nicht rückgängig gemacht werden. Das Projekt und alle zugehörigen Dateien und Zusammenfassungen werden dauerhaft gelöscht.",
+    "deleting": "Lösche...",
+    "success": "Projekt erfolgreich gelöscht",
+    "error": "Fehler beim Löschen des Projekts"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "subtitle": "Verwalte deine Anwendungseinstellungen",
+    "languageTitle": "Sprache",
+    "languageDescription": "Wähle deine bevorzugte Sprache für die gesamte Anwendung",
+    "applicationLanguage": "Anwendungssprache",
+    "appliesToAll": "Diese Einstellung gilt für alle Projekte und die gesamte Benutzeroberfläche",
+    "note": "Deine Sprachpräferenz wird im Browser gespeichert und bleibt über Sitzungen hinweg erhalten.",
+    "futureSettings": "Weitere Einstellungen werden in zukünftigen Updates verfügbar sein"
+  },
+  "reference": {
+    "page": "Seite"
   }
 }
