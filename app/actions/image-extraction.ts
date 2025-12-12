@@ -49,14 +49,14 @@ global.document = {
   createElement: (tagName: string) => {
     if (tagName === 'canvas') return createCanvas(1, 1);
     if (tagName === 'img') return new Image();
-    return {};
+    return {} as any;
   },
   createElementNS: (ns: string, tagName: string) => {
     if (tagName === 'canvas') return createCanvas(1, 1);
     if (tagName === 'img') return new Image();
-    return {};
+    return {} as any;
   }
-};
+} as any;
 
 // --- NodeCanvasFactory ---
 

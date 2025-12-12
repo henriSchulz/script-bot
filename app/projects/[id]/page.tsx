@@ -49,6 +49,7 @@ import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 import { ChatTab } from "@/components/chat/chat-tab";
+import { LearningTab } from "@/components/learning/learning-tab";
 
 
 import { useLanguage } from "@/components/language-provider";
@@ -324,6 +325,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       color: "text-green-500",
       bg: "bg-green-500/10",
       content: <ExerciseList projectId={resolvedParams.id} />
+    },
+    {
+      id: "learning",
+      label: "Interactive Learning",
+      icon: Sparkles,
+      color: "text-indigo-500",
+      bg: "bg-indigo-500/10",
+      content: <LearningTab projectId={resolvedParams.id} />
     },
 
     {
@@ -872,7 +881,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 ) : (
                   <ScrollArea className="h-full">
                     <div className="p-6">
-                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" || tab.id === "search" ? (
+                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" || tab.id === "search" || tab.id === "learning" ? (
                         tab.content
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">

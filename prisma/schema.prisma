@@ -24,6 +24,37 @@ model Project {
   formulas    Formula[]
   chatMessages ChatMessage[]
   chatThreads  ChatThread[]
+  learningSessions LearningSession[]
+}
+
+model LearningSession {
+  id             String         @id @default(cuid())
+  title          String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  status         String         @default("active") // "active", "completed", "archived"
+
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  contextFileIds String?        // JSON string of file IDs used for generation
+
+  units          LearningUnit[]
+
+  @@index([projectId])
+}
+
+model LearningUnit {
+  id             String          @id @default(cuid())
+  type           String          // "explanation", "quiz", "flashcard"
+  content        String          // JSON string: { text: "...", question: "...", options: [], answer: "..." }
+  order          Int
+  isCompleted    Boolean         @default(false)
+
+  sessionId      String
+  session        LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
 }
 
 model File {
