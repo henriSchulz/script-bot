@@ -1,10 +1,441 @@
+npm warn exec The following package was not found and will be installed: next@16.0.10
+ ⚠ Installing TypeScript as it was not found while loading "next.config.ts".
 
-> script-bot@0.1.0 start
-> next start
+Installing devDependencies (npm):
+- typescript
 
-   ▲ Next.js 16.0.7
+
+added 724 packages, and audited 725 packages in 41s
+
+276 packages are looking for funding
+  run `npm fund` for details
+
+1 high severity vulnerability
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+   ▲ Next.js 16.0.10 (Turbopack)
    - Local:         http://localhost:3000
    - Network:       http://192.168.0.2:3000
+   - Experiments (use with caution):
+     · serverActions
 
  ✓ Starting...
- ✓ Ready in 675ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 42.9s
+ ○ Compiling /projects/[id] ...
+ GET /projects/dummy-id 200 in 11.1s (compile: 10.4s, render: 714ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+Error fetching summaries: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/summaries.ts:10:40)
+    at <unknown> (-->  schema.prisma:10)
+    at async getSummaries (app/actions/summaries.ts:10:23)
+   8 | export async function getSummaries(projectId: string) {
+   9 |   try {
+> 10 |     const summaries = await db.summary.findMany({
+     |                                        ^
+  11 |       where: {
+  12 |         projectId: projectId,
+  13 |       }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /projects/dummy-id 200 in 1320ms (compile: 43ms, render: 1277ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:223:151
+
+  220 ;
+  221 async function getProject(projectId) {
+  222     try {
+→ 223         const project = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+Error fetching project: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:223:151
+
+  220 ;
+  221 async function getProject(projectId) {
+  222     try {
+→ 223         const project = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/projects.ts:8:38)
+    at <unknown> (-->  schema.prisma:10)
+    at async getProject (app/actions/projects.ts:8:21)
+   6 | export async function getProject(projectId: string) {
+   7 |   try {
+>  8 |     const project = await db.project.findUnique({
+     |                                      ^
+   9 |       where: {
+  10 |         id: projectId,
+  11 |       }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /projects/dummy-id 200 in 534ms (compile: 63ms, render: 471ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:1266:149
+
+  1263         }));
+  1264 }
+  1265 async function getAllSummaries(projectId) {
+→ 1266     const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].exercise.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:1290:150
+
+  1287         }));
+  1288 }
+  1289 async function getAllExercises(projectId) {
+→ 1290     const exercises = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].exercise.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+ ⨯ Error [PrismaClientInitializationError]:
+Invalid `{imported module ./lib/db.ts}["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:1266:149
+
+  1263         }));
+  1264 }
+  1265 async function getAllSummaries(projectId) {
+→ 1266     const summaries = await {imported module ./lib/db.ts}["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/search.ts:184:38)
+    at <unknown> (-->  schema.prisma:10)
+    at async getAllSummaries (app/actions/search.ts:184:21)
+    at async searchProject (app/actions/search.ts:121:36)
+  182 |
+  183 | async function getAllSummaries(projectId: string): Promise<SummarySearchResult[]> {
+> 184 |   const summaries = await db.summary.findMany({
+      |                                      ^
+  185 |     where: {
+  186 |       projectId: projectId
+  187 |     }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined,
+  digest: '3764896243'
+}
+ POST /projects/dummy-id 500 in 658ms (compile: 5ms, render: 653ms)
+ GET /projects/dummy-id 200 in 148ms (compile: 34ms, render: 114ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+Error fetching summaries: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/summaries.ts:10:40)
+    at <unknown> (-->  schema.prisma:10)
+    at async getSummaries (app/actions/summaries.ts:10:23)
+   8 | export async function getSummaries(projectId: string) {
+   9 |   try {
+> 10 |     const summaries = await db.summary.findMany({
+     |                                        ^
+  11 |       where: {
+  12 |         projectId: projectId,
+  13 |       }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /projects/dummy-id 200 in 661ms (compile: 30ms, render: 631ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:223:151
+
+  220 ;
+  221 async function getProject(projectId) {
+  222     try {
+→ 223         const project = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+Error fetching project: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:223:151
+
+  220 ;
+  221 async function getProject(projectId) {
+  222     try {
+→ 223         const project = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].project.findUnique(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/projects.ts:8:38)
+    at <unknown> (-->  schema.prisma:10)
+    at async getProject (app/actions/projects.ts:8:21)
+   6 | export async function getProject(projectId: string) {
+   7 |   try {
+>  8 |     const project = await db.project.findUnique({
+     |                                      ^
+   9 |       where: {
+  10 |         id: projectId,
+  11 |       }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /projects/dummy-id 200 in 433ms (compile: 8ms, render: 425ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:1266:149
+
+  1263         }));
+  1264 }
+  1265 async function getAllSummaries(projectId) {
+→ 1266     const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].exercise.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:1290:150
+
+  1287         }));
+  1288 }
+  1289 async function getAllExercises(projectId) {
+→ 1290     const exercises = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].exercise.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+ ⨯ Error [PrismaClientInitializationError]:
+Invalid `{imported module ./lib/db.ts}["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:1266:149
+
+  1263         }));
+  1264 }
+  1265 async function getAllSummaries(projectId) {
+→ 1266     const summaries = await {imported module ./lib/db.ts}["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/search.ts:184:38)
+    at <unknown> (-->  schema.prisma:10)
+    at async getAllSummaries (app/actions/search.ts:184:21)
+    at async searchProject (app/actions/search.ts:121:36)
+  182 |
+  183 | async function getAllSummaries(projectId: string): Promise<SummarySearchResult[]> {
+> 184 |   const summaries = await db.summary.findMany({
+      |                                      ^
+  185 |     where: {
+  186 |       projectId: projectId
+  187 |     }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined,
+  digest: '3764896243'
+}
+ POST /projects/dummy-id 500 in 547ms (compile: 31ms, render: 517ms)
+ GET /projects/dummy-id 200 in 167ms (compile: 33ms, render: 134ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+Error fetching summaries: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/summaries.ts:10:40)
+    at <unknown> (-->  schema.prisma:10)
+    at async getSummaries (app/actions/summaries.ts:10:23)
+   8 | export async function getSummaries(projectId: string) {
+   9 |   try {
+> 10 |     const summaries = await db.summary.findMany({
+     |                                        ^
+  11 |       where: {
+  12 |         projectId: projectId,
+  13 |       }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /projects/dummy-id 200 in 651ms (compile: 26ms, render: 625ms)
+ GET /projects/dummy-id 200 in 143ms (compile: 4ms, render: 139ms)
+prisma:error
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+Error fetching summaries: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany()` invocation in
+/app/.next/dev/server/chunks/ssr/[root-of-the-server]__32e0bb8e._.js:329:153
+
+  326 ;
+  327 async function getSummaries(projectId) {
+  328     try {
+→ 329         const summaries = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["db"].summary.findMany(
+error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:10
+   |
+ 9 |   provider = "sqlite"
+10 |   url      = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/actions/summaries.ts:10:40)
+    at <unknown> (-->  schema.prisma:10)
+    at async getSummaries (app/actions/summaries.ts:10:23)
+   8 | export async function getSummaries(projectId: string) {
+   9 |   try {
+> 10 |     const summaries = await db.summary.findMany({
+     |                                        ^
+  11 |       where: {
+  12 |         projectId: projectId,
+  13 |       }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /projects/dummy-id 200 in 466ms (compile: 28ms, render: 438ms)
