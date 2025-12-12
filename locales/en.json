@@ -9,7 +9,8 @@
     "create": "Create",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "solution": "Solution"
   },
   "project": {
     "overview": "Overview",

@@ -532,7 +532,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
             data: {
                 projectId,
                 exerciseId,
-                title: `Lösung: ${exercise.title}`, // TODO: Localize "Lösung"
+                title: `${(dict.common as any).solution}: ${exercise.title}`,
                 type: 'solution'
             }
         });
