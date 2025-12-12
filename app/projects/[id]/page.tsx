@@ -336,7 +336,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     },
     {
       id: "search",
-      label: "Search", // TODO: Add to locale
+      label: dict.project.search,
       icon: Search,
       color: "text-blue-500",
       bg: "bg-blue-500/10",
