@@ -209,59 +209,52 @@ export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryB
 
           <div className="grid gap-2">
             <Label>Focus (Optional)</Label>
-            <Textarea
+            <Input
               value={focus}
               onChange={(e) => setFocus(e.target.value)}
               placeholder={(dict.summaries as any).focusPlaceholder || "e.g. Focus on definitions..."}
               disabled={isPending}
-              className="resize-none h-20"
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label>Image Handling</Label>
-            <Select 
-              value={imageSource} 
-              onValueChange={(val: any) => setImageSource(val)}
-              disabled={isPending}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="google">
-                  <span className="font-medium">Google Search</span>
-                  <span className="text-muted-foreground ml-2 text-xs">(Auto-fetch)</span>
-                </SelectItem>
-                <SelectItem value="manual">
-                  <span className="font-medium">Manual Upload</span>
-                  <span className="text-muted-foreground ml-2 text-xs">(Upload later)</span>
-                </SelectItem>
-                <SelectItem value="none">
-                  <span className="font-medium">No Images</span>
-                  <span className="text-muted-foreground ml-2 text-xs">(Text only)</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[0.8rem] text-muted-foreground">
-              {imageSource === 'google' && "Automatically search and insert relevant images from Google."}
-              {imageSource === 'manual' && "AI will suggest images, and you can upload them in a batch dialog."}
-              {imageSource === 'none' && "Generate text only, with placeholders for images."}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
-            <div className="space-y-0.5">
-               <Label className="text-base">Reduced Version</Label>
-               <p className="text-xs text-muted-foreground">
-                 Facts, formulas & tools only (no derivations).
-               </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col justify-between border p-3 rounded-md">
+              <Label className="text-base mb-2">Image Handling</Label>
+              <Select 
+                value={imageSource} 
+                onValueChange={(val: any) => setImageSource(val)}
+                disabled={isPending}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="google">
+                    <span className="font-medium">Google Search</span>
+                  </SelectItem>
+                  <SelectItem value="manual">
+                    <span className="font-medium">Manual Upload</span>
+                  </SelectItem>
+                  <SelectItem value="none">
+                    <span className="font-medium">No Images</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Switch
-              checked={isReduced}
-              onCheckedChange={setIsReduced}
-              disabled={isPending}
-            />
+
+            <div className="flex flex-col justify-between border p-3 rounded-md">
+              <div className="flex items-center justify-between space-x-2">
+                <Label className="text-base">Reduced Version</Label>
+                <Switch
+                  checked={isReduced}
+                  onCheckedChange={setIsReduced}
+                  disabled={isPending}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Facts, formulas & tools only.
+              </p>
+            </div>
           </div>
 
           {isPending && (

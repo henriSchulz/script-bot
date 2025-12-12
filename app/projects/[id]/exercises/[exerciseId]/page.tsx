@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState, useRef } from "react";
 import { getExercise } from "@/app/actions/exercises";
-import { generateTheoryForExercise, analyzeExerciseStructure, chatAboutExercise } from "@/app/actions/ai";
+import { generateTheoryForExercise, analyzeExerciseStructure, chatAboutExercise, generateExtraExercises } from "@/app/actions/ai";
 import { getChatMessages, saveChatMessage } from "@/app/actions/chats";
 import { BlockEditor } from "@/components/editor/block-editor";
 import dynamic from "next/dynamic";
@@ -24,6 +24,7 @@ import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { useLanguage } from "@/components/language-provider";
 import { ReferenceLink, parseReferences } from "@/components/chat/reference-link";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
+import { GeneratedExerciseCard } from "@/components/exercises/generated-exercise-card";
 
 const PdfViewer = dynamic(() => import("@/components/pdf-viewer").then(mod => mod.PdfViewer), {
   ssr: false,
@@ -86,6 +87,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
 
   const [projectFiles, setProjectFiles] = useState<any[]>([]);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [extraExercises, setExtraExercises] = useState<any[] | null>(null);
 
   const handleChatAboutBlock = (content: string) => {
     const query = dict.project.projectChat.askAboutBlock.replace("{content}", content);
@@ -105,6 +107,14 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                   setStructure(JSON.parse(result.exercise.structure));
               } catch (e) {
                   console.error("Failed to parse exercise structure", e);
+              }
+          }
+          if (result.exercise.generatedExercises) {
+              try {
+                  const parsed = JSON.parse(result.exercise.generatedExercises);
+                  setExtraExercises(parsed.exercises || parsed);
+              } catch (e) {
+                  console.error("Failed to parse extra exercises", e);
               }
           }
         } else {
@@ -273,6 +283,28 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           toast.error("An error occurred during analysis");
       } finally {
           setAnalyzing(false);
+      }
+  };
+
+  const handleGenerateExtra = async () => {
+      setGenerating(true);
+      toast.info("Generiere zusätzliche Aufgaben...");
+      try {
+          const result = await generateExtraExercises(resolvedParams.id, resolvedParams.exerciseId);
+          if (result.success && result.exercises) {
+              const parsed = result.exercises;
+              setExtraExercises(parsed.exercises || parsed);
+              
+              setExercise((prev: any) => ({ ...prev, generatedExercises: JSON.stringify(parsed) }));
+              
+              toast.success("Aufgaben erfolgreich generiert!");
+          } else {
+              toast.error(result.error || "Fehler beim Generieren");
+          }
+      } catch (error) {
+          toast.error("Ein Fehler ist aufgetreten");
+      } finally {
+          setGenerating(false);
       }
   };
 
@@ -513,7 +545,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                         ) : (
                           <Sparkles className="h-4 w-4" />
                         )}
-                        Generate Theory Helper
+                        Lösungen generieren
                     </Button>
                 )}
                 {activeTab === 'extra' && (
@@ -571,7 +603,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                 )}
               >
                 <BookOpen className="h-4 w-4 mr-2" />
-                <span className="font-medium">Zusammenfassung</span>
+                <span className="font-medium">Lösungen</span>
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground scale-x-0 data-[state=active]:scale-x-100 transition-transform" 
                      data-state={activeTab === 'theory' ? 'active' : 'inactive'} />
               </TabsTrigger>
@@ -633,13 +665,19 @@ export default function ExercisePage({ params }: ExercisePageProps) {
             // Theory Tab Content
             <div className="h-full overflow-y-auto p-8">
               <div className="max-w-3xl mx-auto w-full">
-                <BlockEditor 
-                  key={exercise.blocks?.map((b: any) => b.id + b.type).join(',')}
-                  exerciseId={exercise.id}
-                  projectId={resolvedParams.id}
-                  initialBlocks={exercise.blocks || []}
-                  onChatAboutBlock={handleChatAboutBlock}
-                />
+                {(() => {
+                  const solutionSummary = exercise.summaries?.[0];
+                  return (
+                    <BlockEditor 
+                      key={solutionSummary ? `summary-${solutionSummary.id}-${solutionSummary.blocks?.length}` : 'empty'}
+                      summaryId={solutionSummary?.id}
+                      projectId={resolvedParams.id}
+                      initialBlocks={solutionSummary?.blocks || []}
+                      onChatAboutBlock={handleChatAboutBlock}
+                      isReadOnly={false} // Allow editing of solution
+                    />
+                  );
+                })()}
               </div>
             </div>
           ) : activeTab === 'work' ? (
@@ -942,23 +980,54 @@ export default function ExercisePage({ params }: ExercisePageProps) {
             )
           ) : activeTab === 'extra' ? (
             // Extra Tab Content
-            <div className="h-full overflow-y-auto p-8">
-              <div className="max-w-3xl mx-auto w-full">
-                <div className="text-center space-y-6">
-                  <div className="p-4 rounded-xl bg-muted inline-flex">
-                    <Plus className="h-8 w-8 text-primary" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">Zusätzliche Übungsaufgaben</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Hier werden zusätzliche KI-generierte Übungsaufgaben angezeigt, um dieses Thema weiter zu üben.
-                    </p>
-                  </div>
-                  <Button size="lg" className="gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Übungsaufgaben Generieren
-                  </Button>
+            // Extra Tab Content
+            <div className="h-full overflow-y-auto p-8 bg-gradient-to-b from-background to-muted/20">
+              <div className="max-w-3xl mx-auto w-full space-y-8">
+                <div className="flex items-center justify-between pb-6 border-b border-border">
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight">Zusätzliche Übungsaufgaben</h2>
+                        <p className="text-muted-foreground">KI-generierte Aufgaben zur Vertiefung dieses Themas.</p>
+                    </div>
+                     <Button 
+                        onClick={handleGenerateExtra} 
+                        disabled={generating}
+                        variant={extraExercises ? "outline" : "default"}
+                        size="default"
+                        className="gap-2"
+                      >
+                        {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        {extraExercises ? "Neu generieren" : "Aufgaben Generieren"}
+                      </Button>
                 </div>
+
+                {!extraExercises ? (
+                    <div className="flex flex-col items-center justify-center min-h-[40vh] text-center space-y-6 py-12">
+                        <div className="p-6 rounded-full bg-muted/50 inline-flex shadow-sm">
+                            <Plus className="h-10 w-10 text-muted-foreground/50" />
+                        </div>
+                        <div className="space-y-2 max-w-md">
+                          <h3 className="text-lg font-medium">Noch keine Aufgaben</h3>
+                          <p className="text-muted-foreground text-sm">
+                              Generiere zusätzliche Aufgaben basierend auf dem Übungsblatt, um dein Verständnis zu testen.
+                          </p>
+                        </div>
+                         <Button 
+                            onClick={handleGenerateExtra} 
+                            disabled={generating}
+                            size="lg"
+                            className="gap-2 shadow-md hover:shadow-lg transition-all"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            Jetzt generieren
+                          </Button>
+                    </div>
+                ) : (
+                    <div className="space-y-6 pb-20">
+                        {extraExercises.map((ex: any, i: number) => (
+                          <GeneratedExerciseCard key={i} exercise={ex} index={i} />
+                        ))}
+                    </div>
+                )}
               </div>
             </div>
           ) : null}

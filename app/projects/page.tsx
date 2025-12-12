@@ -8,10 +8,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 import { DeleteProjectButton } from "@/components/projects/delete-project-button";
 
+import { cookies } from "next/headers";
+import { getDictionary, formatString } from "@/lib/i18n";
+
 export default async function ProjectsPage() {
+  const cookieStore = await cookies();
+  const lang = cookieStore.get("app-language")?.value || "en";
+  const dict: any = await getDictionary(lang);
+
   const projects = await db.project.findMany({
     orderBy: {
       updatedAt: "desc",
@@ -27,17 +34,25 @@ export default async function ProjectsPage() {
     <div className="container mx-auto py-10 px-4">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{dict.projectsPage.title}</h1>
           <p className="text-muted-foreground mt-2">
-            Manage your projects and files.
+            {dict.projectsPage.subtitle}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/projects/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/settings">
+              <Settings className="mr-2 h-4 w-4" />
+              {dict.project.settings}
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/projects/new">
+              <Plus className="mr-2 h-4 w-4" />
+              {dict.projectsPage.newProject}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {projects.length === 0 ? (
@@ -47,12 +62,12 @@ export default async function ProjectsPage() {
               <Plus className="h-6 w-6 text-secondary-foreground" />
             </div>
           </Link>
-          <h3 className="mt-4 text-lg font-semibold">No projects yet</h3>
+          <h3 className="mt-4 text-lg font-semibold">{dict.projectsPage.noProjects}</h3>
           <p className="mb-4 mt-2 text-sm text-muted-foreground max-w-sm">
-            Get started by creating your first project.
+            {dict.projectsPage.createFirst}
           </p>
           <Button asChild>
-            <Link href="/projects/new">Create Project</Link>
+            <Link href="/projects/new">{dict.projectsPage.createProject}</Link>
           </Button>
         </div>
       ) : (
@@ -63,7 +78,7 @@ export default async function ProjectsPage() {
                 <div className="rounded-full bg-secondary p-4">
                   <Plus className="h-6 w-6" />
                 </div>
-                <span className="font-medium">New Project</span>
+                <span className="font-medium">{dict.projectsPage.newProject}</span>
               </div>
             </Card>
           </Link>
@@ -73,13 +88,13 @@ export default async function ProjectsPage() {
                 <CardHeader className="relative">
                   <CardTitle className="pr-8">{project.name}</CardTitle>
                   <CardDescription>
-                    Last updated {project.updatedAt.toLocaleDateString()}
+                    {formatString(dict.projectsPage.lastUpdated, { date: project.updatedAt.toLocaleDateString() })}
                   </CardDescription>
                   <DeleteProjectButton projectId={project.id} projectName={project.name} />
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    {project._count.files} {project._count.files === 1 ? 'file' : 'files'}
+                    {project._count.files} {project._count.files === 1 ? dict.projectsPage.unitFile : dict.projectsPage.unitFiles}
                   </p>
                 </CardContent>
               </Card>

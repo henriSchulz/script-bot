@@ -12,7 +12,7 @@ export async function getSummaries(projectId: string) {
         projectId: projectId,
       },
       orderBy: {
-        updatedAt: 'desc',
+        createdAt: 'desc',
       },
       include: {
         _count: {

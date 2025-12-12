@@ -468,18 +468,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
     const dict = await getDictionary(language);
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
-    // 2. Fetch Project Files (Lecture Material) - only uploaded files, not cropped
-    const projectFiles = await db.file.findMany({
-      where: { 
-        projectId,
-        id: { not: exercise.file.id },
-        category: "upload"
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5 
-    });
-
-    // 3. Prepare files for Gemini
+    // 2. Prepare files for Gemini (Only Exercise File)
     const parts: Part[] = [];
 
     // Add Exercise File
@@ -496,30 +485,6 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
                 mimeType: exercise.file.mimeType || "application/pdf"
             }
         });
-    }
-
-    // Add Lecture Files
-    for (const file of projectFiles) {
-      const filename = file.url.split("/").pop();
-      if (!filename) continue;
-      
-      const filepath = join(cwd(), "public", "uploads", projectId, filename);
-      const fileBuffer = await readFile(filepath);
-      
-      let mimeType = file.mimeType || "application/octet-stream";
-      
-      if (mimeType === "application/pdf" || mimeType.startsWith("text/")) {
-         parts.push({
-          text: `LECTURE MATERIAL (Source): ${file.name}`
-        });
-        
-        parts.push({
-          inlineData: {
-            data: fileBuffer.toString("base64"),
-            mimeType: mimeType === "application/pdf" ? "application/pdf" : "text/plain"
-          }
-        });
-      }
     }
 
     if (parts.length === 0) {
@@ -553,22 +518,32 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
 
     const blocksData = data.blocks || [];
     
-    // 7. Create Blocks in DB (Append to Exercise)
-    const lastBlock = await db.block.findFirst({
-        where: { exerciseId },
-        orderBy: { order: 'desc' }
-    });
-    let startOrder = (lastBlock?.order || 0) + 1;
-
-    // Add a header block first
-    await db.block.create({
-        data: {
-            exerciseId,
-            type: 'text',
-            content: '<h2>Theoretische Grundlagen</h2><p>Relevante Konzepte und Formeln für dieses Übungsblatt:</p>',
-            order: startOrder++
+    // 7. Find or Create Solution Summary
+    // Check if we already have a solution summary for this exercise
+    let summary = await db.summary.findFirst({
+        where: { 
+            exerciseId: exerciseId,
+            type: 'solution' 
         }
     });
+
+    if (!summary) {
+        summary = await db.summary.create({
+            data: {
+                projectId,
+                exerciseId,
+                title: `Lösung: ${exercise.title}`, // TODO: Localize "Lösung"
+                type: 'solution'
+            }
+        });
+    }
+
+    // Clear existing blocks for this summary if re-generating
+    await db.block.deleteMany({
+        where: { summaryId: summary.id }
+    });
+
+    let startOrder = 0;
 
     for (const block of blocksData) {
       // Resolve file ID from source_file
@@ -577,13 +552,10 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
          // Normalize source_file (remove extension, lowercase)
          const sourceName = block.source_file.toLowerCase().replace(/\.[^/.]+$/, "");
          
-         const matchedFile = projectFiles.find(f => {
-             const fileName = f.name.toLowerCase().replace(/\.[^/.]+$/, "");
-             return fileName === sourceName || f.name === block.source_file || f.url.endsWith(block.source_file);
-         });
-
-         if (matchedFile) {
-           fileId = matchedFile.id;
+         // Only check against exercise file since we don't fetch others
+         const exerciseFileName = exercise.file.name.toLowerCase().replace(/\.[^/.]+$/, "");
+         if (sourceName === exerciseFileName || exercise.file.name === block.source_file || exercise.file.url.endsWith(block.source_file)) {
+             fileId = exercise.file.id;
          }
       }
 
@@ -597,7 +569,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
           }
           await db.block.create({
             data: {
-                exerciseId,
+                summaryId: summary.id,
                 type: 'info_box',
                 content: content,
                 order: startOrder++,
@@ -611,14 +583,14 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
           let processedContent = originalContent;
           
           if (block.type === 'text') {
-              console.log(`[AI] Original content (first 50 chars): ${originalContent.substring(0, 50)}`);
+              // console.log(`[AI] Original content (first 50 chars): ${originalContent.substring(0, 50)}`);
               processedContent = parseMathToHtml(originalContent);
-              console.log(`[AI] Processed content (first 50 chars): ${processedContent.substring(0, 50)}`);
+              // console.log(`[AI] Processed content (first 50 chars): ${processedContent.substring(0, 50)}`);
           }
           
           await db.block.create({
             data: {
-                exerciseId,
+                summaryId: summary.id,
                 type: block.type,
                 content: (block.type === 'latex')
                     ? ((block.isImportant) 
@@ -633,7 +605,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
       }
     }
 
-    return { success: true };
+    return { success: true, summaryId: summary.id };
 
   } catch (error) {
     console.error("Generate Theory Error:", error);
@@ -1267,5 +1239,116 @@ CRITICAL: Raw JSON only. Double-escape backslashes (\\\\\\\\frac). No markdown.`
         console.error("Generate Explanation Error:", error);
         return { success: false, error: "Failed to generate explanation" };
     }
+}
+
+export async function generateExtraExercises(projectId: string, exerciseId: string) {
+  if (!apiKey) {
+    return { success: false, error: "GEMINI_API_KEY is not set" };
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  try {
+    const exercise = await db.exercise.findUnique({
+      where: { id: exerciseId },
+      include: { file: true, project: true }
+    });
+
+    if (!exercise || !exercise.file) {
+      return { success: false, error: "Exercise file not found" };
+    }
+
+    const language = await getGlobalLanguage();
+    const dict = await getDictionary(language);
+    const langInstruction = (dict.ai as any).prompts.lang_instruction;
+    const promptTemplate = (dict.ai as any).prompts.generate_extra_exercises;
+
+    if (!promptTemplate) {
+        console.warn("Prompt template 'generate_extra_exercises' not found, using fallback.");
+    }
+
+    // Fetch Project Files (Lecture Material)
+    const projectFiles = await db.file.findMany({
+      where: { 
+        projectId,
+        id: { not: exercise.file.id },
+        category: "upload"
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5 
+    });
+
+    const parts: Part[] = [];
+
+    // Exercise File
+    const exerciseFilename = exercise.file.url.split("/").pop();
+    if (exerciseFilename) {
+        const filepath = join(cwd(), "public", "uploads", projectId, exerciseFilename);
+        const fileBuffer = await readFile(filepath);
+        parts.push({ text: `EXERCISE SHEET (Target): ${exercise.file.name}` });
+        parts.push({
+            inlineData: {
+                data: fileBuffer.toString("base64"),
+                mimeType: exercise.file.mimeType || "application/pdf"
+            }
+        });
+    }
+
+    // Lecture Files
+    for (const file of projectFiles) {
+      const filename = file.url.split("/").pop();
+      if (!filename) continue;
+      
+      const filepath = join(cwd(), "public", "uploads", projectId, filename);
+      const fileBuffer = await readFile(filepath);
+      
+      let mimeType = file.mimeType || "application/octet-stream";
+      
+      if (mimeType === "application/pdf" || mimeType.startsWith("text/")) {
+         parts.push({ text: `LECTURE MATERIAL (Source): ${file.name}` });
+         parts.push({
+          inlineData: {
+            data: fileBuffer.toString("base64"),
+            mimeType: mimeType === "application/pdf" ? "application/pdf" : "text/plain"
+          }
+        });
+      }
+    }
+
+    if (parts.length === 0) {
+      return { success: false, error: "No files found for generation" };
+    }
+
+    const systemPrompt = formatString(promptTemplate || "{langInstruction} Generate 3 JSON exercises.", { langInstruction });
+
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const result = await model.generateContent([systemPrompt, ...parts]);
+    const response = await result.response;
+    const text = response.text();
+
+    let data;
+    try {
+      data = parseGeminiResponse(text);
+    } catch (e) {
+      console.error("Failed to parse Gemini response for extra exercises:", text);
+      return { success: false, error: "Failed to parse generated exercises" };
+    }
+    
+    // Store JSON string
+    await db.exercise.update({
+        where: { id: exerciseId },
+        data: { generatedExercises: JSON.stringify(data) }
+    });
+
+    return { success: true, exercises: data };
+
+  } catch (error) {
+    console.error("Generate Extra Exercises Error:", error);
+    return { success: false, error: "Internal server error" };
+  }
 }
 

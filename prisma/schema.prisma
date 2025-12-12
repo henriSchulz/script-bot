@@ -43,19 +43,6 @@ model File {
   exercises Exercise[]
 }
 
-model Summary {
-  id        String   @id @default(cuid())
-  title     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  blocks    Block[]
-  
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-}
-
 model Exercise {
   id        String   @id @default(cuid())
   title     String
@@ -73,6 +60,26 @@ model Exercise {
   file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
   
   structure String? // Stores parsed tasks/subtasks as JSON string
+  generatedExercises String? // Stores AI generated extra exercises as JSON string
+  
+  summaries Summary[]
+}
+
+model Summary {
+  id        String   @id @default(cuid())
+  title     String
+  type      String   @default("default") // "default", "solution"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  blocks    Block[]
+  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  exerciseId String?
+  exercise   Exercise? @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
 }
 
 model Block {

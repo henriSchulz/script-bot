@@ -325,6 +325,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       bg: "bg-green-500/10",
       content: <ExerciseList projectId={resolvedParams.id} />
     },
+
     {
       id: "formulas",
       label: dict.project.formulas,

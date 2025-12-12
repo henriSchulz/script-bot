@@ -48,6 +48,20 @@ export async function getExercise(exerciseId: string) {
             }
           }
         },
+        summaries: { // Include linked summaries (solutions)
+            where: { type: 'solution' },
+            take: 1,
+            include: {
+                blocks: {
+                    orderBy: { order: 'asc' },
+                    include: {
+                        file: {
+                            select: { url: true }
+                        }
+                    }
+                }
+            }
+        }
       },
     });
 

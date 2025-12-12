@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
+
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -24,6 +26,7 @@ interface DeleteProjectButtonProps {
 }
 
 export function DeleteProjectButton({ projectId, projectName }: DeleteProjectButtonProps) {
+  const { t } = useLanguage();
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
@@ -35,13 +38,13 @@ export function DeleteProjectButton({ projectId, projectName }: DeleteProjectBut
     try {
       const result = await deleteProject(projectId);
       if (result.success) {
-        toast.success("Project deleted successfully");
+        toast.success(t("deleteProject.success"));
         router.refresh();
       } else {
-        toast.error("Failed to delete project");
+        toast.error(t("deleteProject.error"));
       }
     } catch (error) {
-      toast.error("An error occurred while deleting the project");
+      toast.error(t("deleteProject.error"));
     } finally {
       setIsDeleting(false);
     }
@@ -63,26 +66,25 @@ export function DeleteProjectButton({ projectId, projectName }: DeleteProjectBut
             className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Delete project</span>
+            <span className="sr-only">{t("common.delete")}</span>
           </Button>
         </AlertDialogTrigger>
       </div>
       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>{t("deleteProject.title")}</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the project
-            "{projectName}" and all its files and summaries.
+            {t("deleteProject.description", { name: projectName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? t("deleteProject.deleting") : t("common.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

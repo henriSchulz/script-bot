@@ -90,7 +90,7 @@ export function BlockExplanationModal({ open, onOpenChange, blockId, projectId }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[70vw] w-full max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detailed Explanation</DialogTitle>
           <DialogDescription>AI-generated explanation for this block</DialogDescription>
@@ -111,8 +111,10 @@ export function BlockExplanationModal({ open, onOpenChange, blockId, projectId }
               {blocks.map((block, index) => (
                 <div key={index}>
                   {block.type === 'text' && (
-                    <div className="prose prose-sm dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: block.content }}
+                    <TextBlock
+                      content={block.content}
+                      onChange={() => {}}
+                      isReadOnly={true}
                     />
                   )}
                   {block.type === 'latex' && (

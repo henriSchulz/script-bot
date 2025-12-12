@@ -25,7 +25,7 @@ export function SettingsPage() {
         {/* Header */}
         <div className="mb-8">
           <Link 
-            href="/" 
+            href="/projects" 
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             ← {t('common.back')}

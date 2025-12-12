@@ -1,5 +1,7 @@
 'use client';
 
+import { useLanguage } from "@/components/language-provider";
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +33,7 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChange }: ChatInterfaceProps) {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -133,7 +136,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
           const errorMsg: Message = {
               id: Date.now().toString(),
               role: 'model',
-              content: "Sorry, I encountered an error responding to that.",
+              content: t("project.projectChat.error"),
               createdAt: new Date()
           };
           setMessages(prev => [...prev, errorMsg]);
@@ -159,7 +162,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
       {fileNames.length > 0 && (
           <div className="px-4 py-2 border-b bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground overflow-hidden flex-shrink-0">
               <FileText className="h-3 w-3 shrink-0" />
-              <span className="font-medium shrink-0">Context:</span>
+              <span className="font-medium shrink-0">{t("chat.context")}</span>
               <div className="flex gap-1 overflow-x-auto no-scrollbar">
                   {fileNames.map((name, i) => (
                       <span key={i} className="px-1.5 py-0.5 bg-muted rounded border border-border shrink-0 whitespace-nowrap">
@@ -182,7 +185,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
               ) : messages.length === 0 ? (
                   <div className="text-center py-20 text-muted-foreground">
                       <Bot className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                      <p>Start a conversation with your project files.</p>
+                      <p>{t("chat.startConversation")}</p>
                   </div>
               ) : (
                 messages.map((msg) => (
@@ -317,10 +320,10 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <Bot className="h-5 w-5 text-primary" />
                      </div>
-                     <div className="bg-muted/50 border border-border rounded-2xl rounded-tl-sm px-5 py-3 flex items-center gap-2">
-                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                         <span className="text-sm text-muted-foreground">Thinking...</span>
-                     </div>
+                      <div className="bg-muted/50 border border-border rounded-2xl rounded-tl-sm px-5 py-3 flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{t("chat.thinking")}</span>
+                      </div>
                  </div>
               )}
               <div ref={bottomRef} />
@@ -336,7 +339,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question about your files..."
+            placeholder={t("project.projectChat.placeholder")}
             className="min-h-[50px] max-h-[200px] resize-none"
             disabled={isSending}
             autoFocus
@@ -351,7 +354,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
           </Button>
         </div>
         <div className="max-w-3xl mx-auto mt-2 text-xs text-muted-foreground text-center">
-            AI can make mistakes. Verify important information from files.
+            {t("chat.aiDisclaimer")}
         </div>
       </div>
     </div>
