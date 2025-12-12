@@ -39,7 +39,7 @@ export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryB
   
   const [files, setFiles] = useState<{ id: string; name: string }[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
-  const [imageSource, setImageSource] = useState<'google' | 'manual' | 'none'>('manual');
+  const [imageSource, setImageSource] = useState<'google' | 'manual' | 'auto_extract' | 'none'>('manual');
   const [focus, setFocus] = useState("");
   const [isReduced, setIsReduced] = useState(false);
   
@@ -222,7 +222,7 @@ export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryB
               <Label className="text-base mb-2">Image Handling</Label>
               <Select 
                 value={imageSource} 
-                onValueChange={(val: any) => setImageSource(val)}
+                onValueChange={(val) => setImageSource(val as any)}
                 disabled={isPending}
               >
                 <SelectTrigger className="w-full">
@@ -234,6 +234,9 @@ export function GenerateSummaryButton({ projectId, onSuccess }: GenerateSummaryB
                   </SelectItem>
                   <SelectItem value="manual">
                     <span className="font-medium">Manual Upload</span>
+                  </SelectItem>
+                  <SelectItem value="auto_extract">
+                    <span className="font-medium">Auto Extract</span>
                   </SelectItem>
                   <SelectItem value="none">
                     <span className="font-medium">No Images</span>

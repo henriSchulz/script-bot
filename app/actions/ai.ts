@@ -11,6 +11,10 @@ import { parseMathToHtml } from "@/lib/math-parser";
 import { getDictionary, formatString } from "@/lib/i18n";
 import JSON5 from 'json5';
 import { cookies } from 'next/headers';
+import sharp from 'sharp';
+import { renderPdfPageToBuffer } from '@/lib/pdf/pdf-renderer';
+import { uploadFile } from './upload';
+import crypto from 'crypto';
 
 // Helper to get global language from browser storage (via cookies)
 async function getGlobalLanguage(): Promise<'en' | 'de'> {
@@ -168,7 +172,7 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
   }
 }
 
-export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, reduced: boolean = false) {
+export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'auto_extract' | 'none' = 'manual', focus?: string, reduced: boolean = false) {
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set in environment variables" };
   }
@@ -264,6 +268,10 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       systemPrompt += `\n\nREDUCED VERSION INSTRUCTION:\nCreate a REDUCED version of the summary. OMIT all derivations (Herleitungen) and proofs. Focus rigidly on FACTS, IMPORTANT FORMULAS, and TOOLS. The content must be well-reduced and concise.`;
     }
 
+    if (imageSource === 'auto_extract') {
+      systemPrompt += `\n\nIMAGE EXTRACTION INSTRUCTION:\nFor every relevant image or diagram, provide an 'image_request' block with the exact bounding box coordinates in the 'rect' field.\nFormat: "rect": [x, y, width, height] as PERCENTAGES of the page size (0.0 to 1.0).\nExample: "rect": [0.1, 0.2, 0.5, 0.3] (starts at 10% x, 20% y, with 50% width and 30% height).\nEnsure the coordinates are precise.`;
+    }
+
     systemPrompt += `\n\nTITLE INSTRUCTION:\nThe title of the summary must be SHORT and PRECISE. Do not make it unnecessarily long.`;
 
     // 4. Call Gemini
@@ -357,6 +365,95 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
                fileId: fileId
              });
            }
+        } else if (imageSource === 'auto_extract' && block.rect && Array.isArray(block.rect) && block.rect.length === 4) {
+            console.log(`[AI] Processing auto extraction with rect: ${block.rect}`);
+
+            // Find the source file
+            let sourceFile = null;
+            if (files.length === 1) {
+                sourceFile = files[0];
+            } else if (block.source_file) {
+                sourceFile = files.find(f => f.name === block.source_file || f.url.endsWith(block.source_file));
+            }
+
+            if (sourceFile) {
+                try {
+                    const filename = sourceFile.url.split("/").pop();
+                    if (!filename) throw new Error("Filename not found");
+                    const filepath = join(cwd(), "public", "uploads", projectId, filename);
+
+                    let imageBuffer: Buffer | null = null;
+
+                    if (sourceFile.mimeType === "application/pdf") {
+                        // Render PDF page to image
+                        const pageNum = block.page || 1;
+                        imageBuffer = await renderPdfPageToBuffer(filepath, pageNum);
+                    } else if (sourceFile.mimeType?.startsWith("image/")) {
+                        // Use image directly
+                        imageBuffer = await readFile(filepath);
+                    }
+
+                    if (imageBuffer) {
+                        // Get dimensions
+                        const metadata = await sharp(imageBuffer).metadata();
+                        const width = metadata.width || 0;
+                        const height = metadata.height || 0;
+
+                        // Calculate pixel coordinates from percentages
+                        const [rx, ry, rw, rh] = block.rect;
+                        const cropLeft = Math.floor(rx * width);
+                        const cropTop = Math.floor(ry * height);
+                        const cropWidth = Math.floor(rw * width);
+                        const cropHeight = Math.floor(rh * height);
+
+                        // Ensure boundaries are valid
+                        const safeLeft = Math.max(0, cropLeft);
+                        const safeTop = Math.max(0, cropTop);
+                        const safeWidth = Math.min(width - safeLeft, cropWidth);
+                        const safeHeight = Math.min(height - safeTop, cropHeight);
+
+                        if (safeWidth > 0 && safeHeight > 0) {
+                             // Crop
+                            const croppedBuffer = await sharp(imageBuffer)
+                                .extract({ left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight })
+                                .toFormat('png')
+                                .toBuffer();
+
+                            // Save to uploads
+                            const cropFilename = `crop_${crypto.randomUUID()}.png`;
+                            const cropPath = join(cwd(), "public", "uploads", projectId, cropFilename);
+                            await writeFile(cropPath, croppedBuffer);
+
+                            // Save to DB as file (optional but good for tracking)
+                            const cropUrl = `/uploads/${projectId}/${cropFilename}`;
+
+                            // Note: we don't necessarily create a File record for every crop to avoid cluttering the file list,
+                            // but we could. For now, let's just use the URL.
+
+                            processedBlocks.push({
+                                type: 'image',
+                                content: cropUrl,
+                                order: block.order,
+                                page: block.page,
+                                fileId: fileId
+                            });
+                            continue; // Successfully processed
+                        }
+                    }
+                } catch (e) {
+                    console.error("[AI] Auto extract failed:", e);
+                }
+            }
+
+            // Fallback if extraction failed
+             processedBlocks.push({
+               type: 'text',
+               content: `<p class="text-muted-foreground italic border-l-2 border-primary/20 pl-4 py-2 my-4 bg-muted/10 rounded-r">⚠️ <strong>Extraction Failed:</strong> ${block.content}</p>`,
+               order: block.order,
+               page: block.page,
+               fileId: fileId
+             });
+
         } else if (imageSource === 'manual') {
            // Resolve file URL
            let fileUrl = null;
