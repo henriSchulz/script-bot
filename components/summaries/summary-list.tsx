@@ -125,7 +125,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
 
       if (sortedSummaries.length === 0) {
         const emptyMessage = activeTab === "solutions" 
-            ? "Noch keine Lösungen generiert." // TODO: Localize
+            ? dict.summaries.noSolutions
             : dict.summaries.noSummaries;
 
         return (

@@ -51,7 +51,8 @@
     "title": "Titel",
     "focus": "Fokus (Optional)",
     "focusPlaceholder": "z.B. Fokus auf Definitionen und Beispiele...",
-    "noSummaries": "Noch keine Zusammenfassungen"
+    "noSummaries": "Noch keine Zusammenfassungen",
+    "noSolutions": "Noch keine Lösungen generiert."
   },
   "exercises": {
     "solve": "Lösen",
