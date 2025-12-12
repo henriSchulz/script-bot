@@ -1,3 +1,4 @@
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -7,6 +8,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '50mb',
     },
   },
+  serverExternalPackages: ["canvas", "pdfjs-dist"],
 };
 
 export default nextConfig;
