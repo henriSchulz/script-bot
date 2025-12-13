@@ -13,6 +13,7 @@ import "katex/dist/katex.min.css";
 import { cn } from "@/lib/utils";
 import { useTransition } from "react";
 import { Progress } from "@/components/ui/progress";
+import { useLanguage } from "@/components/language-provider";
 
 interface Unit {
   id: string;
@@ -36,6 +37,7 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
   const [loading, setLoading] = useState(true);
   const [parsedUnits, setParsedUnits] = useState<any[]>([]);
   const [isPending, startTransition] = useTransition();
+  const { t } = useLanguage();
 
   // Unit specific state
   const [quizSelectedOption, setQuizSelectedOption] = useState<number | null>(null);
@@ -77,7 +79,7 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
     // Mark as completed if not already
     if (!currentUnit.isCompleted) {
         startTransition(async () => {
-            await updateUnitProgress(currentUnit.id, true);
+             await updateUnitProgress(currentUnit.id, true);
         });
         // Optimistic update
         const newUnits = [...parsedUnits];
@@ -104,13 +106,13 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <p className="text-muted-foreground animate-pulse">Loading course...</p>
+            <p className="text-muted-foreground animate-pulse">{t("learning.loading")}</p>
         </div>
       </div>
     );
   }
 
-  if (!session) return <div>Session not found</div>;
+  if (!session) return <div>{t("learning.sessionNotFound")}</div>;
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -123,7 +125,7 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
             </Link>
             </Button>
             <div className="flex flex-col">
-                <span className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Interactive Course</span>
+                <span className="text-sm text-muted-foreground font-medium uppercase tracking-wider">{t("learning.interactiveCourse")}</span>
                 <h1 className="text-lg font-bold leading-none">{session.title}</h1>
             </div>
         </div>
@@ -151,21 +153,11 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                              <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 text-primary mb-4">
                                 <GraduationCap className="h-8 w-8" />
                              </div>
-                             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">{currentUnit.data.title || "Lesson"}</h2>
+                             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">{currentUnit.data.title || t("learning.lesson")}</h2>
                         </div>
 
                         <div className="prose prose-lg dark:prose-invert mx-auto bg-card p-8 rounded-2xl shadow-sm border">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkMath]}
-                                rehypePlugins={[rehypeKatex]}
-                                components={{
-                                    // Override p to use InlineMath for consistency if needed,
-                                    // but react-markdown with remark-math usually handles $...$ well.
-                                    // Let's add custom renderer for block math if needed, but standard should work.
-                                }}
-                            >
-                                {currentUnit.data.markdown || currentUnit.data.content?.markdown || ""}
-                            </ReactMarkdown>
+                            <MarkdownContent content={currentUnit.data.markdown || currentUnit.data.content?.markdown || ""} />
                         </div>
                     </div>
                 )}
@@ -174,13 +166,13 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                 {currentUnit.type === "quiz" && (
                     <div className="max-w-2xl mx-auto w-full space-y-8">
                          <div className="text-center space-y-4">
-                            <span className="text-sm font-medium text-primary uppercase tracking-widest">Knowledge Check</span>
-                            <h2 className="text-2xl font-bold">{currentUnit.data.title || "Quiz"}</h2>
+                            <span className="text-sm font-medium text-primary uppercase tracking-widest">{t("learning.knowledgeCheck")}</span>
+                            <h2 className="text-2xl font-bold">{currentUnit.data.title || t("learning.quiz")}</h2>
                         </div>
 
                         <Card className="p-8 shadow-lg border-2">
                             <h3 className="text-xl font-medium mb-6">
-                                {currentUnit.data.question || currentUnit.data.content?.question}
+                                <MarkdownContent content={currentUnit.data.question || currentUnit.data.content?.question} />
                             </h3>
 
                             <div className="space-y-3">
@@ -189,7 +181,7 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                                     const isCorrect = index === (currentUnit.data.correctIndex ?? currentUnit.data.content?.correctIndex);
 
                                     let variant = "outline";
-                                    let className = "w-full justify-start text-left p-4 h-auto text-base hover:bg-muted";
+                                    let className = "w-full justify-start text-left p-4 h-auto text-base hover:bg-muted relative transition-all duration-200 border-2";
 
                                     if (quizSubmitted) {
                                         if (isCorrect) {
@@ -197,31 +189,35 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                                         } else if (isSelected) {
                                             className += " bg-red-500/10 border-red-500 text-red-700 dark:text-red-400 hover:bg-red-500/20";
                                         } else {
-                                            className += " opacity-50";
+                                            className += " opacity-50 border-input";
                                         }
                                     } else if (isSelected) {
                                         className += " border-primary bg-primary/5 ring-1 ring-primary";
+                                    } else {
+                                        className += " border-input";
                                     }
 
                                     return (
                                         <Button
                                             key={index}
-                                            variant="outline"
+                                            variant="ghost"
                                             className={className}
                                             onClick={() => !quizSubmitted && setQuizSelectedOption(index)}
                                             disabled={quizSubmitted}
                                         >
-                                            <div className="flex items-center w-full">
+                                            <div className="flex items-start w-full gap-4">
                                                 <div className={cn(
-                                                    "w-6 h-6 rounded-full border flex items-center justify-center mr-3 text-xs font-medium transition-colors",
+                                                    "flex-none w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-colors mt-0.5",
                                                     quizSubmitted && isCorrect ? "bg-green-500 border-green-500 text-white" :
                                                     quizSubmitted && isSelected ? "bg-red-500 border-red-500 text-white" :
-                                                    isSelected ? "bg-primary border-primary text-primary-foreground" : "text-muted-foreground"
+                                                    isSelected ? "bg-primary border-primary text-primary-foreground" : "text-muted-foreground border-muted-foreground/30"
                                                 )}>
                                                     {String.fromCharCode(65 + index)}
                                                 </div>
-                                                {option}
-                                                {quizSubmitted && isCorrect && <CheckCircle2 className="ml-auto h-5 w-5 text-green-600" />}
+                                                <div className="flex-1 pt-1 min-w-0">
+                                                    <MarkdownContent content={option} />
+                                                </div>
+                                                {quizSubmitted && isCorrect && <CheckCircle2 className="flex-none ml-auto h-6 w-6 text-green-600 self-center" />}
                                             </div>
                                         </Button>
                                     );
@@ -230,20 +226,32 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
 
                             {!quizSubmitted ? (
                                 <Button
-                                    className="w-full mt-6"
+                                    className="w-full mt-8 h-12 text-lg font-medium"
                                     onClick={() => setQuizSubmitted(true)}
                                     disabled={quizSelectedOption === null}
                                 >
-                                    Check Answer
+                                    {t("learning.checkAnswer")}
                                 </Button>
                             ) : (
-                                <div className="mt-6 p-4 rounded-lg bg-muted/50 animate-in fade-in slide-in-from-top-2">
-                                    <p className="font-medium mb-1">
-                                        {(quizSelectedOption === (currentUnit.data.correctIndex ?? currentUnit.data.content?.correctIndex)) ? "Correct!" : "Incorrect"}
+                                <div className={cn(
+                                    "mt-8 p-6 rounded-xl border animate-in fade-in slide-in-from-top-2",
+                                    (quizSelectedOption === (currentUnit.data.correctIndex ?? currentUnit.data.content?.correctIndex)) 
+                                        ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900/30" 
+                                        : "bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-900/30"
+                                )}>
+                                    <p className={cn(
+                                        "font-bold text-lg mb-2 flex items-center gap-2",
+                                        (quizSelectedOption === (currentUnit.data.correctIndex ?? currentUnit.data.content?.correctIndex)) 
+                                            ? "text-green-700 dark:text-green-400" 
+                                            : "text-red-700 dark:text-red-400"
+                                    )}>
+                                        {(quizSelectedOption === (currentUnit.data.correctIndex ?? currentUnit.data.content?.correctIndex)) 
+                                            ? <><CheckCircle2 className="h-5 w-5" /> {t("learning.correct")}</> 
+                                            : t("learning.incorrect")}
                                     </p>
-                                    <p className="text-muted-foreground text-sm">
-                                        {currentUnit.data.explanation || currentUnit.data.content?.explanation}
-                                    </p>
+                                    <div className="text-foreground/80 leading-relaxed">
+                                        <MarkdownContent content={currentUnit.data.explanation || currentUnit.data.content?.explanation} />
+                                    </div>
                                 </div>
                             )}
                         </Card>
@@ -254,7 +262,7 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                 {currentUnit.type === "flashcard" && (
                     <div className="max-w-xl mx-auto w-full py-12 perspective-1000">
                          <div className="text-center mb-8">
-                            <span className="text-sm font-medium text-primary uppercase tracking-widest">Concept Card</span>
+                            <span className="text-sm font-medium text-primary uppercase tracking-widest">{t("learning.conceptCard")}</span>
                         </div>
 
                         <div
@@ -267,15 +275,19 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                             )}>
                                 {/* Front */}
                                 <div className="absolute inset-0 backface-hidden bg-card border-2 border-primary/20 rounded-2xl flex flex-col items-center justify-center p-8 text-center hover:border-primary/50 transition-colors">
-                                    <span className="text-sm text-muted-foreground uppercase tracking-widest mb-4">Term</span>
-                                    <h3 className="text-3xl font-bold">{currentUnit.data.front || currentUnit.data.content?.front}</h3>
-                                    <p className="absolute bottom-6 text-sm text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Click to flip</p>
+                                    <span className="text-sm text-muted-foreground uppercase tracking-widest mb-4">{t("learning.term")}</span>
+                                    <h3 className="text-3xl font-bold select-none">
+                                        <MarkdownContent content={currentUnit.data.front || currentUnit.data.content?.front} />
+                                    </h3>
+                                    <p className="absolute bottom-6 text-sm text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{t("learning.clickToFlip")}</p>
                                 </div>
 
                                 {/* Back */}
                                 <div className="absolute inset-0 backface-hidden rotate-y-180 bg-primary/5 border-2 border-primary rounded-2xl flex flex-col items-center justify-center p-8 text-center">
-                                    <span className="text-sm text-primary uppercase tracking-widest mb-4">Definition</span>
-                                    <p className="text-xl leading-relaxed">{currentUnit.data.back || currentUnit.data.content?.back}</p>
+                                    <span className="text-sm text-primary uppercase tracking-widest mb-4">{t("learning.definition")}</span>
+                                    <div className="text-xl leading-relaxed select-none overflow-y-auto max-h-full px-2">
+                                        <MarkdownContent content={currentUnit.data.back || currentUnit.data.content?.back} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -289,11 +301,11 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
                      <div className="inline-flex items-center justify-center p-4 rounded-full bg-green-100 text-green-600 mb-4">
                         <PartyPopper className="h-8 w-8" />
                      </div>
-                     <h3 className="text-2xl font-bold mb-2">Lesson Complete!</h3>
-                     <p className="text-muted-foreground mb-6">You have finished this section.</p>
+                     <h3 className="text-2xl font-bold mb-2">{t("learning.lessonComplete")}</h3>
+                     <p className="text-muted-foreground mb-6">{t("learning.finishedSection")}</p>
                      <Button asChild size="lg">
                         <Link href={`/projects/${resolvedParams.id}?tab=learning`}>
-                            Return to Overview
+                            {t("learning.returnToOverview")}
                         </Link>
                      </Button>
                 </div>
@@ -311,7 +323,7 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
             className="gap-2"
         >
             <ArrowLeft className="h-4 w-4" />
-            Previous
+            {t("learning.previous")}
         </Button>
 
         <Button
@@ -322,10 +334,32 @@ export default function LearningSessionPage({ params }: LearningSessionPageProps
             }
             className="gap-2 min-w-[120px]"
         >
-            {isLastUnit ? "Finish" : "Next"}
+            {isLastUnit ? t("learning.finish") : t("learning.next")}
             {!isLastUnit && <ArrowRight className="h-4 w-4" />}
         </Button>
       </div>
     </div>
   );
+}
+
+// Helper to render markdown content properly (math, etc.)
+function MarkdownContent({ content }: { content: string }) {
+    if (!content) return null;
+    return (
+        <ReactMarkdown
+            remarkPlugins={[remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={{
+                // Override paragraphs to span for inline-like behavior in buttons/cards
+                // unless we want block-level layout. 
+                // Using span might break block equations, so div is safer, 
+                // but for buttons we might want strict inline.
+                // Generally, for quizzes and flashcards, content might include equations.
+                p: ({children}) => <div className="inline">{children}</div>,
+                // Add stronger style for math
+            }}
+        >
+            {content}
+        </ReactMarkdown>
+    );
 }

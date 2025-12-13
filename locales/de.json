@@ -175,5 +175,50 @@
     "unitFiles": "Dateien",
     "unitFile": "Datei",
     "lastUpdated": "Zuletzt aktualisiert am {date}"
+  },
+  "learning": {
+    "loading": "Lade Kurs...",
+    "interactiveCourse": "Interaktiver Kurs",
+    "lesson": "Lektion",
+    "quiz": "Quiz",
+    "knowledgeCheck": "Wissensüberprüfung",
+    "conceptCard": "Lernkarte",
+    "term": "Begriff",
+    "definition": "Definition",
+    "checkAnswer": "Antwort prüfen",
+    "correct": "Richtig!",
+    "incorrect": "Falsch",
+    "lessonComplete": "Lektion abgeschlossen!",
+    "finishedSection": "Du hast diesen Abschnitt beendet.",
+    "returnToOverview": "Zurück zur Übersicht",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "finish": "Beenden",
+    "clickToFlip": "Klicken zum Umdrehen",
+    "sessionNotFound": "Sitzung nicht gefunden",
+    "createDialog": {
+      "title": "Interaktive Lernsitzung erstellen",
+      "description": "Die KI generiert einen personalisierten Kurs basierend auf deiner Auswahl.",
+      "topicLabel": "Was möchtest du lernen?",
+      "topicPlaceholder": "z.B. 'Grundlagen der Thermodynamik' oder 'Kapitel 3: Ableitungen'",
+      "selectFiles": "Quellmaterial auswählen ({count} ausgewählt)",
+      "ready": "Bereit zum Generieren",
+      "readyDescription": "Wir erstellen einen strukturierten Kurs über \"{topic}\" mit {count} Dateien.",
+      "start": "Lernen starten",
+      "generating": "Generiere...",
+      "error": "Fehler beim Erstellen der Sitzung"
+    },
+    "tab": {
+      "title": "Interaktives Lernen",
+      "subtitle": "KI-generierte Kurse und Quizze basierend auf deinen Dateien.",
+      "newSession": "Neue Sitzung",
+      "emptyTitle": "Beginne deine Lernreise",
+      "emptyDescription": "Erstelle eine interaktive Sitzung, um dein Material zu meistern. Die KI generiert Erklärungen, Quizze und Lernkarten für dich.",
+      "createFirst": "Erste Sitzung erstellen",
+      "units": "Einheiten",
+      "start": "Starten",
+      "generating": "Generiert...",
+      "error": "Fehler"
+    }
   }
 }

@@ -1,14 +1,15 @@
+
 'use client';
 
-import { useEffect, useState } from "react";
-import { getLearningSessions } from "@/app/actions/learning";
+import { useEffect, useState, useTransition } from "react";
+import { deleteLearningSession, getLearningSessions } from "@/app/actions/learning";
 import { Button } from "@/components/ui/button";
-import { Plus, GraduationCap, ArrowRight, Loader2, BookOpen } from "lucide-react";
+import { Plus, GraduationCap, ArrowRight, Loader2, BookOpen, Trash2 } from "lucide-react";
 import { CreateSessionDialog } from "./create-session-dialog";
 import { getFiles } from "@/app/actions/files";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useLanguage } from "@/components/language-provider"; // Assuming this exists
+import { useLanguage } from "@/components/language-provider";
 
 interface Session {
   id: string;
@@ -25,9 +26,13 @@ export function LearningTab({ projectId }: { projectId: string }) {
   const [files, setFiles] = useState<{ id: string, name: string, type: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const { t } = useLanguage();
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   const fetchData = async () => {
-    setLoading(true);
+    // Only set loading on initial fetch
+    if (sessions.length === 0) setLoading(true);
+    
     const [sessionsRes, filesRes] = await Promise.all([
       getLearningSessions(projectId),
       getFiles(projectId)
@@ -47,16 +52,32 @@ export function LearningTab({ projectId }: { projectId: string }) {
     fetchData();
   }, [projectId]);
 
+  const handleDelete = (e: React.MouseEvent, sessionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (confirm(t("common.deleteConfirm"))) {
+      startDeleteTransition(async () => {
+        const result = await deleteLearningSession(sessionId, projectId);
+        if (result.success) {
+          setSessions(prev => prev.filter(s => s.id !== sessionId));
+        } else {
+            alert("Failed to delete session");
+        }
+      });
+    }
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Interactive Learning</h2>
-          <p className="text-muted-foreground">AI-generated courses and quizzes based on your files.</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t("learning.tab.title")}</h2>
+          <p className="text-muted-foreground">{t("learning.tab.subtitle")}</p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          New Session
+          {t("learning.tab.newSession")}
         </Button>
       </div>
 
@@ -67,13 +88,13 @@ export function LearningTab({ projectId }: { projectId: string }) {
       ) : sessions.length === 0 ? (
         <div className="text-center py-16 border-2 border-dashed border-muted rounded-xl bg-muted/5">
           <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Start your learning journey</h3>
+          <h3 className="text-xl font-semibold mb-2">{t("learning.tab.emptyTitle")}</h3>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Create an interactive session to master your material. The AI will generate explanations, quizzes, and flashcards for you.
+            {t("learning.tab.emptyDescription")}
           </p>
           <Button onClick={() => setIsCreateOpen(true)} size="lg" className="gap-2">
             <SparklesIcon className="h-4 w-4" />
-            Create First Session
+            {t("learning.tab.createFirst")}
           </Button>
         </div>
       ) : (
@@ -89,16 +110,27 @@ export function LearningTab({ projectId }: { projectId: string }) {
                   <div className="p-3 bg-primary/10 rounded-lg text-primary">
                     <BookOpen className="h-6 w-6" />
                   </div>
-                  {session.status === 'generating' && (
-                    <span className="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full animate-pulse">
-                      Generating...
-                    </span>
-                  )}
-                  {session.status === 'error' && (
-                    <span className="text-xs font-medium px-2 py-1 bg-destructive/10 text-destructive rounded-full">
-                      Error
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                      {session.status === 'generating' && (
+                        <span className="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full animate-pulse">
+                          {t("learning.tab.generating")}
+                        </span>
+                      )}
+                      {session.status === 'error' && (
+                        <span className="text-xs font-medium px-2 py-1 bg-destructive/10 text-destructive rounded-full">
+                           {t("learning.tab.error")}
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive z-20"
+                        onClick={(e) => handleDelete(e, session.id)}
+                        disabled={isDeleting}
+                      >
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                  </div>
                 </div>
 
                 <div>
@@ -112,10 +144,10 @@ export function LearningTab({ projectId }: { projectId: string }) {
 
                 <div className="pt-4 border-t flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {session._count.units} Units
+                    {session._count.units} {t("learning.tab.units")}
                   </span>
                   <span className="flex items-center text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0 transition-transform">
-                    Start <ArrowRight className="ml-1 h-4 w-4" />
+                    {t("learning.tab.start")} <ArrowRight className="ml-1 h-4 w-4" />
                   </span>
                 </div>
               </div>

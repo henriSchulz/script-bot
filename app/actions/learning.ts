@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { parseGeminiResponse } from "@/lib/ai-parsing";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
-export async function createLearningSession(projectId: string, title: string, fileIds: string[]) {
+export async function createLearningSession(projectId: string, title: string, fileIds: string[], language: string = 'en') {
   try {
     const session = await db.learningSession.create({
       data: {
@@ -20,7 +21,7 @@ export async function createLearningSession(projectId: string, title: string, fi
     });
 
     // Start generation in background (but we might await it for now to keep it simple)
-    await generateLearningPath(session.id, projectId, fileIds, title);
+    await generateLearningPath(session.id, projectId, fileIds, title, language);
 
     revalidatePath(`/projects/${projectId}`);
     return { success: true, sessionId: session.id };
@@ -78,7 +79,7 @@ export async function deleteLearningSession(sessionId: string, projectId: string
   }
 }
 
-async function generateLearningPath(sessionId: string, projectId: string, fileIds: string[], topic: string) {
+async function generateLearningPath(sessionId: string, projectId: string, fileIds: string[], topic: string, language: string) {
   try {
     // 1. Fetch file contents
     const files = await db.file.findMany({
@@ -119,10 +120,13 @@ async function generateLearningPath(sessionId: string, projectId: string, fileId
     }
 
     // 2. prompt
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const langInstruction = language === 'de' ? "Antworte IMMER auf Deutsch." : "ALWAYS answer in English.";
 
     const prompt = `
       You are an expert tutor creating an interactive learning course.
+      ${langInstruction}
 
       Topic: "${topic}"
 
@@ -147,6 +151,7 @@ async function generateLearningPath(sessionId: string, projectId: string, fileId
       - For "quiz", provide 3-4 options and mark the correct one. Provide a short explanation for the correct answer.
       - For "explanation", keep text concise. use bullet points.
       - STRICTLY VALID JSON OUTPUT. No markdown code blocks.
+      - IMPORTANT: Escape all backslashes in LaTeX strings (e.g. use "\\frac" instead of "\frac").
 
       JSON Structure:
       {
@@ -184,9 +189,8 @@ async function generateLearningPath(sessionId: string, projectId: string, fileId
     const result = await model.generateContent([prompt, ...fileContents]);
     const responseText = result.response.text();
 
-    // Clean JSON
-    const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanJson);
+    // Clean and Parse JSON
+    const data = parseGeminiResponse(responseText);
 
     // 4. Save Units
     if (data.units && Array.isArray(data.units)) {

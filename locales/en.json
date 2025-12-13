@@ -173,5 +173,50 @@
     "unitFiles": "files",
     "unitFile": "file",
     "lastUpdated": "Last updated {date}"
+  },
+  "learning": {
+    "loading": "Loading course...",
+    "interactiveCourse": "Interactive Course",
+    "lesson": "Lesson",
+    "quiz": "Quiz",
+    "knowledgeCheck": "Knowledge Check",
+    "conceptCard": "Concept Card",
+    "term": "Term",
+    "definition": "Definition",
+    "checkAnswer": "Check Answer",
+    "correct": "Correct!",
+    "incorrect": "Incorrect",
+    "lessonComplete": "Lesson Complete!",
+    "finishedSection": "You have finished this section.",
+    "returnToOverview": "Return to Overview",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Finish",
+    "clickToFlip": "Click to flip",
+    "sessionNotFound": "Session not found",
+    "createDialog": {
+      "title": "Create Interactive Learning Session",
+      "description": "The AI will generate a personalized course based on your selection.",
+      "topicLabel": "What do you want to learn?",
+      "topicPlaceholder": "e.g., 'Thermodynamics Basics' or 'Chapter 3: Derivatives'",
+      "selectFiles": "Select Source Material ({count} selected)",
+      "ready": "Ready to generate",
+      "readyDescription": "We will create a structured course on \"{topic}\" using {count} files.",
+      "start": "Start Learning",
+      "generating": "Generating...",
+      "error": "Failed to create session"
+    },
+    "tab": {
+      "title": "Interactive Learning",
+      "subtitle": "AI-generated courses and quizzes based on your files.",
+      "newSession": "New Session",
+      "emptyTitle": "Start your learning journey",
+      "emptyDescription": "Create an interactive session to master your material. The AI will generate explanations, quizzes, and flashcards for you.",
+      "createFirst": "Create First Session",
+      "units": "Units",
+      "start": "Start",
+      "generating": "Generating...",
+      "error": "Error"
+    }
   }
 }

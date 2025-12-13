@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, FileText, Sparkles } from "lucide-react";
 import { createLearningSession } from "@/app/actions/learning";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/language-provider";
 
 interface FileData {
   id: string;
@@ -31,13 +31,14 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
+  const { t, language } = useLanguage();
 
   const handleCreate = async () => {
     if (!topic || selectedFiles.length === 0) return;
 
     setIsCreating(true);
     try {
-      const result = await createLearningSession(projectId, topic, selectedFiles);
+      const result = await createLearningSession(projectId, topic, selectedFiles, language);
       if (result.success) {
         onOpenChange(false);
         setStep(1);
@@ -45,11 +46,11 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
         setSelectedFiles([]);
         if (onSuccess) onSuccess();
       } else {
-        alert("Failed to create session");
+        alert(t("learning.createDialog.error"));
       }
     } catch (error) {
       console.error(error);
-      alert("Error creating session");
+      alert(t("learning.createDialog.error"));
     } finally {
       setIsCreating(false);
     }
@@ -59,9 +60,9 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Create Interactive Learning Session</DialogTitle>
+          <DialogTitle>{t("learning.createDialog.title")}</DialogTitle>
           <DialogDescription>
-            The AI will generate a personalized course based on your selection.
+            {t("learning.createDialog.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -69,9 +70,9 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
           {step === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>What do you want to learn?</Label>
+                <Label>{t("learning.createDialog.topicLabel")}</Label>
                 <Input
-                  placeholder="e.g., 'Thermodynamics Basics' or 'Chapter 3: Derivatives'"
+                  placeholder={t("learning.createDialog.topicPlaceholder")}
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   autoFocus
@@ -79,7 +80,7 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
               </div>
 
               <div className="space-y-2">
-                <Label>Select Source Material ({selectedFiles.length} selected)</Label>
+                <Label>{t("learning.createDialog.selectFiles", { count: selectedFiles.length })}</Label>
                 <ScrollArea className="h-[200px] border rounded-md p-2">
                   <div className="space-y-2">
                     {files.map((file) => (
@@ -116,9 +117,9 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
                 <Sparkles className="h-8 w-8 text-primary animate-pulse" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">Ready to generate</h3>
+                <h3 className="text-lg font-medium">{t("learning.createDialog.ready")}</h3>
                 <p className="text-muted-foreground max-w-xs mx-auto">
-                  We will create a structured course on <strong>"{topic}"</strong> using {selectedFiles.length} files.
+                   {t("learning.createDialog.readyDescription", { topic: topic, count: selectedFiles.length })}
                 </p>
               </div>
             </div>
@@ -128,21 +129,21 @@ export function CreateSessionDialog({ projectId, files, open, onOpenChange, onSu
         <DialogFooter>
           {step === 1 ? (
             <Button onClick={() => setStep(2)} disabled={!topic || selectedFiles.length === 0}>
-              Next
+              {t("common.next")}
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => setStep(1)} disabled={isCreating}>Back</Button>
+              <Button variant="outline" onClick={() => setStep(1)} disabled={isCreating}>{t("common.back")}</Button>
               <Button onClick={handleCreate} disabled={isCreating}>
                 {isCreating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
+                    {t("learning.createDialog.generating")}
                   </>
                 ) : (
                   <>
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Start Learning
+                    {t("learning.createDialog.start")}
                   </>
                 )}
               </Button>

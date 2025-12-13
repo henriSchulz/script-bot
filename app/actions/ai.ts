@@ -9,8 +9,9 @@ import { createSummaryBlock } from "./blocks";
 import { createSummary } from "./summaries";
 import { parseMathToHtml } from "@/lib/math-parser";
 import { getDictionary, formatString } from "@/lib/i18n";
-import JSON5 from 'json5';
 import { cookies } from 'next/headers';
+import { parseGeminiResponse } from "@/lib/ai-parsing";
+import JSON5 from 'json5';
 
 // Helper to get global language from browser storage (via cookies)
 async function getGlobalLanguage(): Promise<'en' | 'de'> {
@@ -57,74 +58,7 @@ function cleanLatex(latex: string): string {
   return clean;
 }
 
-// Helper to reliably parse JSON from Gemini response
-function parseGeminiResponse(text: string): any {
-  // 1. Remove markdown code blocks
-  const markdownMatch = text.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
-  if (markdownMatch) {
-    text = markdownMatch[1].trim();
-  }
 
-  // 2. Find JSON boundaries (either object or array)
-  // We want to be careful not to strip too much if the JSON is valid but surrounded by text
-  const startObject = text.indexOf('{');
-  const startArray = text.indexOf('[');
-  
-  let cleanText = text;
-
-  // Simple heuristic: if we find { or [ early on, assume it starts there
-  if (startObject !== -1 && (startArray === -1 || startObject < startArray)) {
-      cleanText = text.substring(startObject);
-      // We don't strictly look for endObject because it might be truncated
-  } else if (startArray !== -1) {
-      cleanText = text.substring(startArray);
-  }
-
-  // 3. Try parsing with JSON5 (more forgiving)
-  try {
-    return JSON5.parse(cleanText);
-  } catch (e) {
-    console.warn("Initial JSON5 parse failed, attempting repairs on text length:", cleanText.length);
-  }
-
-  // 4. Attempt repair for truncation
-  // Common missing endings due to token limit
-  
-  // First, check if we have an unclosed string (odd number of unescaped quotes)
-  // This is a simple heuristic - count quotes that aren't preceded by backslash
-  const quoteCount = (cleanText.match(/(?<!\\)"/g) || []).length;
-  const hasUnclosedString = quoteCount % 2 !== 0;
-  
-  const closers = [
-      ...(hasUnclosedString ? ['"', '" }', '" }]', '" } ]'] : []),
-      '}', 
-      ']', 
-      '"}', 
-      '"]', 
-      '}]', 
-      ']}', 
-      '"}]', 
-      '"]}',
-      // Sometimes it cuts off inside a string value
-      '" }', 
-      '" ]'
-  ];
-  
-  for (const closer of closers) {
-      try {
-          const repaired = JSON5.parse(cleanText + closer);
-          console.log(`[AI] JSON repaired successfully with appended '${closer}'`);
-          return repaired;
-      } catch (e) {
-          // continue trying
-      }
-  }
-
-  // 5. If all else fails, throw original error or return null?
-  // We'll throw so the caller handles it
-  console.error("Failed to parse/repair JSON. Content snippet:", cleanText.substring(0, 200) + "...");
-  throw new Error("Failed to parse AI response");
-}
 
 
 // Helper to fetch image from Google Custom Search based on description
