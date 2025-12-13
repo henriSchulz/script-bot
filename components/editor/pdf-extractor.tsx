@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Check, ArrowLeft, ZoomIn, ZoomOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getSummary } from '@/app/actions/summaries';
+import { getExercise } from '@/app/actions/exercises';
 import { updateSummaryBlock } from '@/app/actions/blocks';
+import { updateExerciseTaskImage } from '@/app/actions/exercise-tasks';
 import { uploadImage } from '@/app/actions/upload';
 import Link from 'next/link';
 
@@ -19,15 +21,27 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 
 interface PdfExtractorProps {
   projectId: string;
-  summaryId: string;
-  blockId: string;
+  summaryId?: string;
+  blockId?: string;
+  exerciseId?: string;
+  taskId?: string;
+  subtaskId?: string;
+  mode?: 'summary' | 'exercise';
 }
 
-export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtractorProps) {
+export default function PdfExtractor({
+    projectId,
+    summaryId,
+    blockId,
+    exerciseId,
+    taskId,
+    subtaskId,
+    mode = 'summary'
+}: PdfExtractorProps) {
   const router = useRouter();
   
   const [loading, setLoading] = useState(true);
-  const [block, setBlock] = useState<any>(null);
+  const [data, setData] = useState<any>(null); // Block or Task data
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [crop, setCrop] = useState<Crop>();
@@ -38,44 +52,75 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchBlock = async () => {
-      const result = await getSummary(summaryId);
-      if (result.success && result.summary) {
-        const foundBlock = result.summary.blocks.find((b: any) => b.id === blockId);
-        if (foundBlock) {
-          setBlock(foundBlock);
-          let parsedContent: any = {};
-          try {
-            parsedContent = JSON.parse(foundBlock.content);
-          } catch (e) {
-            // Content might be a simple string (old format)
-            console.log("Block content is not JSON, treating as raw string/legacy");
-          }
+    const fetchData = async () => {
+      if (mode === 'summary' && summaryId && blockId) {
+        const result = await getSummary(summaryId);
+        if (result.success && result.summary) {
+          const foundBlock = result.summary.blocks.find((b: any) => b.id === blockId);
+          if (foundBlock) {
+            setData(foundBlock);
+            let parsedContent: any = {};
+            try {
+              parsedContent = JSON.parse(foundBlock.content);
+            } catch (e) {
+              console.log("Block content is not JSON, treating as raw string/legacy");
+            }
 
-          if (parsedContent.crop) {
-               setCrop(parsedContent.crop);
-               setCompletedCrop(parsedContent.crop);
+            if (parsedContent.crop) {
+                setCrop(parsedContent.crop);
+                setCompletedCrop(parsedContent.crop);
+            }
+
+            if (parsedContent.fileUrl) {
+                setFileUrl(parsedContent.fileUrl);
+            } else if (foundBlock.file?.url) {
+                setFileUrl(foundBlock.file.url);
+            }
+
+            if (parsedContent.page) {
+                setPageNumber(parsedContent.page);
+            } else if (foundBlock.page) {
+                setPageNumber(foundBlock.page);
+            }
           }
-          
-          // Determine File URL
-          if (parsedContent.fileUrl) {
-              setFileUrl(parsedContent.fileUrl);
-          } else if (foundBlock.file?.url) {
-              setFileUrl(foundBlock.file.url);
-          }
-          
-          // Determine Page
-          if (parsedContent.page) {
-               setPageNumber(parsedContent.page);
-          } else if (foundBlock.page) {
-               setPageNumber(foundBlock.page);
-          }
+        }
+      } else if (mode === 'exercise' && exerciseId && taskId) {
+        const result = await getExercise(exerciseId);
+        if (result.success && result.exercise) {
+            // Find task in structure
+            let structure: any = {};
+            try {
+                structure = JSON.parse(result.exercise.structure || '{}');
+            } catch (e) {
+                console.error("Failed to parse exercise structure");
+            }
+
+            const task = structure.tasks?.find((t: any) => t.id === taskId);
+            let target = task;
+
+            if (subtaskId && task) {
+                target = task.subtasks?.find((s: any) => s.id === subtaskId);
+            }
+
+            if (target) {
+                setData(target);
+                if (target.image) {
+                    setCrop(target.image.crop);
+                    setCompletedCrop(target.image.crop);
+                    setPageNumber(target.image.page || 1);
+                }
+
+                // Use exercise file
+                if (result.exercise.file?.url) {
+                    setFileUrl(result.exercise.file.url);
+                }
+            }
         }
       }
       setLoading(false);
     };
-    fetchBlock();
-  }, [summaryId, blockId]);
+    fetchData();
+  }, [summaryId, blockId, exerciseId, taskId, subtaskId, mode]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     // Document loaded
@@ -124,26 +169,34 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
         formData.append("file", file);
 
         const uploadResult = await uploadImage(formData, projectId);
-        console.log("Upload result:", uploadResult);
         
         if (uploadResult.success && uploadResult.url) {
-            console.log("Updating block:", blockId, uploadResult.url);
-            console.log("Updating block:", blockId, uploadResult.url);
             
-            // Construct new content JSON preserving crop data
-            const newContent = JSON.stringify({
-                url: uploadResult.url,
-                crop: crop, // Save percentage crop
-                page: pageNumber,
-                fileUrl: fileUrl, // Keep original file URL for future re-cropping
-                size: block?.content ? tryParse(block.content)?.size : 'medium' // Preserve size if exists
-            });
-            
-            const updateResult = await updateSummaryBlock(blockId, newContent, "image");
-            console.log("Update result:", updateResult);
-            
-            router.refresh();
-            router.push(`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`);
+            if (mode === 'summary' && blockId && summaryId) {
+                // Construct new content JSON preserving crop data
+                const newContent = JSON.stringify({
+                    url: uploadResult.url,
+                    crop: crop, // Save percentage crop
+                    page: pageNumber,
+                    fileUrl: fileUrl, // Keep original file URL for future re-cropping
+                    size: data?.content ? tryParse(data.content)?.size : 'medium' // Preserve size if exists
+                });
+
+                await updateSummaryBlock(blockId, newContent, "image");
+                router.refresh();
+                router.push(`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`);
+            } else if (mode === 'exercise' && exerciseId && taskId) {
+                const imageData = {
+                    url: uploadResult.url,
+                    crop: crop,
+                    page: pageNumber
+                };
+
+                await updateExerciseTaskImage(exerciseId, taskId, subtaskId || null, imageData);
+                router.refresh();
+                router.push(`/projects/${projectId}/exercises/${exerciseId}`);
+            }
+
         } else {
             console.error("Upload failed:", uploadResult);
             alert("Failed to upload image");
@@ -157,6 +210,16 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
     }
   };
 
+  const handleBack = () => {
+      if (mode === 'summary' && summaryId) {
+          router.push(`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`);
+      } else if (mode === 'exercise' && exerciseId) {
+          router.push(`/projects/${projectId}/exercises/${exerciseId}`);
+      } else {
+          router.back();
+      }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -168,11 +231,9 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
   if (!fileUrl) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <p>No file URL found for this block.</p>
-        <Button asChild variant="outline">
-            <Link href={`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`}>
-                Back
-            </Link>
+        <p>No file URL found.</p>
+        <Button onClick={handleBack} variant="outline">
+            Back
         </Button>
       </div>
     );
@@ -184,10 +245,8 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
       <div className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`}>
-                        <ArrowLeft className="h-4 w-4" />
-                    </Link>
+                <Button variant="ghost" size="icon" onClick={handleBack}>
+                    <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
                     <h1 className="font-semibold">Extract Image</h1>
@@ -214,6 +273,29 @@ export default function PdfExtractor({ projectId, summaryId, blockId }: PdfExtra
                         <ZoomIn className="h-4 w-4" />
                     </Button>
                 </div>
+                {/* Page Navigation */}
+                 <div className="flex items-center gap-1 mr-4 bg-muted/50 rounded-md p-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={pageNumber <= 1}
+                        onClick={() => setPageNumber(p => p - 1)}
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs w-12 text-center">Page {pageNumber}</span>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                         // TODO: Disable if max page reached (need numPages from document)
+                        onClick={() => setPageNumber(p => p + 1)}
+                    >
+                        <ArrowLeft className="h-4 w-4 rotate-180" />
+                    </Button>
+                </div>
+
                 <Button onClick={handleSave} disabled={!completedCrop || saving}>
                     {saving ? (
                         <>

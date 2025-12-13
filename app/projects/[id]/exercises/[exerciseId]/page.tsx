@@ -1,15 +1,14 @@
 'use client';
 
-import { use, useEffect, useState, useRef } from "react";
+import { use, useEffect, useState, useRef, useTransition } from "react";
 import { getExercise } from "@/app/actions/exercises";
 import { generateTheoryForExercise, analyzeExerciseStructure, chatAboutExercise, generateExtraExercises } from "@/app/actions/ai";
 import { getChatMessages, saveChatMessage } from "@/app/actions/chats";
 import { BlockEditor } from "@/components/editor/block-editor";
 import dynamic from "next/dynamic";
-import { Loader2, ArrowLeft, ChevronRight, Sparkles, MessageSquare, BookOpen, CheckCircle2, Play, SkipForward, FileText, Lightbulb, Plus, Send } from "lucide-react";
+import { Loader2, ArrowLeft, ChevronRight, Sparkles, MessageSquare, BookOpen, CheckCircle2, Play, SkipForward, FileText, Lightbulb, Plus, Send, Crop, Image as ImageIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -17,7 +16,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { LatexBlock } from "@/components/editor/blocks/latex-block";
@@ -25,6 +24,7 @@ import { useLanguage } from "@/components/language-provider";
 import { ReferenceLink, parseReferences } from "@/components/chat/reference-link";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 import { GeneratedExerciseCard } from "@/components/exercises/generated-exercise-card";
+import { Progress } from "@/components/ui/progress";
 
 const PdfViewer = dynamic(() => import("@/components/pdf-viewer").then(mod => mod.PdfViewer), {
   ssr: false,
@@ -50,12 +50,22 @@ interface Task {
   title: string;
   blocks: ContentBlock[];
   subtasks: Subtask[];
+  image?: {
+    url: string;
+    crop: any;
+    page: number;
+  };
 }
 
 interface Subtask {
   id: string;
   label: string;
   blocks: ContentBlock[];
+  image?: {
+    url: string;
+    crop: any;
+    page: number;
+  };
 }
 
 interface ChatMessage {
@@ -64,22 +74,32 @@ interface ChatMessage {
   blocks?: any[];
 }
 
-
+interface FlattenedTask {
+    type: 'task' | 'subtask';
+    id: string;
+    label: string;
+    fullLabel: string;
+    task: Task;
+    subtask?: Subtask;
+    index: number;
+}
 
 export default function ExercisePage({ params }: ExercisePageProps) {
   const { dict } = useLanguage();
   const resolvedParams = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [exercise, setExercise] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState("sheet");
+  const [activeTab, setActiveTab] = useState("work");
   
   // Work Mode State
   const [structure, setStructure] = useState<{ tasks: Task[] } | null>(null);
-  const [activeSubtask, setActiveSubtask] = useState<Subtask | null>(null);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [flattenedTasks, setFlattenedTasks] = useState<FlattenedTask[]>([]);
+  const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -104,7 +124,38 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           setExercise(result.exercise);
           if (result.exercise.structure) {
               try {
-                  setStructure(JSON.parse(result.exercise.structure));
+                  const parsedStructure = JSON.parse(result.exercise.structure);
+                  setStructure(parsedStructure);
+
+                  // Flatten tasks for linear navigation
+                  const flat: FlattenedTask[] = [];
+                  let idx = 0;
+                  parsedStructure.tasks.forEach((task: Task) => {
+                      if (task.subtasks && task.subtasks.length > 0) {
+                          task.subtasks.forEach(subtask => {
+                              flat.push({
+                                  type: 'subtask',
+                                  id: subtask.id,
+                                  label: subtask.label,
+                                  fullLabel: `${task.title} - ${subtask.label}`,
+                                  task: task,
+                                  subtask: subtask,
+                                  index: idx++
+                              });
+                          });
+                      } else {
+                          flat.push({
+                              type: 'task',
+                              id: task.id,
+                              label: task.title,
+                              fullLabel: task.title,
+                              task: task,
+                              index: idx++
+                          });
+                      }
+                  });
+                  setFlattenedTasks(flat);
+
               } catch (e) {
                   console.error("Failed to parse exercise structure", e);
               }
@@ -149,6 +200,23 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       });
     });
   }, [resolvedParams.exerciseId, resolvedParams.id]);
+
+  // Load chat messages when current task changes
+  useEffect(() => {
+    if (flattenedTasks.length > 0) {
+        const current = flattenedTasks[currentTaskIndex];
+        const contextId = current.type === 'subtask' ? current.subtask!.id : current.task.id;
+
+        getChatMessages(resolvedParams.exerciseId, contextId).then((result) => {
+             if (result.success && result.messages) {
+                setChatMessages(result.messages as unknown as ChatMessage[]);
+             } else {
+                 setChatMessages([]);
+             }
+        });
+    }
+  }, [currentTaskIndex, flattenedTasks, resolvedParams.exerciseId]);
+
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -275,6 +343,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           const result = await analyzeExerciseStructure(resolvedParams.exerciseId);
           if (result.success && result.structure) {
               setStructure(result.structure);
+              // Refresh page to trigger reconstruction of flattened tasks
+              window.location.reload();
               toast.success("Analysis complete!");
           } else {
               toast.error(result.error || "Failed to analyze structure");
@@ -308,37 +378,25 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       }
   };
 
-  const handleSubtaskClick = async (task: Task, subtask: Subtask) => {
-      setActiveTask(task);
-      setActiveSubtask(subtask);
-      setChatMessages([]); // Reset chat initially
-      
-      // Load existing chat messages for this subtask
-      try {
-          const result = await getChatMessages(resolvedParams.exerciseId, subtask.id);
-          if (result.success && result.messages) {
-              setChatMessages(result.messages as unknown as ChatMessage[]);
-          }
-      } catch (error) {
-          console.error("Failed to load chat messages:", error);
-      }
-  };
 
   const handleSendMessage = async () => {
-      if (!inputMessage.trim() || !activeSubtask || !activeTask) return;
+      const current = flattenedTasks[currentTaskIndex];
+      if (!inputMessage.trim() || !current) return;
 
       const userMsg = inputMessage;
       setInputMessage("");
       setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
       setChatLoading(true);
 
+      const contextId = current.type === 'subtask' ? current.subtask!.id : current.task.id;
+
       try {
           // Save user message to database
-          await saveChatMessage(resolvedParams.exerciseId, 'user', userMsg, undefined, activeSubtask.id);
+          await saveChatMessage(resolvedParams.exerciseId, 'user', userMsg, undefined, contextId);
           
-          const taskContent = activeTask.blocks.map(b => b.content).join('\n');
-          const subtaskContent = activeSubtask.blocks.map(b => b.content).join('\n');
-          const context = `Task: ${activeTask.title}\n${taskContent}\n\nSubtask: ${activeSubtask.label}\n${subtaskContent}`;
+          const taskContent = current.task.blocks.map(b => b.content).join('\n');
+          const subtaskContent = current.subtask ? current.subtask.blocks.map(b => b.content).join('\n') : "";
+          const context = `Task: ${current.task.title}\n${taskContent}\n\n${current.subtask ? `Subtask: ${current.subtask.label}\n${subtaskContent}` : ''}`;
           
           const historyForAi = chatMessages.map(m => ({
               role: m.role,
@@ -362,16 +420,16 @@ export default function ExercisePage({ params }: ExercisePageProps) {
               // Validate it's an array
               if (Array.isArray(blocks)) {
                   // Save AI response to database
-                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, blocks, activeSubtask.id);
+                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, blocks, contextId);
                   setChatMessages(prev => [...prev, { role: 'model', blocks }]);
               } else {
                   // If somehow blocks is not an array, wrap it
                   const wrappedBlocks = [{ type: 'text', content: JSON.stringify(blocks) }];
-                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, wrappedBlocks, activeSubtask.id);
+                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, wrappedBlocks, contextId);
                   setChatMessages(prev => [...prev, { role: 'model', blocks: wrappedBlocks }]);
               }
           } else if (result.success && 'message' in result) {
-              await saveChatMessage(resolvedParams.exerciseId, 'model', (result as any).message, undefined, activeSubtask.id);
+              await saveChatMessage(resolvedParams.exerciseId, 'model', (result as any).message, undefined, contextId);
               setChatMessages(prev => [...prev, { role: 'model', content: (result as any).message }]);
           } else {
               toast.error("Failed to get response");
@@ -385,19 +443,21 @@ export default function ExercisePage({ params }: ExercisePageProps) {
   };
 
   const handleSkip = async () => {
-      if (!activeSubtask || !activeTask) return;
+      const current = flattenedTasks[currentTaskIndex];
+      if (!current) return;
       
       const skipMsg = dict.exercises.chatInterface.skipMessage;
       setChatMessages(prev => [...prev, { role: 'user', content: skipMsg }]);
       setChatLoading(true);
+      const contextId = current.type === 'subtask' ? current.subtask!.id : current.task.id;
 
       try {
           // Save user message to database
-          await saveChatMessage(resolvedParams.exerciseId, 'user', skipMsg, undefined, activeSubtask.id);
+          await saveChatMessage(resolvedParams.exerciseId, 'user', skipMsg, undefined, contextId);
           
-          const taskContent = activeTask.blocks.map(b => b.content).join('\n');
-          const subtaskContent = activeSubtask.blocks.map(b => b.content).join('\n');
-          const context = `Task: ${activeTask.title}\n${taskContent}\n\nSubtask: ${activeSubtask.label}\n${subtaskContent}`;
+          const taskContent = current.task.blocks.map(b => b.content).join('\n');
+          const subtaskContent = current.subtask ? current.subtask.blocks.map(b => b.content).join('\n') : "";
+          const context = `Task: ${current.task.title}\n${taskContent}\n\n${current.subtask ? `Subtask: ${current.subtask.label}\n${subtaskContent}` : ''}`;
            const historyForAi = chatMessages.map(m => ({
               role: m.role,
               content: m.content || m.blocks?.map(b => b.content).join('\n') || ""
@@ -406,25 +466,21 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           const result = await chatAboutExercise(resolvedParams.exerciseId, context, [...historyForAi, { role: 'user', content: skipMsg }]);
           
           if (result.success && result.blocks) {
-              // Check if blocks is a string (JSON) instead of parsed array
               let blocks = result.blocks;
               if (typeof blocks === 'string') {
                   try {
                       blocks = JSON.parse(blocks);
                   } catch (e) {
-                      console.error("Failed to parse blocks string:", blocks);
                       blocks = [{ type: 'text', content: blocks }];
                   }
               }
               
-              // Validate it's an array
               if (Array.isArray(blocks)) {
-                  // Save AI response to database
-                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, blocks, activeSubtask.id);
+                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, blocks, contextId);
                   setChatMessages(prev => [...prev, { role: 'model', blocks }]);
               } else {
                   const wrappedBlocks = [{ type: 'text', content: JSON.stringify(blocks) }];
-                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, wrappedBlocks, activeSubtask.id);
+                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, wrappedBlocks, contextId);
                   setChatMessages(prev => [...prev, { role: 'model', blocks: wrappedBlocks }]);
               }
           } else {
@@ -439,19 +495,21 @@ export default function ExercisePage({ params }: ExercisePageProps) {
   };
 
   const handleHint = async () => {
-      if (!activeSubtask || !activeTask) return;
+      const current = flattenedTasks[currentTaskIndex];
+      if (!current) return;
       
       const hintMsg = dict.exercises.chatInterface.hintMessage;
       setChatMessages(prev => [...prev, { role: 'user', content: hintMsg }]);
       setChatLoading(true);
+      const contextId = current.type === 'subtask' ? current.subtask!.id : current.task.id;
 
       try {
           // Save user message to database
-          await saveChatMessage(resolvedParams.exerciseId, 'user', hintMsg, undefined, activeSubtask.id);
+          await saveChatMessage(resolvedParams.exerciseId, 'user', hintMsg, undefined, contextId);
           
-          const taskContent = activeTask.blocks.map(b => b.content).join('\n');
-          const subtaskContent = activeSubtask.blocks.map(b => b.content).join('\n');
-          const context = `Task: ${activeTask.title}\n${taskContent}\n\nSubtask: ${activeSubtask.label}\n${subtaskContent}`;
+          const taskContent = current.task.blocks.map(b => b.content).join('\n');
+          const subtaskContent = current.subtask ? current.subtask.blocks.map(b => b.content).join('\n') : "";
+          const context = `Task: ${current.task.title}\n${taskContent}\n\n${current.subtask ? `Subtask: ${current.subtask.label}\n${subtaskContent}` : ''}`;
           const historyForAi = chatMessages.map(m => ({
               role: m.role,
               content: m.content || m.blocks?.map(b => b.content).join('\n') || ""
@@ -460,25 +518,21 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           const result = await chatAboutExercise(resolvedParams.exerciseId, context, [...historyForAi, { role: 'user', content: hintMsg }]);
           
           if (result.success && result.blocks) {
-              // Check if blocks is a string (JSON) instead of parsed array
               let blocks = result.blocks;
               if (typeof blocks === 'string') {
                   try {
                       blocks = JSON.parse(blocks);
                   } catch (e) {
-                      console.error("Failed to parse blocks string:", blocks);
                       blocks = [{ type: 'text', content: blocks }];
                   }
               }
               
-              // Validate it's an array
               if (Array.isArray(blocks)) {
-                  // Save AI response to database
-                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, blocks, activeSubtask.id);
+                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, blocks, contextId);
                   setChatMessages(prev => [...prev, { role: 'model', blocks }]);
               } else {
                   const wrappedBlocks = [{ type: 'text', content: JSON.stringify(blocks) }];
-                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, wrappedBlocks, activeSubtask.id);
+                  await saveChatMessage(resolvedParams.exerciseId, 'model', undefined, wrappedBlocks, contextId);
                   setChatMessages(prev => [...prev, { role: 'model', blocks: wrappedBlocks }]);
               }
           } else {
@@ -490,6 +544,18 @@ export default function ExercisePage({ params }: ExercisePageProps) {
       } finally {
           setChatLoading(false);
       }
+  };
+
+  const handleNextTask = () => {
+    if (currentTaskIndex < flattenedTasks.length - 1) {
+        setCurrentTaskIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePrevTask = () => {
+    if (currentTaskIndex > 0) {
+        setCurrentTaskIndex(prev => prev - 1);
+    }
   };
 
   if (loading) {
@@ -511,9 +577,15 @@ export default function ExercisePage({ params }: ExercisePageProps) {
     );
   }
 
+  const progress = flattenedTasks.length > 0 ? ((currentTaskIndex + 1) / flattenedTasks.length) * 100 : 0;
+  const currentItem = flattenedTasks[currentTaskIndex];
+
+  // Get image for current item
+  const currentImage = currentItem?.type === 'subtask' ? currentItem.subtask?.image : currentItem?.task.image;
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Clean Header */}
+      {/* Header */}
       <header className="flex-none border-b border-border bg-background/95 backdrop-blur-sm">
         <div className="flex items-center justify-between px-6 h-14">
             <div className="flex items-center gap-3">
@@ -548,16 +620,6 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                         Lösungen generieren
                     </Button>
                 )}
-                {activeTab === 'extra' && (
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Generate Exercises
-                    </Button>
-                )}
                 <Button 
                     variant="default" 
                     size="sm" 
@@ -579,6 +641,20 @@ export default function ExercisePage({ params }: ExercisePageProps) {
         <div className="px-6 border-b border-border flex-none bg-background/95 backdrop-blur-sm">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-11">
             <TabsList className="w-full justify-start h-11 bg-transparent p-0 gap-6">
+              <TabsTrigger 
+                value="work"
+                className={cn(
+                  "data-[state=active]:bg-transparent relative",
+                  "data-[state=active]:shadow-none rounded-none px-0 pb-3",
+                  "transition-colors hover:text-foreground",
+                  "data-[state=active]:text-foreground"
+                )}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <span className="font-medium">Bearbeiten</span>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground scale-x-0 data-[state=active]:scale-x-100 transition-transform" 
+                     data-state={activeTab === 'work' ? 'active' : 'inactive'} />
+              </TabsTrigger>
               <TabsTrigger 
                 value="sheet"
                 className={cn(
@@ -608,20 +684,6 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                      data-state={activeTab === 'theory' ? 'active' : 'inactive'} />
               </TabsTrigger>
               <TabsTrigger 
-                value="work"
-                className={cn(
-                  "data-[state=active]:bg-transparent relative",
-                  "data-[state=active]:shadow-none rounded-none px-0 pb-3",
-                  "transition-colors hover:text-foreground",
-                  "data-[state=active]:text-foreground"
-                )}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                <span className="font-medium">Bearbeiten</span>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground scale-x-0 data-[state=active]:scale-x-100 transition-transform" 
-                     data-state={activeTab === 'work' ? 'active' : 'inactive'} />
-              </TabsTrigger>
-              <TabsTrigger 
                 value="extra"
                 className={cn(
                   "data-[state=active]:bg-transparent relative",
@@ -631,7 +693,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                 )}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                <span className="font-medium">Zusätzliche Übungsaufgaben</span>
+                <span className="font-medium">Zusatzaufgaben</span>
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground scale-x-0 data-[state=active]:scale-x-100 transition-transform" 
                      data-state={activeTab === 'extra' ? 'active' : 'inactive'} />
               </TabsTrigger>
@@ -639,10 +701,9 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           </Tabs>
         </div>
 
-        {/* Content Area - Conditionally rendered based on active tab */}
-        <div className="flex-1 overflow-hidden min-h-0">
+        {/* Content Area */}
+        <div className="flex-1 overflow-hidden min-h-0 relative">
           {activeTab === 'sheet' ? (
-            // PDF Viewer Fullscreen
             <div className="w-full h-full">
               <div className="p-4 h-full flex flex-col">
                 {exercise.file ? (
@@ -662,7 +723,6 @@ export default function ExercisePage({ params }: ExercisePageProps) {
               </div>
             </div>
           ) : activeTab === 'theory' ? (
-            // Theory Tab Content
             <div className="h-full overflow-y-auto p-8">
               <div className="max-w-3xl mx-auto w-full">
                 {(() => {
@@ -674,14 +734,14 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                       projectId={resolvedParams.id}
                       initialBlocks={solutionSummary?.blocks || []}
                       onChatAboutBlock={handleChatAboutBlock}
-                      isReadOnly={false} // Allow editing of solution
+                      isReadOnly={false}
                     />
                   );
                 })()}
               </div>
             </div>
           ) : activeTab === 'work' ? (
-            // Work Tab Content
+            // New Guided Learning UX for Work Mode
             !structure ? (
               <div className="h-full flex flex-col items-center justify-center gap-6 p-8 text-center">
                 <div className="space-y-4">
@@ -689,9 +749,9 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                     <CheckCircle2 className="h-8 w-8 text-primary" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">Start Interactive Mode</h3>
+                    <h3 className="text-xl font-semibold">Start Guided Mode</h3>
                     <p className="text-muted-foreground max-w-md text-sm">
-                      Analyze the exercise sheet to break it down into tasks and subtasks. This allows you to solve them step-by-step with AI assistance.
+                      Analyze the exercise sheet to break it down into tasks. This allows you to solve them step-by-step with AI assistance.
                     </p>
                   </div>
                   <Button 
@@ -709,278 +769,167 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                   </Button>
                 </div>
               </div>
-            ) : !activeSubtask ? (
-              <div className="h-full overflow-y-auto p-8 bg-gradient-to-b from-background to-muted/20">
-                <div className="max-w-4xl mx-auto space-y-8">
-                  {/* Header Section */}
-                  <div className="space-y-3 pb-4 border-b border-border">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-3xl font-bold tracking-tight">Inhaltsverzeichnis</h2>
-                        <p className="text-muted-foreground">Wähle eine Aufgabe aus, um mit der Bearbeitung zu beginnen</p>
-                      </div>
-                      <Button 
-                        onClick={handleAnalyzeStructure} 
-                        disabled={analyzing}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        {analyzing ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                        Neu analysieren
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* Tasks List */}
-                  <div className="space-y-8">
-                    {structure.tasks.map((task, taskIdx) => (
-                      <div key={task.id} className="space-y-4">
-                        {/* Task Header */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground font-bold text-lg shadow-sm">
-                            {taskIdx + 1}
-                          </div>
-                          <h3 className="text-xl font-semibold">{task.title}</h3>
-                        </div>
-                        
-                        {/* Subtasks Grid */}
-                        <div className="grid grid-cols-2 gap-3 pl-0">
-                          {task.subtasks.map((subtask) => (
-                            <button
-                              key={subtask.id}
-                              onClick={() => handleSubtaskClick(task, subtask)}
-                              className="group relative overflow-hidden rounded-lg border border-border bg-card hover:border-primary/40 transition-all duration-200 p-4 text-left hover:shadow-md"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm group-hover:bg-primary/20 transition-colors">
-                                    {subtask.label}
-                                  </div>
-                                  <span className="font-medium text-sm">Teil {subtask.label}</span>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             ) : (
-              <div className="h-full flex">
-                {/* Left: Task Content - Collapsible Sidebar */}
-                <div className="w-[450px] flex-shrink-0 flex flex-col border-r border-border bg-background">
-                  <div className="flex-none px-4 py-3 border-b border-border">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setActiveSubtask(null)}
-                      className="text-muted-foreground hover:text-foreground -ml-2 gap-2"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      {dict.exercises.chatInterface.backToOverview}
-                    </Button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-4">
-                    <div className="space-y-4">
-                      {/* Header */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span>{activeTask?.title}</span>
-                          <ChevronRight className="h-3 w-3" />
-                          <span className="text-foreground font-medium">Teil {activeSubtask.label}</span>
-                        </div>
-                        <h3 className="text-lg font-semibold">
-                          Aufgabe {activeSubtask.label}
-                        </h3>
-                      </div>
-
-                      {/* Task Content */}
-                      <div className="space-y-3 text-sm">
-                        {activeSubtask.blocks.map((block, blockIdx) => (
-                          <div key={blockIdx}>
-                            {block.type === 'latex' ? (
-                              <LatexBlock 
-                                content={block.content} 
-                                onChange={() => {}} 
-                                isReadOnly={true} 
-                                projectId={resolvedParams.id} 
-                              />
-                            ) : (
-                              <div className="prose prose-sm max-w-none dark:prose-invert">
-                                <ReactMarkdown 
-                                  remarkPlugins={[remarkMath]} 
-
-                                  rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
-                                >
-                                  {block.content}
-                                </ReactMarkdown>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+              <div className="h-full flex flex-col">
+                {/* Progress Bar */}
+                <div className="flex-none px-6 py-2 border-b bg-card/50 backdrop-blur-sm flex items-center gap-4">
+                    <div className="flex-1">
+                        <Progress value={progress} className="h-2" />
                     </div>
-                  </div>
+                    <span className="text-sm font-medium text-muted-foreground tabular-nums">
+                        {currentTaskIndex + 1} / {flattenedTasks.length}
+                    </span>
                 </div>
 
-                {/* Right: ChatGPT-style Chat Area */}
-                <div className="flex-1 flex flex-col bg-background">
-                  {/* Chat Messages - Single Scroll Container */}
-                  <div className="flex-1 overflow-y-auto" ref={chatScrollRef}>
-                    <div className="max-w-4xl mx-auto px-6 py-8">
-                      {chatMessages.length === 0 && (
-                        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-                          <div className="p-4 rounded-full bg-primary/10">
-                            <MessageSquare className="h-8 w-8 text-primary" />
-                          </div>
-                          <div className="space-y-2">
-                            <h3 className="text-xl font-semibold">{dict.exercises.chatInterface.startJourney}</h3>
-                            <p className="text-muted-foreground">{dict.exercises.chatInterface.startPrompt}</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="space-y-8">
-                        {chatMessages.map((msg, idx) => (
-                          <div 
-                            key={idx} 
-                            className={cn(
-                              "flex w-full gap-5",
-                              msg.role === 'user' ? "justify-end" : "justify-start"
-                            )}
-                          >
-                            {msg.role === 'model' && (
-                              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                                <MessageSquare className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                            
-                            <div className={cn(
-                              "flex-1",
-                              msg.role === 'user' && "max-w-[85%]"
-                            )}>
-                              <div className={cn(
-                                "rounded-2xl px-5 py-3.5",
-                                msg.role === 'user' 
-                                  ? "bg-primary text-primary-foreground ml-auto" 
-                                  : "bg-transparent"
-                              )}>
-                                {msg.role === 'user' ? (
-                                  <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                                ) : msg.blocks ? (
-                                  <div className="space-y-4">
-                                    {msg.blocks.map((block: any, i: number) => (
-                                      block.type === 'latex' ? (
-                                        <div key={i} className="rounded-lg border border-border overflow-hidden bg-background">
-                                          <LatexBlock 
-                                            content={block.content} 
-                                            onChange={() => {}} 
-                                            isReadOnly={true} 
-                                            projectId={resolvedParams.id} 
-                                          />
-                                        </div>
-                                      ) : (
-                                        <div key={i} className="prose dark:prose-invert max-w-none text-[15px] leading-relaxed">
-                                          {renderContentWithReferences(block.content)}
-                                        </div>
-                                      )
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="prose dark:prose-invert max-w-none text-[15px] leading-relaxed">
-                                    {renderContentWithReferences(msg.content || "")}
-                                  </div>
-                                )}
-                              </div>
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Left: Task View (Image + Description) */}
+                    <div className="w-1/2 flex flex-col border-r border-border bg-muted/5 p-6 overflow-y-auto">
+                        <div className="max-w-xl mx-auto w-full space-y-6">
+                            <div className="space-y-2">
+                                <span className="text-sm font-medium text-primary uppercase tracking-widest">
+                                    {currentItem.task.title}
+                                </span>
+                                <h2 className="text-2xl font-bold">
+                                    {currentItem.type === 'subtask' ? `Teil ${currentItem.subtask!.label}` : currentItem.label}
+                                </h2>
                             </div>
-                            
-                            {msg.role === 'user' && (
-                              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center mt-0.5">
-                                <span className="text-primary-foreground text-sm font-medium">U</span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        
-                        {chatLoading && (
-                          <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                              <MessageSquare className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="rounded-2xl px-5 py-3.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Input Area - Fixed at Bottom */}
-                  <div className="flex-none border-t border-border bg-background">
-                    <div className="max-w-4xl mx-auto px-6 py-5">
-                      <div className="flex gap-2 items-end">
-                        <div className="flex gap-1 mb-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={handleHint}
-                            title={dict.exercises.chatInterface.hint}
-                            disabled={chatLoading}
-                            className="h-10 w-10 hover:bg-muted"
-                          >
-                            <Lightbulb className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={handleSkip}
-                            title={dict.exercises.chatInterface.solution}
-                            disabled={chatLoading}
-                            className="h-10 w-10 hover:bg-muted"
-                          >
-                            <SkipForward className="h-4 w-4" />
-                          </Button>
+                            {/* Image Area */}
+                            <div className="rounded-xl overflow-hidden border-2 border-dashed border-border bg-background min-h-[300px] flex items-center justify-center relative group">
+                                {currentImage ? (
+                                    <>
+                                        <img src={currentImage.url} alt="Task" className="w-full h-auto object-contain" />
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            asChild
+                                        >
+                                            <Link href={`/projects/${resolvedParams.id}/exercises/${resolvedParams.exerciseId}/extract/${currentItem.task.id}${currentItem.type === 'subtask' ? `?subtask=${currentItem.subtask!.id}` : ''}`}>
+                                                <Crop className="h-4 w-4 mr-2" />
+                                                Edit Crop
+                                            </Link>
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <div className="text-center space-y-4">
+                                        <div className="p-4 rounded-full bg-muted inline-flex">
+                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">No Image Selected</p>
+                                            <p className="text-sm text-muted-foreground">Select the area from the PDF for this task</p>
+                                        </div>
+                                        <Button asChild>
+                                            <Link href={`/projects/${resolvedParams.id}/exercises/${resolvedParams.exerciseId}/extract/${currentItem.task.id}${currentItem.type === 'subtask' ? `?subtask=${currentItem.subtask!.id}` : ''}`}>
+                                                <Crop className="h-4 w-4 mr-2" />
+                                                Select Area
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Text Description */}
+                            <div className="prose dark:prose-invert max-w-none text-sm">
+                                {currentItem.type === 'subtask' ? (
+                                    currentItem.subtask!.blocks.map((b, i) => (
+                                        <ReactMarkdown key={i} remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{b.content}</ReactMarkdown>
+                                    ))
+                                ) : (
+                                    currentItem.task.blocks.map((b, i) => (
+                                        <ReactMarkdown key={i} remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{b.content}</ReactMarkdown>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                        <div className="flex-1 flex gap-2">
-                          <Input 
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                            placeholder={dict.exercises.chatInterface.placeholder}
-                            className="flex-1 h-12 rounded-xl border-border bg-background focus-visible:ring-1"
-                            disabled={chatLoading}
-                          />
-                          <Button 
-                            onClick={handleSendMessage} 
-                            disabled={chatLoading || !inputMessage.trim()}
-                            size="icon"
-                            className="h-12 w-12 rounded-xl"
-                          >
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
                     </div>
-                  </div>
+
+                    {/* Right: Chat / Interaction Area */}
+                    <div className="w-1/2 flex flex-col bg-background">
+                         <div className="flex-1 overflow-y-auto" ref={chatScrollRef}>
+                            <div className="max-w-3xl mx-auto px-6 py-8">
+                                <div className="space-y-8">
+                                    {chatMessages.length === 0 && (
+                                        <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 text-muted-foreground">
+                                            <MessageSquare className="h-12 w-12 opacity-20" />
+                                            <p>Frag Maggie nach Hilfe für diese Aufgabe.</p>
+                                        </div>
+                                    )}
+                                    {chatMessages.map((msg, idx) => (
+                                        <div key={idx} className={cn("flex w-full gap-4", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                                            {msg.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center"><MessageSquare className="h-4 w-4 text-primary" /></div>}
+                                            <div className={cn("flex-1 max-w-[85%]", msg.role === 'user' && "text-right")}>
+                                                <div className={cn("inline-block rounded-2xl px-5 py-3 text-left", msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                                                     {msg.role === 'user' ? (
+                                                        <p className="text-[15px] whitespace-pre-wrap">{msg.content}</p>
+                                                     ) : msg.blocks ? (
+                                                        <div className="space-y-4">
+                                                            {msg.blocks.map((block: any, i: number) => (
+                                                                block.type === 'latex' ? <LatexBlock key={i} content={block.content} onChange={()=>{}} isReadOnly projectId={resolvedParams.id} /> :
+                                                                <div key={i} className="prose dark:prose-invert max-w-none text-[15px]">{renderContentWithReferences(block.content)}</div>
+                                                            ))}
+                                                        </div>
+                                                     ) : (
+                                                        <div className="prose dark:prose-invert max-w-none text-[15px]">{renderContentWithReferences(msg.content || "")}</div>
+                                                     )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {chatLoading && (
+                                         <div className="flex gap-4">
+                                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center"><MessageSquare className="h-4 w-4 text-primary" /></div>
+                                            <div className="bg-muted rounded-2xl px-5 py-3"><div className="flex gap-1"><span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" /><span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce delay-100" /><span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce delay-200" /></div></div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                         </div>
+
+                         {/* Chat Input */}
+                         <div className="flex-none p-4 border-t bg-background">
+                            <div className="max-w-3xl mx-auto flex gap-2">
+                                <Button variant="outline" size="icon" onClick={handleHint} title="Hint"><Lightbulb className="h-4 w-4" /></Button>
+                                <Button variant="outline" size="icon" onClick={handleSkip} title="Solution"><SkipForward className="h-4 w-4" /></Button>
+                                <Input
+                                    value={inputMessage}
+                                    onChange={e => setInputMessage(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                                    placeholder="Stell eine Frage..."
+                                    className="flex-1"
+                                    disabled={chatLoading}
+                                />
+                                <Button onClick={handleSendMessage} disabled={!inputMessage.trim() || chatLoading}><Send className="h-4 w-4" /></Button>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+
+                {/* Navigation Footer */}
+                <div className="flex-none border-t bg-card/50 backdrop-blur-sm px-6 py-4 flex items-center justify-between z-10">
+                    <Button
+                        variant="ghost"
+                        onClick={handlePrevTask}
+                        disabled={currentTaskIndex === 0}
+                        className="gap-2"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Zurück
+                    </Button>
+
+                    <Button
+                        onClick={handleNextTask}
+                        disabled={currentTaskIndex === flattenedTasks.length - 1}
+                        className="gap-2 min-w-[120px]"
+                    >
+                        Weiter
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
                 </div>
               </div>
             )
           ) : activeTab === 'extra' ? (
-            // Extra Tab Content
-            // Extra Tab Content
             <div className="h-full overflow-y-auto p-8 bg-gradient-to-b from-background to-muted/20">
               <div className="max-w-3xl mx-auto w-full space-y-8">
                 <div className="flex items-center justify-between pb-6 border-b border-border">

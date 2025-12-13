@@ -4,13 +4,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { 
-  Book, 
   FileText, 
   PenTool, 
   Sigma, 
   MessageSquare, 
   FolderOpen,
-  Sparkles,
   Upload,
   Trash2,
   File as FileIcon,
@@ -42,15 +40,12 @@ import { uploadFile, deleteFile, getFiles } from "@/app/actions/files";
 import { getProject } from "@/app/actions/projects";
 import { useSearchParams, useRouter } from "next/navigation";
 import { SummaryList } from "@/components/summaries/summary-list";
-import { Editor } from "@/components/editor/editor";
 import { FormulaList } from "@/components/formulas/formula-list";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 import { ChatTab } from "@/components/chat/chat-tab";
-import { LearningTab } from "@/components/learning/learning-tab";
-
 
 import { useLanguage } from "@/components/language-provider";
 
@@ -134,7 +129,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [activeTab, setActiveTab] = useLocalStorage<string>(`project-${resolvedParams.id}-active-tab`, "summary");
   const [files, setFiles] = useState<FileData[]>([]);
   const [projectName, setProjectName] = useState<string>("");
-  const [projectScript, setProjectScript] = useState<string>("");
   const [isUploading, startUploadTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -218,7 +212,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       console.log('[ProjectPage] Project details fetched:', result.success);
       if (result.success && result.project) {
         setProjectName(result.project.name);
-        setProjectScript(result.project.script || "");
       }
     });
   }, [resolvedParams.id]);
@@ -326,15 +319,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       bg: "bg-green-500/10",
       content: <ExerciseList projectId={resolvedParams.id} />
     },
-    {
-      id: "learning",
-      label: "Interactive Learning",
-      icon: Sparkles,
-      color: "text-indigo-500",
-      bg: "bg-indigo-500/10",
-      content: <LearningTab projectId={resolvedParams.id} />
-    },
-
     {
       id: "formulas",
       label: dict.project.formulas,
@@ -881,7 +865,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 ) : (
                   <ScrollArea className="h-full">
                     <div className="p-6">
-                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" || tab.id === "search" || tab.id === "learning" ? (
+                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" || tab.id === "search" ? (
                         tab.content
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
