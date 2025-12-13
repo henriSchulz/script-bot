@@ -348,7 +348,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
             content: content,
             page: block.page,
             fileId: fileId
-        });
+         });
       }
     }
 
@@ -579,7 +579,84 @@ export async function analyzeExerciseStructure(exerciseId: string) {
         generationConfig: { responseMimeType: "application/json" }
     });
 
-    const promptTemplate = (dict.ai as any).prompts.analyze_structure;
+    const promptTemplate = `Analysiere dieses Übungsblatt PDF.
+{langInstruction}
+Extrahiere die Struktur von Aufgaben und Teilaufgaben.
+
+Output JSON format:
+{
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Aufgabe 1: Title",
+      "needsImage": boolean,
+      "blocks": [
+        {
+          "type": "text" | "latex",
+          "content": "string",
+          "order": number
+        }
+      ],
+      "subtasks": [
+        {
+          "id": "1a",
+          "label": "a)",
+          "needsImage": boolean,
+          "blocks": [
+            {
+              "type": "text" | "latex",
+              "content": "string",
+              "order": number
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+CRITICAL INSTRUCTIONS:
+1. **BLOCK-BASED CONTENT**: Generate an array of "blocks" to structure the content.
+   - Use "text" blocks for descriptions, explanations, context, and instructions
+   - Use "latex" blocks for standalone mathematical formulas/equations
+   - Each block must have a unique "order" field (starting from 0)
+   - Choose the best combination of blocks to clearly present the task
+
+2. **NEEDS IMAGE**: Set "needsImage": true IF AND ONLY IF the task/subtask refers to a diagram, graph, circuit, or image on the sheet that is required to solve it.
+
+3. **TEXT BLOCKS**:
+   - Content should be clean, readable text (NOT HTML)
+   - Use markdown for basic formatting (bold, italic, lists)
+   - Use inline LaTeX ($...$) for ALL mathematical symbols, variables, and small formulas
+   - Example: "Berechne die Ableitung von $f(x) = x^2 + 3x$"
+
+4. **LATEX BLOCKS**:
+   - Use for standalone mathematical expressions that should be displayed prominently
+   - Content should be pure LaTeX code (without $ delimiters)
+   - Set "isImportant": true ONLY if it is THE major formula of the exercise.
+   - Example: "\\\\frac{d}{dx}(x^2 + 3x) = 2x + 3"
+
+5. **STANDALONE SUBTASKS**: Every subtask MUST be completely understandable and solvable on its own.
+   - **COPY CONTEXT**: You MUST copy the main task's context and definitions into **EVERY** subtask's blocks.
+   - Each subtask should be self-contained with all necessary information
+   - Example: If main task gives $f(x) = x^2$, each subtask must also include this information.
+
+6. **VERBATIM COPY**: The content must be exact. Do not summarize.
+
+7. **LATEX FORMATTING**:
+   - Use inline LaTeX for ALL math, variables, and formulas in text blocks (e.g., $x$, $\\alpha$, $x^2$)
+   - Do NOT use Unicode math symbols (like α, β, ², ³, √, ∫)
+   - ALWAYS use LaTeX equivalents ($\\alpha$, $\\beta$, $^2$, $^3$, $\\sqrt{}$, $\\int$)
+
+8. **Structure**: If there are no explicit subtasks, create one subtask with label "Main".
+
+9. **JSON ESCAPING (EXTREMELY IMPORTANT)**: You MUST escape backslashes in LaTeX strings.
+   - Use \\\\\\\\ for a single backslash in the JSON string.
+   - Example: For LaTeX "\\alpha", write "\\\\alpha" or "\\\\\\\\alpha".
+   - Example: For "\\frac{a}{b}", write "\\\\frac{a}{b}".
+
+10. **JSON FORMAT**: Ensure the output is valid JSON. Do not include markdown code blocks.`;
+
     const prompt = formatString(promptTemplate, { langInstruction });
 
     const result = await model.generateContent([
@@ -645,7 +722,36 @@ export async function chatAboutExercise(exerciseId: string, context: string, mes
         const lastMessage = messages[messages.length - 1];
         const history = messages.slice(0, -1);
 
-        const promptTemplate = (dict.ai as any).prompts.chat_exercise;
+        const promptTemplate = `Du bist ein hilfreicher KI-Tutor für diese Aufgabe.
+{langInstruction}
+
+KONTEXT (Aufgabe & Teilaufgabe):
+{context}
+
+CHAT VERLAUF:
+{history}
+
+NACHRICHT DES NUTZERS: {userMessage}
+
+ANWEISUNGEN:
+- Beantworte die Frage des Nutzers oder überprüfe seine Lösung.
+- Wenn er nach der Lösung fragt (oder "überspringen" will), erkläre sie Schritt für Schritt.
+- **OUTPUT FORMAT**: Du musst ein valides JSON-Array von "blocks" ausgeben.
+- Block-Typen: "text" (Markdown unterstützt), "latex" (für alleinstehende Formeln).
+- Beispiel Output:
+[
+  { "type": "text", "content": "Hier ist die Lösung mit der Formel:" },
+  { "type": "latex", "content": "a^2 + b^2 = c^2", "isImportant": true },
+  { "type": "text", "content": "Nun setzen wir die Werte ein..." }
+]
+- Nutze "latex" Blöcke für Hauptgleichungen. Nutze inline Mathe ($...$) innerhalb von "text" Blöcken für ALLE Variablen und kleinen Formeln.
+- Setze "isImportant": true NUR für das Hauptergebnis oder die zentrale Schlüsselformel.
+- **STRENGE REGEL**: NIEMALS Unicode/ASCII für Mathe verwenden (wie α, β, ²). IMMER LaTeX verwenden (wie $\\alpha$, $\\beta$, $^2$). Auch für einzelne Buchstaben wie 'x' im Mathe-Kontext, nutze $x$.
+- **KRITISCH**: Gib NUR das rohe JSON-Array zurück. KEINE Markdown-Code-Blöcke oder andere Formatierung.
+- **KRITISCH**: Stelle sicher, dass alle Strings korrekt escaped sind. Keine unescaped Newlines oder Anführungszeichen in Strings.
+- **KRITISCH - ESCAPING**: Backslashes in LaTeX MÜSSEN doppelt escaped sein. Beispiel: "\\\\frac" statt "\\frac", "\\\\alpha" statt "\\alpha".
+- **KRITISCH**: Der Output MUSS ein valides JSON-Array sein, das mit [ beginnt und mit ] endet.`;
+
         const prompt = formatString(promptTemplate, { 
             langInstruction,
             context,
@@ -1285,4 +1391,3 @@ export async function generateExtraExercises(projectId: string, exerciseId: stri
     return { success: false, error: "Internal server error" };
   }
 }
-

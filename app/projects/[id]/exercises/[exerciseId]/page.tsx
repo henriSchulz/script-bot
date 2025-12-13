@@ -55,6 +55,7 @@ interface Task {
     crop: any;
     page: number;
   };
+  needsImage?: boolean; // New field
 }
 
 interface Subtask {
@@ -66,6 +67,7 @@ interface Subtask {
     crop: any;
     page: number;
   };
+  needsImage?: boolean; // New field
 }
 
 interface ChatMessage {
@@ -82,6 +84,7 @@ interface FlattenedTask {
     task: Task;
     subtask?: Subtask;
     index: number;
+    needsImage: boolean;
 }
 
 export default function ExercisePage({ params }: ExercisePageProps) {
@@ -140,7 +143,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                                   fullLabel: `${task.title} - ${subtask.label}`,
                                   task: task,
                                   subtask: subtask,
-                                  index: idx++
+                                  index: idx++,
+                                  needsImage: subtask.needsImage || false
                               });
                           });
                       } else {
@@ -150,7 +154,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                               label: task.title,
                               fullLabel: task.title,
                               task: task,
-                              index: idx++
+                              index: idx++,
+                              needsImage: task.needsImage || false
                           });
                       }
                   });
@@ -241,76 +246,26 @@ export default function ExercisePage({ params }: ExercisePageProps) {
   };
 
   const renderContentWithReferences = (content: string) => {
-    const references = parseReferences(content);
-    if (references.length === 0) {
-      return (
+    // Basic Markdown rendering with Math support
+    // We add 'math' class to enable better styling if needed
+    return (
         <ReactMarkdown 
           remarkPlugins={[remarkMath]} 
           rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
+          components={{
+              // Custom components if needed
+              p: ({children}) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
+              ul: ({children}) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
+              ol: ({children}) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
+              // Math rendering check
+              code: ({node, inline, className, children, ...props}: any) => {
+                  return <code className={cn("bg-muted px-1.5 py-0.5 rounded text-sm font-mono", className)} {...props}>{children}</code>
+              }
+          }}
         >
           {content}
         </ReactMarkdown>
-      );
-    }
-
-    const parts = [];
-    let lastIndex = 0;
-
-    references.forEach((ref, idx) => {
-      // Add text before reference
-      if (ref.startIndex > lastIndex) {
-        parts.push(
-          <ReactMarkdown
-            key={`text-${idx}`}
-            remarkPlugins={[remarkMath]}
-            rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
-            components={{
-              p: ({children}) => <span className="inline">{children}</span>
-            }}
-          >
-            {content.substring(lastIndex, ref.startIndex)}
-          </ReactMarkdown>
-        );
-      }
-
-      // Add reference link
-      // Check project files first
-      let file = projectFiles.find(f => f.name === ref.fileName || f.url.endsWith(ref.fileName));
-      // Then check exercise file
-      if (!file && exercise?.file && (exercise.file.name === ref.fileName || exercise.file.url.endsWith(ref.fileName))) {
-        file = exercise.file;
-      }
-
-      parts.push(
-        <ReferenceLink
-          key={`ref-${idx}`}
-          fileName={ref.fileName}
-          pageNumber={ref.pageNumber}
-          fileUrl={file ? file.url : ''}
-          onClick={() => handleReferenceClick(ref.fileName, ref.pageNumber)}
-        />
-      );
-
-      lastIndex = ref.endIndex;
-    });
-
-    // Add remaining text
-    if (lastIndex < content.length) {
-      parts.push(
-        <ReactMarkdown
-          key="text-end"
-          remarkPlugins={[remarkMath]}
-          rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, trust: true, output: 'mathml' }]]}
-          components={{
-            p: ({children}) => <span className="inline">{children}</span>
-          }}
-        >
-          {content.substring(lastIndex)}
-        </ReactMarkdown>
-      );
-    }
-
-    return <div className="inline-block">{parts}</div>;
+    );
   };
 
   const handleGenerateTheory = async () => {
@@ -343,7 +298,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           const result = await analyzeExerciseStructure(resolvedParams.exerciseId);
           if (result.success && result.structure) {
               setStructure(result.structure);
-              // Refresh page to trigger reconstruction of flattened tasks
+              // Refresh page to trigger reconstruction of flattenedTasks
               window.location.reload();
               toast.success("Analysis complete!");
           } else {
@@ -582,6 +537,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
 
   // Get image for current item
   const currentImage = currentItem?.type === 'subtask' ? currentItem.subtask?.image : currentItem?.task.image;
+  // Check if image is needed or exists
+  const showImageArea = currentImage || currentItem?.needsImage;
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -783,7 +740,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
 
                 <div className="flex-1 flex overflow-hidden">
                     {/* Left: Task View (Image + Description) */}
-                    <div className="w-1/2 flex flex-col border-r border-border bg-muted/5 p-6 overflow-y-auto">
+                    <div className={cn("flex flex-col border-r border-border bg-muted/5 p-6 overflow-y-auto", "w-1/2")}>
                         <div className="max-w-xl mx-auto w-full space-y-6">
                             <div className="space-y-2">
                                 <span className="text-sm font-medium text-primary uppercase tracking-widest">
@@ -794,51 +751,65 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                                 </h2>
                             </div>
 
-                            {/* Image Area */}
-                            <div className="rounded-xl overflow-hidden border-2 border-dashed border-border bg-background min-h-[300px] flex items-center justify-center relative group">
-                                {currentImage ? (
-                                    <>
-                                        <img src={currentImage.url} alt="Task" className="w-full h-auto object-contain" />
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            asChild
-                                        >
-                                            <Link href={`/projects/${resolvedParams.id}/exercises/${resolvedParams.exerciseId}/extract/${currentItem.task.id}${currentItem.type === 'subtask' ? `?subtask=${currentItem.subtask!.id}` : ''}`}>
-                                                <Crop className="h-4 w-4 mr-2" />
-                                                Edit Crop
-                                            </Link>
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <div className="text-center space-y-4">
-                                        <div className="p-4 rounded-full bg-muted inline-flex">
-                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                            {/* Image Area - CONDITIONALLY RENDERED */}
+                            {showImageArea && (
+                                <div className="rounded-xl overflow-hidden border-2 border-dashed border-border bg-background min-h-[300px] flex items-center justify-center relative group">
+                                    {currentImage ? (
+                                        <>
+                                            <img src={currentImage.url} alt="Task" className="w-full h-auto object-contain" />
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                asChild
+                                            >
+                                                <Link href={`/projects/${resolvedParams.id}/exercises/${resolvedParams.exerciseId}/extract/${currentItem.task.id}${currentItem.type === 'subtask' ? `?subtask=${currentItem.subtask!.id}` : ''}`}>
+                                                    <Crop className="h-4 w-4 mr-2" />
+                                                    Edit Crop
+                                                </Link>
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <div className="text-center space-y-4">
+                                            <div className="p-4 rounded-full bg-muted inline-flex">
+                                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">Image Suggested</p>
+                                                <p className="text-sm text-muted-foreground">Select the area from the PDF for this task</p>
+                                            </div>
+                                            <Button asChild>
+                                                <Link href={`/projects/${resolvedParams.id}/exercises/${resolvedParams.exerciseId}/extract/${currentItem.task.id}${currentItem.type === 'subtask' ? `?subtask=${currentItem.subtask!.id}` : ''}`}>
+                                                    <Crop className="h-4 w-4 mr-2" />
+                                                    Select Area
+                                                </Link>
+                                            </Button>
                                         </div>
-                                        <div>
-                                            <p className="font-medium">No Image Selected</p>
-                                            <p className="text-sm text-muted-foreground">Select the area from the PDF for this task</p>
-                                        </div>
-                                        <Button asChild>
-                                            <Link href={`/projects/${resolvedParams.id}/exercises/${resolvedParams.exerciseId}/extract/${currentItem.task.id}${currentItem.type === 'subtask' ? `?subtask=${currentItem.subtask!.id}` : ''}`}>
-                                                <Crop className="h-4 w-4 mr-2" />
-                                                Select Area
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Text Description */}
                             <div className="prose dark:prose-invert max-w-none text-sm">
                                 {currentItem.type === 'subtask' ? (
                                     currentItem.subtask!.blocks.map((b, i) => (
-                                        <ReactMarkdown key={i} remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{b.content}</ReactMarkdown>
+                                        <div key={i}>
+                                            {b.type === 'latex' ? (
+                                                <LatexBlock content={b.content} onChange={() => {}} isReadOnly />
+                                            ) : (
+                                                renderContentWithReferences(b.content)
+                                            )}
+                                        </div>
                                     ))
                                 ) : (
                                     currentItem.task.blocks.map((b, i) => (
-                                        <ReactMarkdown key={i} remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{b.content}</ReactMarkdown>
+                                        <div key={i}>
+                                            {b.type === 'latex' ? (
+                                                <LatexBlock content={b.content} onChange={() => {}} isReadOnly />
+                                            ) : (
+                                                renderContentWithReferences(b.content)
+                                            )}
+                                        </div>
                                     ))
                                 )}
                             </div>
