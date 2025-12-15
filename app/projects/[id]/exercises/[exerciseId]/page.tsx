@@ -862,7 +862,6 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                          <div className="flex-none p-4 border-t bg-background">
                             <div className="max-w-3xl mx-auto flex gap-2">
                                 <Button variant="outline" size="icon" onClick={handleHint} title="Hint"><Lightbulb className="h-4 w-4" /></Button>
-                                <Button variant="outline" size="icon" onClick={handleSkip} title="Solution"><SkipForward className="h-4 w-4" /></Button>
                                 <Input
                                     value={inputMessage}
                                     onChange={e => setInputMessage(e.target.value)}
