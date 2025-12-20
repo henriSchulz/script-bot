@@ -130,13 +130,15 @@
   "chat": {
     "newChat": "New Chat",
     "noChats": "No chats yet",
-    "titlePlaceholder": "e.g., Exam Prep (or leave blank)",
+    "titlePlaceholder": "e.g., Exam Preparation (or leave blank)",
     "noFilesAvailable": "No files available.",
     "loadingFiles": "Loading files...",
     "context": "Context:",
     "startConversation": "Start a conversation with your project files.",
     "thinking": "Thinking...",
-    "aiDisclaimer": "AI can make mistakes. Verify important information from files."
+    "aiDisclaimer": "AI can make mistakes. Verify important information from files.",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit Fullscreen"
   },
   "deleteProject": {
     "title": "Are you absolutely sure?",

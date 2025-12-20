@@ -138,7 +138,9 @@
     "context": "Kontext:",
     "startConversation": "Starte ein Gespräch mit deinen Projektdateien.",
     "thinking": "Denkt nach...",
-    "aiDisclaimer": "KI kann Fehler machen. Überprüfe wichtige Informationen in den Dateien."
+    "aiDisclaimer": "KI kann Fehler machen. Überprüfe wichtige Informationen in den Dateien.",
+    "fullscreen": "Vollbild",
+    "exitFullscreen": "Vollbild verlassen"
   },
   "deleteProject": {
     "title": "Bist du dir absolut sicher?",

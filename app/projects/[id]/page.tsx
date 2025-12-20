@@ -48,6 +48,7 @@ import { UnifiedSearchModal } from "@/components/experiments/unified-search-moda
 import { ChatTab } from "@/components/chat/chat-tab";
 
 import { useLanguage } from "@/components/language-provider";
+import { FullscreenProvider, useFullscreen } from "@/contexts/fullscreen-context";
 
 interface ProjectPageProps {
   params: Promise<{
@@ -122,8 +123,9 @@ const getFileIconSmall = (file: FileData) => {
 };
 
 
-export default function ProjectPage({ params }: ProjectPageProps) {
+function ProjectPageContent({ params }: ProjectPageProps) {
   const { dict } = useLanguage();
+  const { isFullscreen } = useFullscreen();
   const resolvedParams = use(params);
   // Persist active tab per project
   const [activeTab, setActiveTab] = useLocalStorage<string>(`project-${resolvedParams.id}-active-tab`, "summary");
@@ -800,8 +802,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <div className="flex-none p-6 md:p-8 pb-4 space-y-2">
+      {/* Header - Hidden in fullscreen mode */}
+      {!isFullscreen && (
+        <div className="flex-none p-6 md:p-8 pb-4 space-y-2">
         <div className="max-w-7xl mx-auto w-full">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
@@ -823,16 +826,21 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             Manage your study materials, chat with your AI assistant, and track your progress.
           </p>
         </div>
-      </div>
+        </div>
+      )}
 
-      {/* Tabs Interface */}
-      <div className="flex-1 min-h-0 px-6 md:px-8 pb-6 md:pb-8">
+      {/* Tabs Interface - Hidden in fullscreen mode */}
+      <div className={cn(
+        "flex-1 min-h-0",
+        !isFullscreen && "px-6 md:px-8 pb-6 md:pb-8"
+      )}>
         <Tabs 
           value={activeTab}
           className="h-full flex flex-col max-w-7xl mx-auto w-full"
           onValueChange={setActiveTab}
         >
-          <TabsList className="flex-none w-full justify-start h-auto p-1 bg-muted/30 border border-border overflow-x-auto mb-4">
+          {!isFullscreen && (
+            <TabsList className="flex-none w-full justify-start h-auto p-1 bg-muted/30 border border-border overflow-x-auto mb-4">
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
@@ -849,9 +857,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 <span className="font-medium">{tab.label}</span>
               </TabsTrigger>
             ))}
-          </TabsList>
+            </TabsList>
+          )}
 
-          <div className="flex-1 min-h-0 border rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden relative">
+          <div className={cn(
+            "flex-1 min-h-0 overflow-hidden relative",
+            !isFullscreen && "border rounded-xl bg-card/50 backdrop-blur-sm"
+          )}>
             {tabs.map((tab) => (
               <TabsContent
                 key={tab.id}
@@ -918,5 +930,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         onOpenChange={setSearchModalOpen}
       />
     </div>
+  );
+}
+
+export default function ProjectPage(props: ProjectPageProps) {
+  return (
+    <FullscreenProvider>
+      <ProjectPageContent {...props} />
+    </FullscreenProvider>
   );
 }

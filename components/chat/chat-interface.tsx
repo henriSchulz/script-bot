@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, Bot, User, FileText } from "lucide-react";
+import { Send, Loader2, Bot, User, FileText, Maximize, Minimize } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { chatAboutProject, generateChatTitle } from "@/app/actions/ai";
 import { getChatMessages, saveChatMessage, updateChatThreadTitle } from "@/app/actions/chats";
@@ -16,6 +16,8 @@ import { LatexBlock } from "@/components/editor/blocks/latex-block";
 import { InfoBoxBlock } from "@/components/editor/blocks/info-box-block";
 import { InlineMathRenderer } from "@/components/chat/inline-math-renderer";
 import { ExternalLink } from "lucide-react";
+import { useFullscreen } from "@/contexts/fullscreen-context";
+import { parseMathToHtml } from "@/lib/math-parser";
 
 interface Message {
   id: string;
@@ -34,6 +36,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChange }: ChatInterfaceProps) {
   const { t } = useLanguage();
+  const { isFullscreen, setIsFullscreen } = useFullscreen();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,18 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // ESC key handler for fullscreen mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -157,20 +172,63 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
-      {/* Context Header */}
-      {fileNames.length > 0 && (
-          <div className="px-4 py-2 border-b bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground overflow-hidden flex-shrink-0">
-              <FileText className="h-3 w-3 shrink-0" />
-              <span className="font-medium shrink-0">{t("chat.context")}</span>
-              <div className="flex gap-1 overflow-x-auto no-scrollbar">
+    <div className={cn(
+      "flex flex-col overflow-hidden bg-background relative",
+      isFullscreen 
+        ? "fixed inset-0 z-[9999] h-screen" 
+        : "h-full"
+    )}>
+      {/* Floating Exit Fullscreen Button - Only visible in fullscreen mode */}
+      {isFullscreen && (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setIsFullscreen(false)}
+          className="absolute top-4 right-4 z-50 shadow-lg"
+          title={t("chat.exitFullscreen")}
+        >
+          <Minimize className="h-4 w-4 mr-2" />
+          <span className="text-xs">{t("chat.exitFullscreen")}</span>
+        </Button>
+      )}
+      {/* Context Header with Fullscreen Button - Hidden in fullscreen mode */}
+      {!isFullscreen && (
+        <div className="flex items-center border-b bg-muted/20 flex-shrink-0">
+          <div className="flex-1 px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground overflow-hidden">
+            {fileNames.length > 0 && (
+              <>
+                <FileText className="h-3 w-3 shrink-0" />
+                <span className="font-medium shrink-0">{t("chat.context")}</span>
+                <div className="flex gap-1 overflow-x-auto no-scrollbar">
                   {fileNames.map((name, i) => (
-                      <span key={i} className="px-1.5 py-0.5 bg-muted rounded border border-border shrink-0 whitespace-nowrap">
-                          {name}
-                      </span>
+                    <span key={i} className="px-1.5 py-0.5 bg-muted rounded border border-border shrink-0 whitespace-nowrap">
+                      {name}
+                    </span>
                   ))}
-              </div>
+                </div>
+              </>
+            )}
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="shrink-0 mx-2"
+            title={isFullscreen ? t("chat.exitFullscreen") : t("chat.fullscreen")}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize className="h-4 w-4 mr-1" />
+                <span className="text-xs">{t("chat.exitFullscreen")}</span>
+              </>
+            ) : (
+              <>
+                <Maximize className="h-4 w-4 mr-1" />
+                <span className="text-xs">{t("chat.fullscreen")}</span>
+              </>
+            )}
+          </Button>
+        </div>
       )}
 
       {/* Messages Area */}
@@ -220,17 +278,25 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
                           const sources: { file: string; page: number }[] = [];
                           
                           if (block.type === 'text') {
-                            // Match [Quelle: filename.pdf, Seite X] or [Source: filename.pdf, Page X]
-                            const sourceRegex = /\[(Quelle|Source):\s*([^,]+),\s*(Seite|Page)\s+(\d+)\]/g;
+                            // Match [Quelle: filename.pdf, Seite X, Y, Z] or [Source: filename.pdf, Page X]
+                            // Updated regex to handle multiple page numbers and optional punctuation after citation
+                            const sourceRegex = /\[(Quelle|Source):\s*([^,\]]+),\s*(Seite|Page)\s+([\d,\s]+)\]\.?/g;
                             let match;
                             while ((match = sourceRegex.exec(content)) !== null) {
-                              sources.push({
-                                file: match[2].trim(),
-                                page: parseInt(match[4])
-                              });
+                              // Extract all page numbers from the match
+                              const pageNumbers = match[4].split(',').map(p => p.trim()).filter(p => p);
+                              // Add a source entry for the first page (or primary page)
+                              if (pageNumbers.length > 0) {
+                                sources.push({
+                                  file: match[2].trim(),
+                                  page: parseInt(pageNumbers[0])
+                                });
+                              }
                             }
-                            // Remove source citations from content
-                            const cleanedContent = content.replace(sourceRegex, '').trim();
+                            // Remove source citations from content (including optional trailing period)
+                            let cleanedContent = content.replace(sourceRegex, '');
+                            // Clean up any double spaces or trailing/leading whitespace
+                            cleanedContent = cleanedContent.replace(/\s+/g, ' ').trim();
                             // Only update if we still have content after cleanup
                             if (cleanedContent) {
                               content = cleanedContent;
@@ -241,11 +307,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
                             <div key={idx}>
                               {block.type === 'text' && (
                                 <div className="space-y-2">
-                                  <div 
-                                    dangerouslySetInnerHTML={{ __html: content }} 
-                                    className="text-sm text-foreground"
-                                    style={{ color: 'currentColor', opacity: 1 }}
-                                  />
+                                  <InlineMathRenderer html={parseMathToHtml(content)} />
                                   {sources.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-2">
                                       {sources.map((source, i) => {
