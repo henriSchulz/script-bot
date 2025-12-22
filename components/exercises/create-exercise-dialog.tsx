@@ -65,12 +65,12 @@ export function CreateExerciseDialog({ projectId, onSuccess }: CreateExerciseDia
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          {dict.common.create} Exercise
+          Aufgabe erstellen
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{dict.common.create} Exercise</DialogTitle>
+          <DialogTitle>Aufgabe erstellen</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

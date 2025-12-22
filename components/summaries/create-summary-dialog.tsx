@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { createSummary } from "@/app/actions/summaries";
 import { Loader2, Plus } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
+import { useRouter } from "next/navigation";
 
 interface CreateSummaryDialogProps {
   projectId: string;
@@ -16,6 +17,7 @@ interface CreateSummaryDialogProps {
 
 export function CreateSummaryDialog({ projectId, onSuccess }: CreateSummaryDialogProps) {
   const { dict } = useLanguage();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -30,6 +32,9 @@ export function CreateSummaryDialog({ projectId, onSuccess }: CreateSummaryDialo
         setOpen(false);
         setTitle("");
         onSuccess?.();
+        if (result.summary) {
+           router.push(`/projects/${projectId}/summaries/${result.summary.id}`);
+        }
       } else {
         // Handle error (could add toast later)
         console.error(result.error);
@@ -42,7 +47,7 @@ export function CreateSummaryDialog({ projectId, onSuccess }: CreateSummaryDialo
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          {dict.common.create} Summary
+          Zusammenfassung erstellen
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

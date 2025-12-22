@@ -175,7 +175,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
     <div className={cn(
       "flex flex-col overflow-hidden bg-background relative",
       isFullscreen 
-        ? "fixed inset-0 z-[9999] h-screen" 
+        ? "fixed inset-0 z-[99999] h-screen" 
         : "h-full"
     )}>
       {/* Floating Exit Fullscreen Button - Only visible in fullscreen mode */}

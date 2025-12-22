@@ -16,29 +16,27 @@ export function InlineMathRenderer({ html }: InlineMathRendererProps) {
 
     // Find all math spans and render them with KaTeX
     const mathSpans = contentRef.current.querySelectorAll('[data-type="math"]');
+    
     mathSpans.forEach(span => {
       const latex = span.getAttribute('data-latex');
       if (latex && span instanceof HTMLElement) {
         try {
-          const rendered = katex.renderToString(latex, {
+          // Decode HTML entities in the latex string
+          const decodedLatex = latex
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+          
+          const rendered = katex.renderToString(decodedLatex, {
             throwOnError: false,
             displayMode: false,
           });
           span.innerHTML = rendered;
         } catch (e) {
-          console.error('KaTeX rendering error:', e);
+          console.error('KaTeX rendering error:', e, 'LaTeX:', latex);
           span.textContent = `$${latex}$`;
-        }
-      }
-    });
-
-    // Force all text elements to have proper color
-    const allElements = contentRef.current.querySelectorAll('*');
-    allElements.forEach(el => {
-      if (el instanceof HTMLElement && !el.querySelector('[data-type="math"]')) {
-        // Don't override KaTeX styles
-        if (!el.classList.contains('katex')) {
-          el.style.color = 'inherit';
         }
       }
     });
@@ -54,7 +52,6 @@ export function InlineMathRenderer({ html }: InlineMathRendererProps) {
       ref={contentRef} 
       dangerouslySetInnerHTML={{ __html: html }} 
       className="text-sm leading-relaxed"
-      style={{ color: 'var(--foreground)' }}
     />
   );
 }

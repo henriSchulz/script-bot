@@ -102,7 +102,7 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
   }
 }
 
-export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, reduced: boolean = false) {
+export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, detailLevel: 'reduced' | 'standard' | 'detailed' = 'standard') {
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set in environment variables" };
   }
@@ -194,8 +194,11 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       systemPrompt += `\n\nUSER FOCUS INSTRUCTION:\nThe user has specified a focus for this summary: "${focus}". ensure you prioritize this aspect in the summary generation.`;
     }
 
-    if (reduced) {
+    // Handle detail levels
+    if (detailLevel === 'reduced') {
       systemPrompt += `\n\nREDUCED VERSION INSTRUCTION:\nCreate a REDUCED version of the summary. OMIT all derivations (Herleitungen) and proofs. Focus rigidly on FACTS, IMPORTANT FORMULAS, and TOOLS. The content must be well-reduced and concise.`;
+    } else if (detailLevel === 'detailed') {
+      systemPrompt += `\n\nDETAILED VERSION INSTRUCTION:\nCreate a VERY DETAILED version of the summary. Include FULL derivations (Herleitungen) and proofs where applicable. Explain concepts extensively with clear examples. Aim for MAXIMUM understanding. Do not skip steps. Explain complex topics in depth.`;
     }
 
     systemPrompt += `\n\nTITLE INSTRUCTION:\nThe title of the summary must be SHORT and PRECISE. Do not make it unnecessarily long.`;

@@ -11,48 +11,48 @@ datasource db {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  color       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  files       File[]
-  summaries   Summary[]
-  exercises   Exercise[]
-  script      String?
-  formulas    Formula[]
-  chatMessages ChatMessage[]
-  chatThreads  ChatThread[]
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  color            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  files            File[]
+  summaries        Summary[]
+  exercises        Exercise[]
+  script           String?
+  formulas         Formula[]
+  chatMessages     ChatMessage[]
+  chatThreads      ChatThread[]
   learningSessions LearningSession[]
 }
 
 model LearningSession {
-  id             String         @id @default(cuid())
-  title          String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  status         String         @default("active") // "active", "completed", "archived"
+  id        String   @id @default(cuid())
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String   @default("active") // "active", "completed", "archived"
 
-  projectId      String
-  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  contextFileIds String?        // JSON string of file IDs used for generation
+  contextFileIds String? // JSON string of file IDs used for generation
 
-  units          LearningUnit[]
+  units LearningUnit[]
 
   @@index([projectId])
 }
 
 model LearningUnit {
-  id             String          @id @default(cuid())
-  type           String          // "explanation", "quiz", "flashcard"
-  content        String          // JSON string: { text: "...", question: "...", options: [], answer: "..." }
-  order          Int
-  isCompleted    Boolean         @default(false)
+  id          String  @id @default(cuid())
+  type        String // "explanation", "quiz", "flashcard"
+  content     String // JSON string: { text: "...", question: "...", options: [], answer: "..." }
+  order       Int
+  isCompleted Boolean @default(false)
 
-  sessionId      String
-  session        LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+  session   LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
 }
@@ -68,7 +68,7 @@ model File {
   updatedAt DateTime @updatedAt
 
   projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   formulas  Formula[]
   blocks    Block[]
   exercises Exercise[]
@@ -79,20 +79,20 @@ model Exercise {
   title     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  blocks    Block[]
+  blocks       Block[]
   chatMessages ChatMessage[]
-  
+
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  fileId    String?
-  file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
-  
-  structure String? // Stores parsed tasks/subtasks as JSON string
+  fileId String?
+  file   File?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  structure          String? // Stores parsed tasks/subtasks as JSON string
   generatedExercises String? // Stores AI generated extra exercises as JSON string
-  
+
   summaries Summary[]
 }
 
@@ -102,10 +102,10 @@ model Summary {
   type      String   @default("default") // "default", "solution"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  blocks    Block[]
-  
+  blocks Block[]
+
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -114,21 +114,21 @@ model Summary {
 }
 
 model Block {
-  id        String   @id @default(cuid())
-  type      String   // SQLite doesn't support enums, so we use String
-  content   String 
-                   // However, standard String in Prisma is usually enough for text. 
-                   // If using Postgres/MySQL, @db.Text is useful for large content.
-                   // Since the datasource is sqlite (from view_file), String is fine (TEXT in sqlite).
-  order     Int      
-  
+  id      String @id @default(cuid())
+  type    String // SQLite doesn't support enums, so we use String
+  content String
+  // However, standard String in Prisma is usually enough for text. 
+  // If using Postgres/MySQL, @db.Text is useful for large content.
+  // Since the datasource is sqlite (from view_file), String is fine (TEXT in sqlite).
+  order   Int
+
   properties String? // SQLite doesn't support Json, so we store as stringified JSON
-  
-  page      Int?
-  isImportant Boolean @default(false)
+
+  page          Int?
+  isImportant   Boolean @default(false)
   isHighlighted Boolean @default(false)
-  fileId    String?
-  file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  fileId        String?
+  file          File?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   summaryId String?
   summary   Summary? @relation(fields: [summaryId], references: [id], onDelete: Cascade)
@@ -143,20 +143,20 @@ model Block {
 }
 
 model Formula {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   latex       String
   description String?
   category    String? // New field for chapter/category
   pageNumber  Int?
-  
-  fileId      String?
-  file        File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
-  
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  fileId String?
+  file   File?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // enum BlockType {
@@ -166,27 +166,27 @@ model Formula {
 // }
 
 model ChatMessage {
-  id         String   @id @default(cuid())
-  role       String   // 'user' or 'model'
-  content    String?  // For user messages, plain text
-  blocks     String?  // For AI messages, JSON string of blocks array
-  createdAt  DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  role      String // 'user' or 'model'
+  content   String? // For user messages, plain text
+  blocks    String? // For AI messages, JSON string of blocks array
+  createdAt DateTime @default(now())
+
   exerciseId String?
   exercise   Exercise? @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-  projectId  String?
-  project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   // Optional: track which subtask this message belongs to
-  subtaskId  String?  // Stores the subtask id from structure JSON
-  
+  subtaskId String? // Stores the subtask id from structure JSON
+
+  threadId String?
+  thread   ChatThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
   @@index([exerciseId])
   @@index([projectId])
   @@index([threadId])
-
-  threadId   String?
-  thread     ChatThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
 }
 
 model ChatThread {
@@ -194,14 +194,14 @@ model ChatThread {
   title     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  messages  ChatMessage[]
+
+  messages ChatMessage[]
 
   contextFileIds String? // JSON string of file IDs
-  
+
   @@index([projectId])
 }
 
@@ -209,7 +209,7 @@ model BlockExplanation {
   id          String   @id @default(cuid())
   blockId     String   @unique
   block       Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  explanation String   // JSON string of blocks array
+  explanation String // JSON string of blocks array
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

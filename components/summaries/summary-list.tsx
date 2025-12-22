@@ -4,8 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { getSummaries, deleteSummary } from "@/app/actions/summaries";
 import { Button } from "@/components/ui/button";
 import { Trash2, FileText, LayoutGrid, List, ArrowUpDown, Loader2, Pen } from "lucide-react";
+import { GenerateSummaryWizard } from "./generate-summary-wizard";
 import { CreateSummaryDialog } from "./create-summary-dialog";
-import { GenerateSummaryButton } from "./generate-summary-button";
 import Link from "next/link"; 
 import { cn } from "@/lib/utils";
 import {
@@ -343,8 +343,8 @@ export function SummaryList({ projectId }: SummaryListProps) {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                <GenerateSummaryButton projectId={projectId} onSuccess={fetchSummaries} />
-                <CreateSummaryDialog projectId={projectId} onSuccess={fetchSummaries} />
+                  <GenerateSummaryWizard projectId={projectId} onSuccess={fetchSummaries} />
+                  <CreateSummaryDialog projectId={projectId} onSuccess={fetchSummaries} />
                 </div>
             </div>
 
