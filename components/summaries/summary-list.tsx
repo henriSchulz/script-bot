@@ -88,8 +88,9 @@ export function SummaryList({ projectId }: SummaryListProps) {
       if (result.success) {
         setSummaries(prev => prev.filter(s => s.id !== summaryToDelete));
       } else {
-        alert("Failed to delete summary");
+        alert(dict.summaries.deleteAlert.error);
       }
+      setSummaryToDelete(null);
       setSummaryToDelete(null);
     });
   };
@@ -132,7 +133,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
             <div className="text-center py-12 border-2 border-dashed border-muted rounded-xl">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">{emptyMessage}</p>
-            {activeTab === "summaries" && <p className="text-sm text-muted-foreground mt-1">Create one to get started</p>}
+            {activeTab === "summaries" && <p className="text-sm text-muted-foreground mt-1">{dict.summaries.createHint}</p>}
             </div>
         );
       }
@@ -201,7 +202,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
                         {formatDate(summary.createdAt)}
                         </span>
                         <span className="inline-flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-full text-xs font-medium text-primary">
-                        {summary._count.blocks} blocks
+                        {dict.summaries.card.blocks.replace("{count}", summary._count.blocks.toString())}
                         </span>
                     </div>
                     </div>
@@ -235,7 +236,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
                 </div>
                 <div className="col-span-3">
                 <span className="inline-flex items-center gap-1.5 bg-primary/10 px-3 py-1 rounded-full text-xs font-medium text-primary">
-                    {summary._count.blocks} blocks
+                    {dict.summaries.card.blocks.replace("{count}", summary._count.blocks.toString())}
                 </span>
                 </div>
                 <div className="col-span-3 text-sm text-muted-foreground">
@@ -280,7 +281,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-6 grid w-full grid-cols-2">
             <TabsTrigger value="summaries">{dict.project.summaries}</TabsTrigger>
-            <TabsTrigger value="solutions">Lösungen</TabsTrigger>
+            <TabsTrigger value="solutions">{dict.summaries.tabs.solutions}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="summaries" className="space-y-6">
@@ -302,7 +303,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
                     }}
                     className="h-8 text-xs"
                     >
-                    Date
+                    {dict.summaries.sort.date}
                     {sortBy === "date" && <ArrowUpDown className="ml-2 h-3 w-3" />}
                     </Button>
                     <Button
@@ -318,7 +319,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
                     }}
                     className="h-8 text-xs"
                     >
-                    Name
+                    {dict.summaries.sort.name}
                     {sortBy === "name" && <ArrowUpDown className="ml-2 h-3 w-3" />}
                     </Button>
                 </div>
@@ -354,7 +355,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
         <TabsContent value="solutions" className="space-y-6">
              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                <h3 className="text-xl font-semibold">Lösungen</h3>
+                <h3 className="text-xl font-semibold">{dict.summaries.tabs.solutions}</h3>
                  {/* View Controls - Duplicated for now, could be componentized */}
                 <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
                     <Button
@@ -370,7 +371,7 @@ export function SummaryList({ projectId }: SummaryListProps) {
                     }}
                     className="h-8 text-xs"
                     >
-                    Date
+                    {dict.summaries.sort.date}
                     {sortBy === "date" && <ArrowUpDown className="ml-2 h-3 w-3" />}
                     </Button>
                     <Button
@@ -417,9 +418,9 @@ export function SummaryList({ projectId }: SummaryListProps) {
       <AlertDialog open={!!summaryToDelete} onOpenChange={(open) => !open && setSummaryToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{dict.summaries.deleteAlert.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the summary and all its content.
+              {dict.summaries.deleteAlert.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

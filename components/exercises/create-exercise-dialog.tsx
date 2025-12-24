@@ -65,26 +65,28 @@ export function CreateExerciseDialog({ projectId, onSuccess }: CreateExerciseDia
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          Aufgabe erstellen
+          {dict.exercises.createDialog.button}
         </Button>
       </DialogTrigger>
+
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Aufgabe erstellen</DialogTitle>
+          <DialogTitle>{dict.exercises.createDialog.title}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">{dict.summaries.title}</Label>
             <Input
+
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Exercise Sheet 1"
+              placeholder={dict.exercises.createDialog.placeholder}
               autoFocus
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="file">Exercise Sheet (PDF)</Label>
+            <Label htmlFor="file">{dict.exercises.createDialog.fileLabel}</Label>
             <Input
               id="file"
               type="file"

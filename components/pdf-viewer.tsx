@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { useLanguage } from "@/components/language-provider";
 
 // Configure worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -16,6 +17,7 @@ interface PdfViewerProps {
 }
 
 export function PdfViewer({ url, initialPage = 1 }: PdfViewerProps) {
+  const { dict } = useLanguage();
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(initialPage);
   const [scale, setScale] = useState<number>(1.0);
@@ -42,7 +44,7 @@ export function PdfViewer({ url, initialPage = 1 }: PdfViewerProps) {
   }
 
   if (!isClient) {
-    return <div className="flex items-center justify-center h-full">Loading PDF Viewer...</div>;
+    return <div className="flex items-center justify-center h-full">{dict.pdfViewer.loading}</div>;
   }
 
   console.log("Rendering PDF Viewer with URL:", url);
@@ -60,7 +62,7 @@ export function PdfViewer({ url, initialPage = 1 }: PdfViewerProps) {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm">
-            {pageNumber} / {numPages || '--'}
+            {pageNumber} / {numPages || dict.pdfViewer.fallbackTotal}
           </span>
           <Button
             variant="ghost"
@@ -105,7 +107,7 @@ export function PdfViewer({ url, initialPage = 1 }: PdfViewerProps) {
           }
           error={
             <div className="flex items-center justify-center h-full text-destructive">
-                Failed to load PDF. Check console for details.
+                {dict.pdfViewer.error}
             </div>
           }
         >

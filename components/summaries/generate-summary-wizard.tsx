@@ -131,7 +131,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Sparkles className="h-4 w-4" />
-          Zusammenfassung generieren
+          {dict.summaryWizard.button}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl p-0 border bg-background overflow-hidden rounded-xl shadow-xl">
@@ -148,13 +148,13 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                         <Sparkles className="h-4 w-4 text-primary" />
-                        <span>Step 1 of 4</span>
+                        <span>{dict.summaryWizard.steps.step1.subtitle}</span>
                       </div>
                       <h2 className="text-2xl font-bold text-foreground">
-                        Zusammenfassung erstellen
+                        {dict.summaryWizard.steps.step1.title}
                       </h2>
                       <p className="text-muted-foreground">
-                        Create a structured summary from your project files
+                        {dict.summaryWizard.steps.step1.description}
                       </p>
                     </div>
 
@@ -166,7 +166,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                         onFocus={() => setTitleFocused(true)}
                         onBlur={() => setTitleFocused(false)}
                         onKeyDown={(e) => handleKeyDown(e, canProceedFromStep1)}
-                        placeholder="Titel (Optional - sonst KI generiert)"
+                        placeholder={dict.summaryWizard.steps.step1.titlePlaceholder}
                         className={cn(
                           "w-full bg-transparent text-3xl font-bold tracking-tight",
                           "placeholder:text-muted-foreground/20",
@@ -182,7 +182,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                       "text-muted-foreground text-sm transition-all duration-500",
                       titleFocused || title ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
                     )}>
-                      Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to continue
+                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {dict.common.toContinue}
                     </p>
                   </div>
                 </div>
@@ -195,13 +195,13 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                         <FileText className="h-4 w-4 text-primary" />
-                        <span>Step 2 of 4</span>
+                        <span>{dict.summaryWizard.steps.step2.subtitle}</span>
                       </div>
                       <h2 className="text-2xl font-bold text-foreground">
-                        Source Files
+                        {dict.summaryWizard.steps.step2.title}
                       </h2>
                       <p className="text-muted-foreground">
-                        Select any combination of files to include in the summary
+                        {dict.summaryWizard.steps.step2.description}
                       </p>
                     </div>
 
@@ -209,7 +209,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                       {/* File Selection Header */}
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-muted-foreground">
-                          {selectedFileIds.length} {selectedFileIds.length === 1 ? 'file' : 'files'} selected
+                          {dict.summaryWizard.files.selected.replace("{count}", selectedFileIds.length.toString())}
                         </p>
                         <div className="flex gap-2">
                           <Button
@@ -219,7 +219,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                             onClick={selectAllFiles}
                             disabled={selectedFileIds.length === files.length}
                           >
-                            Select All
+                            {dict.summaryWizard.files.selectAll}
                           </Button>
                           <Button
                             type="button"
@@ -228,7 +228,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                             onClick={deselectAllFiles}
                             disabled={selectedFileIds.length === 0}
                           >
-                            Deselect All
+                            {dict.summaryWizard.files.deselectAll}
                           </Button>
                         </div>
                       </div>
@@ -237,7 +237,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                       <div className="rounded-lg border bg-card p-1 space-y-1 max-h-[300px] overflow-y-auto">
                         {files.length === 0 ? (
                           <p className="text-center text-muted-foreground py-8">
-                            No files found in this project
+                            {dict.summaryWizard.files.noFiles}
                           </p>
                         ) : (
                           files.map((file) => (
@@ -271,7 +271,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     </div>
 
                     <p className="text-muted-foreground text-sm">
-                      Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to continue, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to go back
+                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {dict.common.toContinue}, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> {dict.common.toGoBack}
                     </p>
                   </div>
                 </div>
@@ -300,25 +300,25 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                         <Settings className="h-4 w-4 text-primary" />
-                        <span>Step 3 of 4</span>
+                        <span>{dict.summaryWizard.steps.step3.subtitle}</span>
                       </div>
                       <h2 className="text-2xl font-bold text-foreground">
-                        Options
+                        {dict.summaryWizard.steps.step3.title}
                       </h2>
-                      <p className="text-muted-foreground">Customize your summary generation</p>
+                      <p className="text-muted-foreground">{dict.summaryWizard.steps.step3.description}</p>
                     </div>
 
                     <div className="space-y-6">
                       {/* Focus Field */}
                       <div className="space-y-3">
                         <label className="text-sm font-medium">
-                          Focus (Optional)
+                          {dict.summaryWizard.options.focusLabel}
                         </label>
                         <input
                           type="text"
                           value={focus}
                           onChange={(e) => setFocus(e.target.value)}
-                          placeholder="z.B. Fokus auf Definitionen und Beispiele..."
+                          placeholder={dict.summaryWizard.options.focusPlaceholder}
                           className={cn(
                             "w-full bg-background rounded-lg",
                             "border border-input focus:border-primary",
@@ -334,7 +334,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                         <div className="space-y-3 rounded-lg border bg-card p-4">
                           <label className="text-sm font-medium flex items-center gap-2">
                             <ImageIcon className="h-4 w-4" />
-                            Image Handling
+                            {dict.summaryWizard.options.imageHandling}
                           </label>
                           <select
                             value={imageHandling}
@@ -346,9 +346,9 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                               "text-sm cursor-pointer"
                             )}
                           >
-                            <option value="manual">Manual Upload</option>
-                            <option value="google">Google Search</option>
-                            <option value="none">No Images</option>
+                            <option value="manual">{dict.summaryWizard.options.imageOptions.manual}</option>
+                            <option value="google">{dict.summaryWizard.options.imageOptions.google}</option>
+                            <option value="none">{dict.summaryWizard.options.imageOptions.none}</option>
                           </select>
                         </div>
 
@@ -356,7 +356,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                         <div className="space-y-3 rounded-lg border bg-card p-4">
                           <label className="text-sm font-medium flex items-center gap-2">
                             <FileText className="h-4 w-4" />
-                            Detail Level
+                            {dict.summaryWizard.options.detailLevel}
                           </label>
                           <select
                             value={detailLevel}
@@ -368,16 +368,16 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                               "text-sm cursor-pointer"
                             )}
                           >
-                            <option value="reduced">Compact (Facts Only)</option>
-                            <option value="standard">Standard</option>
-                            <option value="detailed">Very Detailed</option>
+                            <option value="reduced">{dict.summaryWizard.options.detailOptions.reduced}</option>
+                            <option value="standard">{dict.summaryWizard.options.detailOptions.standard}</option>
+                            <option value="detailed">{dict.summaryWizard.options.detailOptions.detailed}</option>
                           </select>
                         </div>
                       </div>
                     </div>
 
                     <p className="text-muted-foreground text-sm">
-                      Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to continue, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to go back
+                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {dict.common.toContinue}, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> {dict.common.toGoBack}
                     </p>
                   </div>
                 </div>
@@ -390,12 +390,12 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                         <Check className="h-4 w-4 text-green-500" />
-                        <span>Step 4 of 4</span>
+                        <span>{dict.summaryWizard.steps.step4.subtitle}</span>
                       </div>
                       <h2 className="text-2xl font-bold text-foreground">
-                        Ready to generate?
+                        {dict.summaryWizard.steps.step4.title}
                       </h2>
-                      <p className="text-muted-foreground">Review your summary configuration</p>
+                      <p className="text-muted-foreground">{dict.summaryWizard.steps.step4.description}</p>
                     </div>
 
                     <div className="rounded-lg border bg-card p-6 space-y-6">
@@ -407,7 +407,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                       {/* Selected Files */}
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">
-                          Source Files ({selectedFileIds.length})
+                          {dict.summaryWizard.review.sourceFiles.replace("{count}", selectedFileIds.length.toString())}
                         </p>
                         <div className="space-y-1">
                           {files
@@ -425,20 +425,20 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                       <div className="flex flex-wrap gap-2">
                         {focus && (
                           <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            Focus: {focus}
+                            {dict.summaryWizard.review.focus.replace("{focus}", focus)}
                           </div>
                         )}
                         <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                          Images: {imageHandling}
+                          {dict.summaryWizard.review.images.replace("{mode}", imageHandling)}
                         </div>
                         <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                          {detailLevel === 'reduced' ? 'Reduced' : detailLevel === 'detailed' ? 'Detailed' : 'Standard'}
+                          {dict.summaryWizard.review.detail.replace("{level}", detailLevel)}
                         </div>
                       </div>
                     </div>
 
                     <p className="text-muted-foreground text-sm">
-                      Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to go back
+                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> {dict.common.toGoBack}
                     </p>
                   </div>
                 </div>
@@ -492,7 +492,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     }
                     className="group transition-all duration-300"
                   >
-                    Next
+                    {dict.common.next}
                     <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 ) : (
@@ -507,7 +507,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform relative z-10" />
-                        <span className="relative z-10">Generate</span>
+                        <span className="relative z-10">{dict.summaryWizard.button}</span>
                       </>
                     )}
                   </Button>

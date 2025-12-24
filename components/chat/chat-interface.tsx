@@ -330,11 +330,11 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
                                                 ? 'bg-muted/50 hover:bg-muted border-border cursor-pointer' 
                                                 : 'bg-muted/20 border-border/50 cursor-not-allowed opacity-50'
                                             }`}
-                                            title={file ? `${source.file}, Page ${source.page}` : `File not in context: ${source.file}`}
+                                            title={file ? t("chat.tooltips.fileContext", { filename: source.file, page: source.page }) : t("chat.tooltips.fileNotInContext", { filename: source.file })}
                                           >
                                             <FileText className={`h-3 w-3 ${file ? 'text-muted-foreground group-hover:text-foreground' : 'text-muted-foreground/50'}`} />
                                             <span className={file ? 'text-muted-foreground group-hover:text-foreground' : 'text-muted-foreground/50'}>
-                                              {source.file.split('.')[0].substring(0, 15)}... p. {source.page}
+                                              {source.file.split('.')[0].substring(0, 15)}... {t("chat.source.pageAbbr")} {source.page}
                                             </span>
                                             {file && <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/50 group-hover:text-foreground/70" />}
                                           </button>

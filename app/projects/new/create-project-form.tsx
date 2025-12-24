@@ -5,6 +5,7 @@ import { createProject } from "../actions";
 import { useActionState, useState, useTransition } from "react";
 import { ArrowRight, ArrowLeft, Loader2, Sparkles, Check, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -14,15 +15,8 @@ const PRESET_COLORS = [
   "#0ea5e9", "#3b82f6", "#f59e0b", "#a855f7", "#d946ef"
 ];
 
-const LANGUAGES = [
-  "German",
-  "English",
-  "German & English",
-  "Russian",
-  "Other"
-];
-
 export function CreateProjectForm() {
+  const { t } = useLanguage();
   const [state, action, isPending] = useActionState(createProject, null);
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [, startTransition] = useTransition();
@@ -36,6 +30,14 @@ export function CreateProjectForm() {
   // UI states
   const [nameFocused, setNameFocused] = useState(false);
   const [descFocused, setDescFocused] = useState(false);
+
+  const LANGUAGE_OPTIONS = [
+    { value: "German", label: t("project.createProjectWizard.languages.German") },
+    { value: "English", label: t("project.createProjectWizard.languages.English") },
+    { value: "German & English", label: t("project.createProjectWizard.languages.GermanEnglish") },
+    { value: "Russian", label: t("project.createProjectWizard.languages.Russian") },
+    { value: "Other", label: t("project.createProjectWizard.languages.Other") }
+  ];
 
   const canProceedFromStep1 = name.trim().length > 0;
   const canSubmit = name.trim().length > 0;
@@ -97,10 +99,10 @@ export function CreateProjectForm() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                       <Sparkles className="h-4 w-4 text-yellow-500" />
-                      <span>Step 1 of 4</span>
+                      <span>{t("project.createProjectWizard.step1.subtitle")}</span>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                      What's your project called?
+                      {t("project.createProjectWizard.step1.title")}
                     </h2>
                   </div>
 
@@ -112,7 +114,7 @@ export function CreateProjectForm() {
                       onFocus={() => setNameFocused(true)}
                       onBlur={() => setNameFocused(false)}
                       onKeyDown={(e) => handleKeyDown(e, canProceedFromStep1)}
-                      placeholder="My Amazing Project"
+                      placeholder={t("project.createProjectWizard.step1.placeholder")}
                       className={cn(
                         "w-full bg-transparent text-4xl md:text-6xl font-bold tracking-tight",
                         "placeholder:text-muted-foreground/20",
@@ -135,7 +137,7 @@ export function CreateProjectForm() {
                     "text-muted-foreground text-sm transition-all duration-500",
                     nameFocused || name ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
                   )}>
-                    Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to continue
+                    {t("project.createProjectWizard.step1.pressEnter").split("Enter")[0]} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {t("project.createProjectWizard.step1.pressEnter").split("Enter")[1]}
                   </p>
                 </div>
               </div>
@@ -148,12 +150,12 @@ export function CreateProjectForm() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                       <Sparkles className="h-4 w-4 text-yellow-500" />
-                      <span>Step 2 of 4</span>
+                      <span>{t("project.createProjectWizard.step2.subtitle")}</span>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                      Add a description
+                      {t("project.createProjectWizard.step2.title")}
                     </h2>
-                    <p className="text-muted-foreground">Optional, but helps you remember what this is about</p>
+                    <p className="text-muted-foreground">{t("project.createProjectWizard.step2.description")}</p>
                   </div>
 
                   <div className="relative">
@@ -171,7 +173,7 @@ export function CreateProjectForm() {
                           handleBack();
                         }
                       }}
-                      placeholder="Lecture notes and exercises for this course..."
+                      placeholder={t("project.createProjectWizard.step2.placeholder")}
                       rows={5}
                       maxLength={500}
                       className={cn(
@@ -198,7 +200,8 @@ export function CreateProjectForm() {
                   </div>
 
                   <p className="text-muted-foreground text-sm">
-                    Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Cmd/Ctrl+Enter</kbd> to continue, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to go back
+                     {/* Simplified note for keyboard shortcuts as splitting complex strings is fragile */ }
+                     <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Cmd/Ctrl+Enter</kbd> = {t("common.next")}, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> = {t("common.back")}
                   </p>
                 </div>
               </div>
@@ -228,12 +231,12 @@ export function CreateProjectForm() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                       <Palette className="h-4 w-4 text-purple-500" />
-                      <span>Step 3 of 4</span>
+                      <span>{t("project.createProjectWizard.step3.subtitle")}</span>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                      Customize your project
+                      {t("project.createProjectWizard.step3.title")}
                     </h2>
-                    <p className="text-muted-foreground">Pick a color and language for your study materials</p>
+                    <p className="text-muted-foreground">{t("project.createProjectWizard.step3.description")}</p>
                   </div>
 
                   <div className="space-y-6">
@@ -244,7 +247,7 @@ export function CreateProjectForm() {
                           className="w-4 h-4 rounded-full border-2 border-background shadow-lg"
                           style={{ backgroundColor: color }}
                         />
-                        Theme Color
+                        {t("project.createProjectWizard.step3.themeColor")}
                       </label>
                       <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
                         {PRESET_COLORS.map((presetColor) => (
@@ -272,23 +275,23 @@ export function CreateProjectForm() {
                     <div className="space-y-3">
                       <label className="text-sm font-medium flex items-center gap-2">
                         <span className="text-lg">🌍</span>
-                        Content Language
+                        {t("project.createProjectWizard.step3.contentLanguage")}
                       </label>
                       <div className="grid grid-cols-2 gap-3">
-                        {LANGUAGES.map((lang) => (
+                        {LANGUAGE_OPTIONS.map((option) => (
                           <button
-                            key={lang}
+                            key={option.value}
                             type="button"
-                            onClick={() => setLanguage(lang)}
+                            onClick={() => setLanguage(option.value)}
                             className={cn(
                               "px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300",
                               "border-2",
-                              language === lang
+                              language === option.value
                                 ? "border-primary bg-primary/10 text-primary scale-105"
                                 : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
                             )}
                           >
-                            {lang}
+                            {option.label}
                           </button>
                         ))}
                       </div>
@@ -296,7 +299,7 @@ export function CreateProjectForm() {
                   </div>
 
                   <p className="text-muted-foreground text-sm">
-                    Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to continue, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to go back
+                    <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> = {t("common.next")}, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> = {t("common.back")}
                   </p>
                 </div>
               </div>
@@ -309,12 +312,12 @@ export function CreateProjectForm() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
                       <Check className="h-4 w-4 text-green-500" />
-                      <span>Step 4 of 4</span>
+                      <span>{t("project.createProjectWizard.step4.subtitle")}</span>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                      Ready to create?
+                      {t("project.createProjectWizard.step4.title")}
                     </h2>
-                    <p className="text-muted-foreground">Review your project details</p>
+                    <p className="text-muted-foreground">{t("project.createProjectWizard.step4.description")}</p>
                   </div>
 
                   <div className="rounded-2xl bg-background/80 backdrop-blur-sm border-2 border-muted p-6 space-y-4">
@@ -331,7 +334,8 @@ export function CreateProjectForm() {
                         {language && (
                           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
                             <span>🌍</span>
-                            {language}
+                            {/* Find the label for the selected language value */}
+                            {LANGUAGE_OPTIONS.find(opt => opt.value === language)?.label || language}
                           </div>
                         )}
                       </div>
@@ -339,7 +343,7 @@ export function CreateProjectForm() {
                   </div>
 
                   <p className="text-muted-foreground text-sm">
-                    Press <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to go back
+                    <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> = {t("common.back")}
                   </p>
                 </div>
               </div>
@@ -361,7 +365,7 @@ export function CreateProjectForm() {
                 )}
               >
                 <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Back
+                {t("project.createProjectWizard.navigation.back")}
               </Button>
 
               {/* Progress Dots */}
@@ -390,7 +394,7 @@ export function CreateProjectForm() {
                   disabled={currentStep === 1 && !canProceedFromStep1}
                   className="group transition-all duration-300"
                 >
-                  Next
+                  {t("project.createProjectWizard.navigation.next")}
                   <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               ) : (
@@ -404,7 +408,7 @@ export function CreateProjectForm() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      <span className="relative z-10">Create Project</span>
+                      <span className="relative z-10">{t("project.createProjectWizard.step4.createButton")}</span>
                       <Sparkles className="h-4 w-4 ml-2 group-hover:rotate-12 transition-transform relative z-10" />
                       <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary-foreground/20 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                     </>
@@ -419,7 +423,7 @@ export function CreateProjectForm() {
         {state?.errors && Object.keys(state.errors).length > 0 && (
           <div className="mt-4 p-4 rounded-xl bg-destructive/10 border border-destructive/20 animate-in slide-in-from-top-2 fade-in">
             <p className="text-destructive font-medium text-sm">
-              Please fix the errors above and try again
+              {t("project.createProjectWizard.error")}
             </p>
           </div>
         )}

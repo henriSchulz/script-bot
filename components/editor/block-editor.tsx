@@ -17,6 +17,7 @@ import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizonta
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Link from 'next/link';
+import { useLanguage } from '@/components/language-provider';
 
 interface Block {
   id: string;
@@ -45,6 +46,7 @@ interface BlockEditorProps {
 }
 
 export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false, onChatAboutBlock }, ref) => {
+  const { t } = useLanguage();
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
   const [hoveredBlockIndex, setHoveredBlockIndex] = useState<number | null>(null);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
@@ -242,9 +244,9 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
     } else if (type === 'info_box' && !content) {
       // Default info box with template
       content = JSON.stringify({
-        label: 'IMPORTANT',
+        label: t('blockEditor.defaultContent.infoBoxLabel'),
         color: 'red',
-        latex: 'your formula here'
+        latex: t('blockEditor.defaultContent.infoBoxLatex')
       });
     }
 
@@ -598,9 +600,9 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
             <Sparkles className="h-16 w-16 mx-auto text-primary/50 relative" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-semibold">Start creating your summary</h3>
+            <h3 className="text-xl font-semibold">{t('blockEditor.emptyState.title')}</h3>
             <p className="text-muted-foreground text-sm">
-              Click below to add your first block. Type <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">/</kbd> for commands.
+              <span dangerouslySetInnerHTML={{ __html: t('blockEditor.emptyState.description') }} />
             </p>
           </div>
           <div className="flex gap-2 justify-center">
@@ -610,21 +612,21 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
               className="group"
             >
               <Type className="h-4 w-4 mr-2" />
-              Add Text Block
+              {t('blockEditor.emptyState.addText')}
             </Button>
             <Button 
               variant="outline" 
               onClick={() => handleCreateBlock('latex', -1)}
             >
               <Sigma className="h-4 w-4 mr-2" />
-              Add LaTeX
+              {t('blockEditor.emptyState.addLatex')}
             </Button>
             <Button 
               variant="outline" 
               onClick={() => handleCreateBlock('image', -1)}
             >
               <Image className="h-4 w-4 mr-2" />
-              Add Image
+              {t('blockEditor.emptyState.addImage')}
             </Button>
             <Button 
               variant="outline" 
@@ -632,7 +634,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
               className="border-primary/20 hover:bg-primary/5 hover:text-primary"
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              Generate with AI
+              {t('blockEditor.emptyState.generateWithAi')}
             </Button>
           </div>
         </div>
@@ -785,7 +787,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                   href={`${block.fileUrl}#page=${block.page}`}
                                   target="_blank"
                                   className="h-6 w-6 inline-flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-accent rounded-md"
-                                  title={`Go to page ${block.page}`}
+                                  title={t('blockEditor.tooltips.goToPage', { page: block.page })}
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </Link>
@@ -796,7 +798,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-md"
-                                title="Get AI Explanation"
+                                title={t('blockEditor.tooltips.getAiExplanation')}
                                 onClick={() => {
                                   setSelectedBlockForExplanation(block.id);
                                   setExplanationModalOpen(true);
@@ -826,7 +828,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                         navigator.clipboard.writeText(block.content);
                                       }}
                                     >
-                                      <Copy className="h-4 w-4 mr-2" /> Copy
+                                      <Copy className="h-4 w-4 mr-2" /> {t('blockEditor.actions.copy')}
                                     </Button>
                                     <Button 
                                       variant="ghost" 
@@ -837,7 +839,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                         handleDeleteBlock(block.id);
                                       }}
                                     >
-                                      <Scissors className="h-4 w-4 mr-2" /> Cut
+                                      <Scissors className="h-4 w-4 mr-2" /> {t('blockEditor.actions.cut')}
                                     </Button>
                                     
                                     {/* Mark Important - only for LaTeX blocks */}
@@ -851,7 +853,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                           handleUpdateBlock(block.id, block.content, undefined, !isCurrentlyImportant, undefined);
                                         }}
                                       >
-                                        <Star className={cn("h-4 w-4 mr-2", block.isImportant && "fill-current")} /> Mark Important
+                                        <Star className={cn("h-4 w-4 mr-2", block.isImportant && "fill-current")} /> {t('blockEditor.actions.markImportant')}
                                       </Button>
                                     )}
                                     
@@ -862,7 +864,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                                       className="justify-start h-8 px-2 font-normal text-destructive hover:text-destructive hover:bg-destructive/10"
                                       onClick={() => handleDeleteBlock(block.id)}
                                     >
-                                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                      <Trash2 className="h-4 w-4 mr-2" /> {t('blockEditor.actions.delete')}
                                     </Button>
                                   </div>
                                 </PopoverContent>

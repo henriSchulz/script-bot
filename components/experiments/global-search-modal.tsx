@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { searchProjectBlocks, SearchResult } from '@/app/actions/search';
 import { cn } from '@/lib/utils';
 import { BlockPreview } from './block-preview';
+import { useLanguage } from "@/components/language-provider";
 
 interface GlobalSearchModalProps {
   projectId: string;
@@ -16,6 +17,7 @@ interface GlobalSearchModalProps {
 }
 
 export function GlobalSearchModal({ projectId, open, onOpenChange }: GlobalSearchModalProps) {
+  const { dict } = useLanguage();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,7 +112,7 @@ export function GlobalSearchModal({ projectId, open, onOpenChange }: GlobalSearc
             <Search className="h-5 w-5 text-muted-foreground/60" />
             <div className="flex-1">
               <Input
-                placeholder="Search summaries..."
+                placeholder={dict.search.summariesPlaceholder}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base placeholder:text-muted-foreground/50 h-auto p-0 font-normal"
@@ -123,7 +125,7 @@ export function GlobalSearchModal({ projectId, open, onOpenChange }: GlobalSearc
           </div>
           <div className="px-6 pb-4 border-t border-border/30">
             <p className="text-xs text-muted-foreground/60 tracking-wide pt-3">
-              <kbd className="px-1.5 py-0.5 bg-muted/50 rounded text-[10px] font-mono border border-border/40">↑↓</kbd> Navigate · <kbd className="px-1.5 py-0.5 bg-muted/50 rounded text-[10px] font-mono border border-border/40">↵</kbd> Open · <kbd className="px-1.5 py-0.5 bg-muted/50 rounded text-[10px] font-mono border border-border/40">Esc</kbd> Close
+              <kbd className="px-1.5 py-0.5 bg-muted/50 rounded text-[10px] font-mono border border-border/40">↑↓</kbd> {dict.search.global.navigate} · <kbd className="px-1.5 py-0.5 bg-muted/50 rounded text-[10px] font-mono border border-border/40">↵</kbd> {dict.search.global.open} · <kbd className="px-1.5 py-0.5 bg-muted/50 rounded text-[10px] font-mono border border-border/40">Esc</kbd> {dict.search.global.close}
             </p>
           </div>
         </div>
@@ -185,8 +187,8 @@ export function GlobalSearchModal({ projectId, open, onOpenChange }: GlobalSearc
               <div className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/30">
                 <Search className="h-8 w-8 text-muted-foreground/40" />
               </div>
-              <p className="text-base font-semibold text-muted-foreground/90">No results found</p>
-              <p className="text-sm text-muted-foreground/60 mt-2">Try different keywords or check your spelling</p>
+              <p className="text-base font-semibold text-muted-foreground/90">{dict.search.global.noResults}</p>
+              <p className="text-sm text-muted-foreground/60 mt-2">{dict.search.global.tryDifferent}</p>
             </div>
           ) : null}
         </ScrollArea>

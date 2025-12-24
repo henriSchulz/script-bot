@@ -239,7 +239,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
       data = parseGeminiResponse(text);
     } catch (e) {
       console.error("Failed to parse Gemini response:", text);
-      return { success: false, error: "Failed to parse generated summary" };
+      return { success: false, error: `Failed to parse generated summary. Raw start: ${text.substring(0, 100)}...` };
     }
 
     const generatedTitle = data.title || title || "AI Zusammenfassung";

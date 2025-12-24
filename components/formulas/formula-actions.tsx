@@ -13,6 +13,7 @@ import { MoreVertical, Pencil, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { deleteFormula, regeneratePageFormulas } from '@/app/actions/formulas';
 import { EditFormulaDialog } from './edit-formula-dialog';
 import { cn } from '@/lib/utils';
+import { useLanguage } from "@/components/language-provider";
 
 interface FormulaActionsProps {
   formula: {
@@ -28,12 +29,13 @@ interface FormulaActionsProps {
 }
 
 export function FormulaActions({ formula, onUpdate }: FormulaActionsProps) {
+  const { dict } = useLanguage();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm("Bist du sicher, dass du diese Formel löschen möchtest?")) return;
+    if (!confirm(dict.formulas.actions.deleteConfirm)) return;
     
     setIsDeleting(true);
     await deleteFormula(formula.id);
@@ -77,7 +79,7 @@ export function FormulaActions({ formula, onUpdate }: FormulaActionsProps) {
             className="cursor-pointer hover:bg-primary/10 focus:bg-primary/10 transition-colors duration-200 py-3"
           >
             <Pencil className="mr-3 h-4 w-4 text-primary" />
-            <span className="font-medium">Bearbeiten</span>
+            <span className="font-medium">{dict.formulas.actions.edit}</span>
           </DropdownMenuItem>
           
           <DropdownMenuItem 
@@ -90,7 +92,7 @@ export function FormulaActions({ formula, onUpdate }: FormulaActionsProps) {
             ) : (
               <RefreshCw className="mr-3 h-4 w-4" />
             )}
-            <span className="font-medium">Neu generieren</span>
+            <span className="font-medium">{dict.formulas.actions.regenerate}</span>
           </DropdownMenuItem>
           
           <DropdownMenuSeparator className="bg-muted" />
@@ -105,7 +107,7 @@ export function FormulaActions({ formula, onUpdate }: FormulaActionsProps) {
             ) : (
               <Trash2 className="mr-3 h-4 w-4" />
             )}
-            <span className="font-medium">Löschen</span>
+            <span className="font-medium">{dict.formulas.actions.delete}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

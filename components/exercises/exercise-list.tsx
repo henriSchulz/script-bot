@@ -78,9 +78,10 @@ export function ExerciseList({ projectId }: ExerciseListProps) {
       if (result.success) {
         setExercises(prev => prev.filter(e => e.id !== exerciseToDelete));
       } else {
-        alert("Failed to delete exercise");
+        alert(dict.exercises.deleteAlert.error);
       }
       setExerciseToDelete(null);
+
     });
   };
 
@@ -115,7 +116,7 @@ export function ExerciseList({ projectId }: ExerciseListProps) {
               }}
               className="h-8 text-xs"
             >
-              Date
+              {dict.summaries.sort.date}
               {sortBy === "date" && <ArrowUpDown className="ml-2 h-3 w-3" />}
             </Button>
             <Button
@@ -131,7 +132,7 @@ export function ExerciseList({ projectId }: ExerciseListProps) {
               }}
               className="h-8 text-xs"
             >
-              Name
+              {dict.summaries.sort.name}
               {sortBy === "name" && <ArrowUpDown className="ml-2 h-3 w-3" />}
             </Button>
           </div>
@@ -167,8 +168,9 @@ export function ExerciseList({ projectId }: ExerciseListProps) {
       ) : sortedExercises.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-muted rounded-xl">
           <PenTool className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+
           <p className="text-muted-foreground">{dict.exercises.noExercises}</p>
-          <p className="text-sm text-muted-foreground mt-1">Create one to start practicing</p>
+          <p className="text-sm text-muted-foreground mt-1">{dict.exercises.createHint}</p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -219,7 +221,7 @@ export function ExerciseList({ projectId }: ExerciseListProps) {
                       {formatDate(exercise.updatedAt)}
                     </span>
                     <span className="inline-flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-md text-xs font-medium text-primary">
-                      {exercise._count.blocks} blocks
+                      {dict.summaries.card.blocks.replace("{count}", exercise._count.blocks.toString())}
                     </span>
                   </div>
                 </div>
@@ -281,9 +283,9 @@ export function ExerciseList({ projectId }: ExerciseListProps) {
       <AlertDialog open={!!exerciseToDelete} onOpenChange={(open) => !open && setExerciseToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+             <AlertDialogTitle>{dict.exercises.deleteAlert.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the exercise and all its content.
+              {dict.exercises.deleteAlert.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

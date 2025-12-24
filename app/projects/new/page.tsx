@@ -2,8 +2,14 @@ import { CreateProjectForm } from "./create-project-form";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cookies } from "next/headers";
+import { getDictionary } from "@/lib/i18n";
 
-export default function NewProjectPage() {
+export default async function NewProjectPage() {
+  const cookieStore = await cookies();
+  const lang = cookieStore.get("app-language")?.value || "en";
+  const dict: any = await getDictionary(lang);
+
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-background">
       {/* Enhanced Ambient Background */}
@@ -18,7 +24,7 @@ export default function NewProjectPage() {
             <div className="rounded-full p-1 group-hover:bg-muted transition-colors">
               <ArrowLeft className="h-4 w-4" />
             </div>
-            <span className="font-medium">Back to Projects</span>
+            <span className="font-medium">{dict.project.backToProjects}</span>
           </Link>
         </Button>
       </div>

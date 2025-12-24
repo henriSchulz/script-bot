@@ -10,7 +10,10 @@
     "loading": "Laden...",
     "error": "Fehler",
     "success": "Erfolg",
-    "solution": "Lösung"
+    "solution": "Lösung",
+    "press": "Drücke",
+    "toContinue": "zum Fortfahren",
+    "toGoBack": "um zurückzugehen"
   },
   "project": {
     "overview": "Übersicht",
@@ -36,7 +39,50 @@
       "error": "Entschuldigung, ich konnte keine Antwort generieren.",
       "uploadError": "Fehler beim Hochladen der Dateien",
       "askAboutBlock": "Bitte erkläre diesen Teil der Zusammenfassung ausführlich. Gehe detailliert auf die genannten Konzepte ein: \"{content}\""
-    }
+    },
+    "createProjectWizard": {
+      "step1": {
+        "title": "Wie soll dein Projekt heißen?",
+        "subtitle": "Schritt 1 von 4",
+        "placeholder": "Mein tolles Projekt",
+        "pressEnter": "Drücke Enter zum Fortfahren"
+      },
+      "step2": {
+        "title": "Füge eine Beschreibung hinzu",
+        "subtitle": "Schritt 2 von 4",
+        "description": "Optional, hilft dir aber dich zu erinnern worum es geht",
+        "placeholder": "Vorlesungsnotizen und Übungen für diesen Kurs...",
+        "pressCmdEnter": "Drücke Cmd/Ctrl+Enter zum Fortfahren, Esc um zurückzugehen"
+      },
+      "step3": {
+        "title": "Passe dein Projekt an",
+        "subtitle": "Schritt 3 von 4",
+        "description": "Wähle eine Farbe und Sprache für deine Lernmaterialien",
+        "themeColor": "Themenfarbe",
+        "contentLanguage": "Inhaltssprache",
+        "languages": {
+          "German": "Deutsch",
+          "English": "Englisch",
+          "GermanEnglish": "Deutsch & Englisch",
+          "Russian": "Russisch",
+          "Other": "Andere"
+        },
+        "pressEnter": "Drücke Enter zum Fortfahren, Esc um zurückzugehen"
+      },
+      "step4": {
+        "title": "Bereit zum Erstellen?",
+        "subtitle": "Schritt 4 von 4",
+        "description": "Überprüfe deine Projektdetails",
+        "createButton": "Projekt erstellen",
+        "pressEsc": "Drücke Esc um zurückzugehen"
+      },
+      "navigation": {
+        "back": "Zurück",
+        "next": "Weiter"
+      },
+      "error": "Bitte korrigiere die Fehler und versuche es erneut"
+    },
+    "backToProjects": "Zurück zu Projekten"
   },
   "files": {
     "upload": "Dateien hochladen",
@@ -54,13 +100,41 @@
     "focus": "Fokus (Optional)",
     "focusPlaceholder": "z.B. Fokus auf Definitionen und Beispiele...",
     "noSummaries": "Noch keine Zusammenfassungen",
-    "noSolutions": "Noch keine Lösungen generiert."
+    "noSolutions": "Noch keine Lösungen generiert.",
+    "createHint": "Erstelle eine, um zu beginnen",
+    "deleteAlert": {
+       "title": "Bist du sicher?",
+       "description": "Diese Aktion kann nicht rückgängig gemacht werden. Die Zusammenfassung und alle Inhalte werden permanent gelöscht.",
+       "error": "Fehler beim Löschen der Zusammenfassung"
+    },
+    "tabs": {
+        "solutions": "Lösungen"
+    },
+    "sort": {
+        "date": "Datum",
+        "name": "Name"
+    },
+    "card": {
+        "blocks": "{count} Blöcke"
+    }
   },
   "exercises": {
     "solve": "Lösen",
     "theory": "Theorie",
     "chat": "Chat",
     "noExercises": "Noch keine Aufgaben",
+    "createHint": "Erstelle eine, um zu üben",
+    "createDialog": {
+        "button": "Aufgabe erstellen",
+        "title": "Aufgabe erstellen",
+        "fileLabel": "Übungsblatt (PDF)",
+        "placeholder": "z.B. Übungsblatt 1"
+    },
+    "deleteAlert": {
+       "title": "Bist du sicher?",
+       "description": "Diese Aktion kann nicht rückgängig gemacht werden. Die Aufgabe und alle Inhalte werden permanent gelöscht.",
+       "error": "Fehler beim Löschen der Aufgabe"
+    },
     "chatInterface": {
       "hint": "Hinweis erhalten",
       "solution": "Lösung anzeigen",
@@ -75,17 +149,7 @@
       "hintMessage": "Kannst du mir einen kleinen Hinweis geben, ohne die ganze Lösung zu verraten? Zeig mir nur die richtige Richtung."
     }
   },
-  "formulas": {
-    "title": "Formelsammlung",
-    "noFormulas": "Noch keine Formeln",
-    "search": "Formeln suchen...",
-    "category": "Kategorie",
-    "categoryPlaceholder": "z.B. Thermodynamik",
-    "description": "Beschreibung",
-    "descriptionPlaceholder": "Eine kurze Erklärung der Formel...",
-    "cancel": "Abbrechen",
-    "saveChanges": "Änderungen speichern"
-  },
+
   "ai": {
     "generating": "Generiere...",
     "analyzing": "Analysiere...",
@@ -124,10 +188,52 @@
     "numberedList": "Nummerierte Liste",
     "bulletList": "Aufzählungsliste"
   },
+  "blockEditor": {
+    "emptyState": {
+      "title": "Beginne mit deiner Zusammenfassung",
+      "description": "Klicke unten, um deinen ersten Block hinzuzufügen. Tippe <kbd>/</kbd> für Befehle.",
+      "addText": "Text-Block hinzufügen",
+      "addLatex": "LaTeX hinzufügen",
+      "addImage": "Bild hinzufügen",
+      "generateWithAi": "Mit KI generieren"
+    },
+    "tooltips": {
+      "goToPage": "Gehe zu Seite {page}",
+      "getAiExplanation": "KI-Erklärung erhalten"
+    },
+    "defaultContent": {
+      "infoBoxLabel": "WICHTIG",
+      "infoBoxLatex": "Deine Formel hier"
+    },
+    "batchUpload": {
+        "title": "Angeforderte Bilder hochladen",
+        "description": "Bitte lade Bilder für die folgenden KI-generierten Anfragen hoch.",
+        "page": "Seite {page}",
+        "uploadPrompt": "Lade ein Bild für diesen Abschnitt hoch.",
+        "cancel": "Abbrechen",
+        "uploading": "Wird hochgeladen...",
+        "uploadSelected": "Ausgewählte hochladen ({count})"
+    },
+    "actions": {
+        "copy": "Kopieren",
+        "cut": "Ausschneiden",
+        "markImportant": "Wichtig markieren",
+        "delete": "Löschen"
+    }
+  },
   "search": {
     "placeholder": "Suche Zusammenfassungen, Aufgaben, Dateien oder Inhalte...",
     "summariesPlaceholder": "Suche Zusammenfassungen...",
-    "filesPlaceholder": "Suche Dateien..."
+    "filesPlaceholder": "Suche Dateien...",
+    "global": {
+      "navigate": "Navigieren",
+      "open": "Öffnen",
+      "close": "Schließen",
+      "noResults": "Keine Ergebnisse gefunden",
+      "tryDifferent": "Versuche andere Begriffe oder prüfe die Schreibweise",
+      "initialTitle": "Durchsuche deine Zusammenfassungen",
+      "initialDescription": "Finde Text, Formeln und Bilder in allen Inhalten"
+    }
   },
   "chat": {
     "newChat": "Neuer Chat",
@@ -140,7 +246,14 @@
     "thinking": "Denkt nach...",
     "aiDisclaimer": "KI kann Fehler machen. Überprüfe wichtige Informationen in den Dateien.",
     "fullscreen": "Vollbild",
-    "exitFullscreen": "Vollbild verlassen"
+    "exitFullscreen": "Vollbild verlassen",
+    "tooltips": {
+        "fileContext": "{filename}, Seite {page}",
+        "fileNotInContext": "Datei nicht im Kontext: {filename}"
+    },
+    "source": {
+        "pageAbbr": "S."
+    }
   },
   "deleteProject": {
     "title": "Bist du dir absolut sicher?",
@@ -157,7 +270,18 @@
     "applicationLanguage": "Anwendungssprache",
     "appliesToAll": "Diese Einstellung gilt für alle Projekte und die gesamte Benutzeroberfläche",
     "note": "Deine Sprachpräferenz wird im Browser gespeichert und bleibt über Sitzungen hinweg erhalten.",
-    "futureSettings": "Weitere Einstellungen werden in zukünftigen Updates verfügbar sein"
+    "futureSettings": "Weitere Einstellungen werden in zukünftigen Updates verfügbar sein",
+    "noteLabel": "Hinweis",
+    "languages": {
+      "en": {
+        "label": "English",
+        "description": "International"
+      },
+      "de": {
+        "label": "Deutsch",
+        "description": "Deutschland"
+      }
+    }
   },
   "reference": {
     "page": "Seite"
@@ -222,5 +346,133 @@
       "generating": "Generiert...",
       "error": "Fehler"
     }
+  },
+  "formulas": {
+    "title": "Formelsammlung",
+    "category": "Kategorie",
+    "categoryPlaceholder": "z.B. Thermodynamik",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Eine kurze Erklärung der Formel...",
+    "cancel": "Abbrechen",
+    "saveChanges": "Änderungen speichern",
+    "actions": {
+      "edit": "Bearbeiten",
+      "regenerate": "Neu generieren",
+      "delete": "Löschen",
+      "deleteConfirm": "Bist du sicher, dass du diese Formel löschen möchtest?"
+    },
+    "scan": {
+      "button": "Folien scannen",
+      "scanning": "Scanne...",
+      "init": "Initialisiere Scan...",
+      "fetchingMetadata": "Lade Dateimetadaten...",
+      "noPages": "Keine Seiten zu verarbeiten.",
+      "now": "Jetzt scannen"
+    },
+    "status": {
+      "processing": "Verarbeite {file} (Seiten {start}-{end})...",
+      "complete": "Scan abgeschlossen! {count} neue Formeln gefunden.",
+      "error": "Ein unerwarteter Fehler ist während des Scans aufgetreten."
+    },
+    "deleteAll": {
+      "button": "Alle neu generieren",
+      "confirm": "Dies wird ALLE Formeln löschen und alle Folien neu scannen. Dies kann nicht rückgängig gemacht werden. Fortfahren?"
+    },
+    "search": {
+      "placeholder": "Formeln durchsuchen..."
+    },
+    "progress": {
+      "preparation": "Vorbereitung..."
+    },
+    "noFormulas": {
+      "title": "Keine Formeln gefunden",
+      "description": "Lade PDF-Vorlesungsfolien hoch und klicke auf \"Folien scannen\", um automatisch Formeln zu extrahieren.",
+      "searchEmpty": "Keine Formeln entsprechen deiner Suche \"{query}\""
+    },
+    "categories": {
+      "uncategorized": "Unkategorisiert"
+    },
+    "card": {
+      "description": "Beschreibung",
+      "unknownFile": "Unbekannte Datei",
+      "page": "Seite {page}",
+      "noDescription": "Keine Beschreibung"
+    }
+  },
+  "summaryWizard": {
+    "button": "Zusammenfassung generieren",
+    "steps": {
+      "step1": {
+        "subtitle": "Schritt 1 von 4",
+        "title": "Zusammenfassung erstellen",
+        "description": "Erstelle eine strukturierte Zusammenfassung aus deinen Projektdateien",
+        "titlePlaceholder": "Titel (Optional - sonst KI generiert)",
+        "pressEnter": "Drücke Enter zum Fortfahren"
+      },
+      "step2": {
+        "subtitle": "Schritt 2 von 4",
+        "title": "Quelldateien",
+        "description": "Wähle Dateien für die Zusammenfassung aus"
+      },
+      "step3": {
+        "subtitle": "Schritt 3 von 4",
+        "title": "Optionen",
+        "description": "Passe deine Zusammenfassung an"
+      },
+      "step4": {
+        "subtitle": "Schritt 4 von 4",
+        "title": "Bereit zum Generieren?",
+        "description": "Überprüfe deine Konfiguration"
+      }
+    },
+    "files": {
+       "selected": "{count} ausgewählt",
+       "file": "Datei",
+       "files": "Dateien",
+       "selectAll": "Alle auswählen",
+       "deselectAll": "Auswahl aufheben",
+       "noFiles": "Keine Dateien in diesem Projekt gefunden"
+    },
+    "options": {
+       "focusLabel": "Fokus (Optional)",
+       "focusPlaceholder": "z.B. Fokus auf Definitionen und Beispiele...",
+       "imageHandling": "Bildbehandlung",
+       "imageOptions": {
+          "manual": "Manueller Upload",
+          "google": "Google Suche",
+          "none": "Keine Bilder"
+       },
+       "detailLevel": "Detailgrad",
+       "detailOptions": {
+          "reduced": "Kompakt (Nur Fakten)",
+          "standard": "Standard",
+          "detailed": "Sehr Detailliert"
+       }
+    },
+    "review": {
+        "title": "Bereit zum Generieren?",
+        "description": "Überprüfe deine Konfiguration",
+        "sourceFiles": "Quelldateien ({count})",
+        "focus": "Fokus: {focus}",
+        "images": "Bilder: {mode}",
+        "detail": "{level}"
+    }
+  },
+  "blockPreview": {
+    "important": "WICHTIG",
+    "latexError": "LaTeX Fehler"
+  },
+  "pdfViewer": {
+    "loading": "Lade PDF Viewer...",
+    "error": "Fehler beim Laden der PDF. Details in der Konsole.",
+    "fallbackTotal": "--"
+  },
+  "pdfExtractor": {
+    "title": "Bild extrahieren",
+    "subtitle": "Seite {page} • Bereich zum Zuschneiden wählen",
+    "confirm": "Auswahl bestätigen",
+    "saving": "Speichere...",
+    "noFile": "Keine Datei-URL gefunden.",
+    "uploadError": "Fehler beim Hochladen des Bildes"
   }
 }

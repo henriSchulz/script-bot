@@ -34,9 +34,7 @@ export function SettingsPage() {
             {t('project.settings')}
           </h1>
           <p className="text-muted-foreground mt-2">
-            {language === 'de' 
-              ? 'Verwalte deine Anwendungseinstellungen'
-              : 'Manage your application preferences'}
+            {t('settings.subtitle')}
           </p>
         </div>
 
@@ -49,12 +47,10 @@ export function SettingsPage() {
               </div>
               <div>
                 <CardTitle>
-                  {language === 'de' ? 'Sprache' : 'Language'}
+                  {t('settings.languageTitle')}
                 </CardTitle>
                 <CardDescription>
-                  {language === 'de' 
-                    ? 'Wähle deine bevorzugte Sprache für die gesamte Anwendung'
-                    : 'Choose your preferred language for the entire application'}
+                  {t('settings.languageDescription')}
                 </CardDescription>
               </div>
             </div>
@@ -63,12 +59,10 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="language" className="text-base font-medium">
-                  {language === 'de' ? 'Anwendungssprache' : 'Application Language'}
+                  {t('settings.applicationLanguage')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  {language === 'de'
-                    ? 'Diese Einstellung gilt für alle Projekte und die gesamte Benutzeroberfläche'
-                    : 'This setting applies to all projects and the entire user interface'}
+                  {t('settings.appliesToAll')}
                 </p>
               </div>
 
@@ -81,8 +75,8 @@ export function SettingsPage() {
                   <div className="flex items-center gap-3 flex-1">
                     <div className="text-2xl">🇬🇧</div>
                     <div className="text-left">
-                      <div className="font-semibold">English</div>
-                      <div className="text-xs opacity-70">International</div>
+                      <div className="font-semibold">{t('settings.languages.en.label')}</div>
+                      <div className="text-xs opacity-70">{t('settings.languages.en.description')}</div>
                     </div>
                   </div>
                   {language === 'en' && (
@@ -98,8 +92,8 @@ export function SettingsPage() {
                   <div className="flex items-center gap-3 flex-1">
                     <div className="text-2xl">🇩🇪</div>
                     <div className="text-left">
-                      <div className="font-semibold">Deutsch</div>
-                      <div className="text-xs opacity-70">Deutschland</div>
+                      <div className="font-semibold">{t('settings.languages.de.label')}</div>
+                      <div className="text-xs opacity-70">{t('settings.languages.de.description')}</div>
                     </div>
                   </div>
                   {language === 'de' && (
@@ -111,17 +105,7 @@ export function SettingsPage() {
               {/* Info box */}
               <div className="mt-6 p-4 rounded-lg bg-muted/50 border border-border/50">
                 <p className="text-sm text-muted-foreground">
-                  {language === 'de' ? (
-                    <>
-                      <strong>Hinweis:</strong> Die Spracheinstellung wird in deinem Browser gespeichert und 
-                      bleibt auch nach einem Neustart erhalten.
-                    </>
-                  ) : (
-                    <>
-                      <strong>Note:</strong> Your language preference is saved in your browser and will persist 
-                      across sessions.
-                    </>
-                  )}
+                  <strong>{t('settings.noteLabel')}:</strong> {t('settings.note')}
                 </p>
               </div>
             </div>
@@ -131,9 +115,7 @@ export function SettingsPage() {
         {/* Future Settings Placeholder */}
         <div className="mt-8 p-6 rounded-lg border border-dashed border-border/50 text-center">
           <p className="text-sm text-muted-foreground">
-            {language === 'de' 
-              ? 'Weitere Einstellungen werden in zukünftigen Updates verfügbar sein'
-              : 'More settings will be available in future updates'}
+            {t('settings.futureSettings')}
           </p>
         </div>
       </div>

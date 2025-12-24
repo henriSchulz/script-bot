@@ -8,8 +8,10 @@ import { searchProjectBlocks, SearchResult } from '@/app/actions/search';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { BlockPreview } from './block-preview';
+import { useLanguage } from "@/components/language-provider";
 
 export function GlobalSearchTab({ projectId }: { projectId: string }) {
+  const { dict } = useLanguage();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -74,7 +76,7 @@ export function GlobalSearchTab({ projectId }: { projectId: string }) {
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
           <Input
-            placeholder="Search summaries..."
+            placeholder={dict.search.summariesPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-11 pr-11 h-12 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base placeholder:text-muted-foreground/50 font-normal"
@@ -147,16 +149,16 @@ export function GlobalSearchTab({ projectId }: { projectId: string }) {
             <div className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/30">
               <Search className="h-8 w-8 text-muted-foreground/40" />
             </div>
-            <p className="text-base font-semibold text-muted-foreground/90">No results found</p>
-            <p className="text-sm text-muted-foreground/60 mt-2">Try different keywords or check your spelling</p>
+            <p className="text-base font-semibold text-muted-foreground/90">{dict.search.global.noResults}</p>
+            <p className="text-sm text-muted-foreground/60 mt-2">{dict.search.global.tryDifferent}</p>
           </div>
         ) : !loading ? (
           <div className="flex flex-col items-center justify-center py-28 text-center px-4">
             <div className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border/20">
               <Search className="h-8 w-8 text-muted-foreground/40" />
             </div>
-            <p className="text-base font-semibold text-muted-foreground/80">Search your summaries</p>
-            <p className="text-sm text-muted-foreground/60 mt-2 max-w-[280px]">Find text, formulas, and images across all content</p>
+            <p className="text-base font-semibold text-muted-foreground/80">{dict.search.global.initialTitle}</p>
+            <p className="text-sm text-muted-foreground/60 mt-2 max-w-[280px]">{dict.search.global.initialDescription}</p>
           </div>
         ) : null}
       </ScrollArea>

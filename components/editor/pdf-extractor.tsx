@@ -9,6 +9,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, ArrowLeft, ZoomIn, ZoomOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from "@/components/language-provider";
 import { getSummary } from '@/app/actions/summaries';
 import { getExercise } from '@/app/actions/exercises';
 import { updateSummaryBlock } from '@/app/actions/blocks';
@@ -38,6 +39,7 @@ export default function PdfExtractor({
     subtaskId,
     mode = 'summary'
 }: PdfExtractorProps) {
+  const { dict } = useLanguage();
   const router = useRouter();
   
   const [loading, setLoading] = useState(true);
@@ -199,7 +201,7 @@ export default function PdfExtractor({
 
         } else {
             console.error("Upload failed:", uploadResult);
-            alert("Failed to upload image");
+            alert(dict.pdfExtractor.uploadError);
             setSaving(false);
         }
       }, 'image/png');
@@ -231,9 +233,9 @@ export default function PdfExtractor({
   if (!fileUrl) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <p>No file URL found.</p>
+        <p>{dict.pdfExtractor.noFile}</p>
         <Button onClick={handleBack} variant="outline">
-            Back
+            {dict.common.back}
         </Button>
       </div>
     );
@@ -249,8 +251,8 @@ export default function PdfExtractor({
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h1 className="font-semibold">Extract Image</h1>
-                    <p className="text-xs text-muted-foreground">Page {pageNumber} • Select area to crop</p>
+                    <h1 className="font-semibold">{dict.pdfExtractor.title}</h1>
+                    <p className="text-xs text-muted-foreground">{dict.pdfExtractor.subtitle.replace("{page}", pageNumber.toString())}</p>
                 </div>
             </div>
             <div className="flex items-center gap-2">
@@ -300,12 +302,12 @@ export default function PdfExtractor({
                     {saving ? (
                         <>
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Saving...
+                            {dict.pdfExtractor.saving}
                         </>
                     ) : (
                         <>
                             <Check className="h-4 w-4 mr-2" />
-                            Confirm Selection
+                            {dict.pdfExtractor.confirm}
                         </>
                     )}
                 </Button>

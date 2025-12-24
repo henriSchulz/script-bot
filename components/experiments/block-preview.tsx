@@ -5,6 +5,7 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { AlertCircle, Image as ImageIcon, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from "@/components/language-provider";
 
 interface BlockPreviewProps {
   type: string;
@@ -18,6 +19,7 @@ interface LatexData {
 }
 
 export const BlockPreview = memo(({ type, content, query }: BlockPreviewProps) => {
+  const { dict } = useLanguage();
   let processedContent = content;
   let blockType = type;
 
@@ -75,7 +77,7 @@ export const BlockPreview = memo(({ type, content, query }: BlockPreviewProps) =
           {isImportant && (
             <div className="absolute -top-2.5 left-6 px-3 py-1 bg-foreground text-background text-[10px] font-bold uppercase tracking-wider rounded-full shadow-lg flex items-center gap-1.5">
               <Star className="h-3 w-3 fill-background" />
-              Important
+              {dict.blockPreview.important}
             </div>
           )}
           <div 
@@ -89,7 +91,7 @@ export const BlockPreview = memo(({ type, content, query }: BlockPreviewProps) =
         <div className="flex items-start gap-3 text-destructive p-4 bg-destructive/5 rounded-lg border border-destructive/20">
           <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium">LaTeX Error</p>
+            <p className="font-medium">{dict.blockPreview.latexError}</p>
             <code className="text-xs opacity-80 font-mono mt-1 block">{processedContent.slice(0, 100)}...</code>
           </div>
         </div>

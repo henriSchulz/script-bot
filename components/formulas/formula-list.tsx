@@ -86,15 +86,15 @@ export function FormulaList({ projectId }: FormulaListProps) {
   };
 
   const handleScan = () => {
-    setExtractionStatus("Initializing scan...");
+    setExtractionStatus(dict.formulas.scan.init);
     startTransition(async () => {
       try {
         setProgress(0);
-        setProgressDetails("Fetching file metadata...");
+        setProgressDetails(dict.formulas.scan.fetchingMetadata);
         
         const metadataResult = await getPdfMetadata(projectId);
         if (!metadataResult.success || !metadataResult.files) {
-          setExtractionStatus("Failed to fetch PDF metadata.");
+          setExtractionStatus("Failed to fetch PDF metadata."); // Keep internal error? or Generic error
           return;
         }
 
@@ -106,7 +106,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
         });
 
         if (totalChunks === 0) {
-          setExtractionStatus("No pages to process.");
+          setExtractionStatus(dict.formulas.scan.noPages);
           return;
         }
 
@@ -119,7 +119,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
             const startPage = i * CHUNK_SIZE + 1;
             const endPage = Math.min((i + 1) * CHUNK_SIZE, file.pageCount);
             
-            setProgressDetails(`Processing ${file.name} (Pages ${startPage}-${endPage})...`);
+            setProgressDetails(dict.formulas.status.processing.replace("{file}", file.name).replace("{start}", startPage.toString()).replace("{end}", endPage.toString()));
             
             const result = await processPdfChunk(projectId, file.id, startPage, endPage);
             if (result.success) {
@@ -131,12 +131,12 @@ export function FormulaList({ projectId }: FormulaListProps) {
           }
         }
 
-        setExtractionStatus(`Scan complete! Found ${totalNewFormulas} new formulas.`);
+        setExtractionStatus(dict.formulas.status.complete.replace("{count}", totalNewFormulas.toString()));
         setProgressDetails(null);
         setProgress(0);
         await fetchFormulas();
       } catch (error) {
-        setExtractionStatus("An unexpected error occurred during scanning.");
+        setExtractionStatus(dict.formulas.status.error);
         console.error(error);
       } finally {
         setTimeout(() => setExtractionStatus(null), 5000);
@@ -214,18 +214,18 @@ export function FormulaList({ projectId }: FormulaListProps) {
             {isExtracting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Scanne...
+                {dict.formulas.scan.scanning}
               </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
-                Folien scannen
+                {dict.formulas.scan.button}
               </>
             )}
           </Button>
           <Button 
             onClick={async () => {
-              if (!confirm("Dies wird ALLE Formeln löschen und alle Folien neu scannen. Dies kann nicht rückgängig gemacht werden. Fortfahren?")) return;
+              if (!confirm(dict.formulas.deleteAll.confirm)) return;
               setIsLoading(true);
               await deleteAllFormulas(projectId);
               handleScan();
@@ -236,7 +236,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
             className="transition-all duration-300"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Alle neu generieren
+            {dict.formulas.deleteAll.button}
           </Button>
         </div>
 
@@ -245,7 +245,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
           <div className="relative max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Formeln durchsuchen..."
+              placeholder={dict.formulas.search.placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
@@ -263,7 +263,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
       {isExtracting && (
         <div className="rounded-2xl bg-card/50 backdrop-blur-sm border-2 border-muted p-6 space-y-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex justify-between items-center">
-            <span className="font-medium">{progressDetails || "Vorbereitung..."}</span>
+            <span className="font-medium">{progressDetails || dict.formulas.progress.preparation}</span>
             <span className="text-sm font-bold text-primary">
               {progress}%
             </span>
@@ -292,19 +292,19 @@ export function FormulaList({ projectId }: FormulaListProps) {
         <div className="flex items-center justify-center py-32">
           <div className="text-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <p className="text-muted-foreground">Lade Formeln...</p>
+            <p className="text-muted-foreground">{dict.common.loading}</p>
           </div>
         </div>
       ) : filteredFormulas.length === 0 ? (
         <div className="text-center py-32 rounded-2xl border-2 border-dashed border-muted bg-card/30 backdrop-blur-sm">
           <Sigma className="h-20 w-20 text-muted-foreground/40 mx-auto mb-6" />
           <h3 className="text-2xl font-bold mb-3">
-            {searchQuery ? "Keine Formeln gefunden" : dict.formulas.noFormulas}
+            {searchQuery ? dict.formulas.noFormulas.title : dict.formulas.noFormulas.title}
           </h3>
           <p className="text-muted-foreground max-w-md mx-auto text-lg mb-6">
             {searchQuery 
-              ? `Keine Formeln entsprechen deiner Suche "${searchQuery}"`
-              : "Lade PDF-Vorlesungsfolien hoch und klicke auf \"Folien scannen\", um automatisch Formeln zu extrahieren."
+              ? dict.formulas.noFormulas.searchEmpty.replace("{query}", searchQuery)
+              : dict.formulas.noFormulas.description
             }
           </p>
           {!searchQuery && (
@@ -315,7 +315,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
               className="group"
             >
               <Sparkles className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
-              Jetzt scannen
+              {dict.formulas.scan.now}
             </Button>
           )}
         </div>
@@ -323,7 +323,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
         <div className="space-y-16">
           {Object.entries(
             filteredFormulas.reduce((acc, formula) => {
-              const category = formula.category || "Unkategorisiert";
+              const category = formula.category || dict.formulas.categories.uncategorized;
               if (!acc[category]) acc[category] = [];
               acc[category].push(formula);
               return acc;
@@ -381,7 +381,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
                         {formula.description && (
                           <div className="space-y-2">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Beschreibung
+                              {dict.formulas.card.description}
                             </p>
                             <div className="text-sm leading-relaxed">
                               <LatexText text={formula.description} />
@@ -403,13 +403,13 @@ export function FormulaList({ projectId }: FormulaListProps) {
                                 {formula.file.name}
                               </a>
                             ) : (
-                              "Unbekannte Datei"
+                              dict.formulas.card.unknownFile
                             )}
                           </span>
                           {formula.pageNumber && (
                             <>
                               <span>•</span>
-                              <span>Seite {formula.pageNumber}</span>
+                              <span>{dict.formulas.card.page.replace("{page}", formula.pageNumber.toString())}</span>
                             </>
                           )}
                         </div>
@@ -451,7 +451,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
                             <LatexText text={formula.description} />
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground italic">Keine Beschreibung</span>
+                          <span className="text-sm text-muted-foreground italic">{dict.formulas.card.noDescription}</span>
                         )}
                         
                         {/* Source Info */}
@@ -468,13 +468,13 @@ export function FormulaList({ projectId }: FormulaListProps) {
                                 {formula.file.name}
                               </a>
                             ) : (
-                              "Unbekannte Datei"
+                              dict.formulas.card.unknownFile
                             )}
                           </span>
                           {formula.pageNumber && (
                             <>
                               <span>•</span>
-                              <span>S. {formula.pageNumber}</span>
+                              <span>{dict.formulas.card.page.replace("{page}", formula.pageNumber.toString())}</span>
                             </>
                           )}
                         </div>

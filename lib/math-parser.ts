@@ -4,20 +4,22 @@
 export function parseMathToHtml(text: string): string {
     if (!text) return "";
 
-    // Regex for $...$
-    // Supports escaped dollars \$ inside the math.
-    // Logic:
-    // \$ matches literal $
-    // (
-    //   (?: \\. | [^$] )+   --> match escaped char OR non-$ char, one or more times
-    // )
-    // \$ matches literal $
+    // Regex to match:
+    // 1. $$ ... $$  (Block)
+    // 2. \[ ... \]  (Block)
+    // 3. \( ... \)  (Inline)
+    // 4. $ ... $    (Inline)
+    
+    // Note: We use [\s\S] to match across newlines for block math
+    const regex = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$((?:\\.|[^$])+)\$/g;
 
-    // Note: In JS strings, \\. becomes \. in regex.
-    const regex = /\$((?:\\.|[^$])+)\$/g;
+    return text.replace(regex, (match, block1, block2, inline1, inline2) => {
+      const latex = block1 || block2 || inline1 || inline2;
+      const isBlock = !!(block1 || block2);
+      
+      if (!latex) return match;
 
-    return text.replace(regex, (match, latex) => {
-      // Escape double quotes and other HTML entities in latex attribute
+      // Escape HTML entities
       const safeLatex = latex
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -25,7 +27,10 @@ export function parseMathToHtml(text: string): string {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
       
-      return `<span data-type="math" data-latex="${safeLatex}"></span>`;
+      // We can add a data attribute if we want to style block math differently later
+      const displayMode = isBlock ? ' data-display="true"' : '';
+      
+      return `<span data-type="math" data-latex="${safeLatex}"${displayMode}></span>`;
     });
 }
 
