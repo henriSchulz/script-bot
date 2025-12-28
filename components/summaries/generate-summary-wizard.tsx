@@ -1,6 +1,6 @@
-'use client';
-
 import { useState, useTransition } from "react";
+import { AiLock } from "@/components/ai/ai-lock";
+import { useAiKey } from "@/hooks/use-ai-key";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { generateSummaryFromFiles } from "@/app/actions/ai";
@@ -23,6 +23,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [isPending, startTransition] = useTransition();
+  const { hasKey } = useAiKey();
 
   // Form state
   const [title, setTitle] = useState("");
@@ -136,6 +137,12 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl p-0 border bg-background overflow-hidden rounded-xl shadow-xl">
         <DialogTitle className="sr-only">Generate Summary Wizard</DialogTitle>
+        {!hasKey ? (
+          <div className="min-h-[500px] flex items-center justify-center">
+             <AiLock className="w-full max-w-md mx-auto" />
+
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="relative">
           {/* Step Container */}
           <div className="relative overflow-hidden bg-background">
@@ -516,6 +523,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
             </div>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

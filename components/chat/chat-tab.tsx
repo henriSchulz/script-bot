@@ -116,7 +116,7 @@ export function ChatTab({ projectId }: ChatTabProps) {
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-zinc-950/50">
+      <div className="flex-1 flex flex-col min-w-0 h-full bg-white dark:bg-zinc-950/50">
         {derivedActiveThread ? (
           <ChatInterface
             key={derivedActiveThread.id} // Re-mount on thread change

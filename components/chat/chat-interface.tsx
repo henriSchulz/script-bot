@@ -1,6 +1,8 @@
 'use client';
 
 import { useLanguage } from "@/components/language-provider";
+import { AiLock } from "@/components/ai/ai-lock";
+import { useAiKey } from "@/hooks/use-ai-key";
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChange }: ChatInterfaceProps) {
   const { t } = useLanguage();
+  const { hasKey } = useAiKey();
   const { isFullscreen, setIsFullscreen } = useFullscreen();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -232,6 +235,12 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
       )}
 
       {/* Messages Area */}
+      {!hasKey ? (
+           <div className="flex-1 flex items-center justify-center p-4">
+               <AiLock className="max-w-md w-full" />
+           </div>
+      ) : (
+      <>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4">
@@ -406,6 +415,7 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
             disabled={isSending}
             autoFocus
           />
+
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isSending}
@@ -419,6 +429,8 @@ export function ChatInterface({ projectId, threadId, contextFileIds, onTitleChan
             {t("chat.aiDisclaimer")}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

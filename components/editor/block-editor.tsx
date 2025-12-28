@@ -13,11 +13,13 @@ import { BatchUploadDialog } from './batch-upload-dialog';
 import { GenerateBlocksDialog } from './generate-blocks-dialog';
 import { BlockExplanationModal } from './block-explanation-modal';
 import { Button } from '@/components/ui/button';
-import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, ExternalLink, Copy, Scissors, Star, Box } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, ExternalLink, Copy, Scissors, Star, Box, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Link from 'next/link';
 import { useLanguage } from '@/components/language-provider';
+import { useAiKey } from '@/hooks/use-ai-key';
+import { AiLock } from "@/components/ai/ai-lock";
 
 interface Block {
   id: string;
@@ -47,6 +49,7 @@ interface BlockEditorProps {
 
 export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false, onChatAboutBlock }, ref) => {
   const { t } = useLanguage();
+  const { hasKey } = useAiKey();
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
   const [hoveredBlockIndex, setHoveredBlockIndex] = useState<number | null>(null);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
@@ -633,8 +636,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
               onClick={() => setShowGenerateDialog(true)}
               className="border-primary/20 hover:bg-primary/5 hover:text-primary"
             >
-              <Sparkles className="h-4 w-4 mr-2" />
-              {t('blockEditor.emptyState.generateWithAi')}
+               <Sparkles className="h-4 w-4 mr-2" />
+               {t('blockEditor.emptyState.generateWithAi')}
             </Button>
           </div>
         </div>
@@ -797,14 +800,24 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-md"
+                                className={cn(
+                                    "h-6 w-6 rounded-md",
+                                    !hasKey ? "text-muted-foreground/30 hover:text-muted-foreground/50" : "text-muted-foreground/50 hover:text-primary hover:bg-primary/10"
+                                )}
                                 title={t('blockEditor.tooltips.getAiExplanation')}
-                                onClick={() => {
+                                onClick={hasKey ? () => {
                                   setSelectedBlockForExplanation(block.id);
                                   setExplanationModalOpen(true);
-                                }}
+                                } : undefined}
+                                asChild={!hasKey}
                               >
-                                <Sparkles className="h-3.5 w-3.5" />
+                                {!hasKey ? (
+                                    <Link href="/settings">
+                                        <Lock className="h-3.5 w-3.5" />
+                                    </Link>
+                                ) : (
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                )}
                               </Button>
                               
                               {!isReadOnly && (

@@ -1,5 +1,8 @@
 'use client';
 
+import { AiLock } from "@/components/ai/ai-lock";
+import { useAiKey } from "@/hooks/use-ai-key";
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -21,6 +24,7 @@ export function GenerateBlocksDialog({ open, onOpenChange, projectId, onSuccess 
   const { dict } = useLanguage();
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
+  const { hasKey } = useAiKey();
 
   const handleGenerate = async () => {
     if (!topic.trim()) return;
@@ -48,6 +52,12 @@ export function GenerateBlocksDialog({ open, onOpenChange, projectId, onSuccess 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
+        {!hasKey ? (
+            <div className="py-4">
+                <AiLock variant="card" className="border-none shadow-none p-0" />
+            </div>
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -89,6 +99,8 @@ export function GenerateBlocksDialog({ open, onOpenChange, projectId, onSuccess 
             )}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -160,6 +160,12 @@
       "generate_blocks": "You are an expert tutor creating educational content.\n{langInstruction}\n\nTOPIC: \"{topic}\"\n{context}\n\nTASK:\nGenerate a comprehensive, multi-step explanation for the given topic.\n\nCRITICAL REQUIREMENTS:\n1. **Structure**: You MUST generate a sequence of AT LEAST 4-5 blocks.\n2. **Variety**: You MUST use a mix of \"text\", \"latex\", and \"image_request\" blocks.\n3. **Headings**: Start with a \"text\" block containing an <h3> heading.\n4. **Math**: Use \"latex\" blocks for ALL main formulas. Do NOT put complex formulas in text blocks.\n5. **Visuals**: You MUST include at least one \"image_request\" block for a diagram or illustration.\n\nBLOCK TYPES:\n- \"text\": HTML content. Use <h3> for headings, <p> for paragraphs, <ul>/<li> for lists. Use inline LaTeX ($...$) for variables (e.g. $x$, $\\alpha$).\n- \"latex\": Pure LaTeX code for standalone equations (e.g. \"E = mc^2\"). Set \"isImportant\": true if it is the main law or core formula. Be selective!\n- \"image_request\": A clear English description of a diagram to search for (e.g. \"Schematic diagram of photosynthesis process\").\n\nEXAMPLE OUTPUT (JSON):\n{\n  \"blocks\": [\n    { \"type\": \"text\", \"content\": \"<h3>Introduction</h3><p>The <strong>Pythagorean Theorem</strong> is fundamental in geometry.</p>\" },\n    { \"type\": \"latex\", \"content\": \"a^2 + b^2 = c^2\", \"isImportant\": true },\n    { \"type\": \"image_request\", \"content\": \"Right triangle with sides labeled a, b, c\" },\n    { \"type\": \"text\", \"content\": \"<h3>Application</h3><p>It is used to find distance between two points.</p>\" }\n  ]\n}\nCRITICAL: OUTPUT RAW JSON ONLY. NO MARKDOWN. NO CODE BLOCKS.",
       "chat_project": "You are a helpful AI assistant for this project.\n{langInstruction}\n\nCHAT HISTORY:\n{history}\n\nUSER MESSAGE: {userMessage}\n\nINSTRUCTIONS:\n- Answer the user's question based on the provided project files.\n- **CITATIONS (VERY IMPORTANT)**: When using information from files, you MUST provide citations:\n  - Add references after relevant sentences in the format: \"[Source: FILENAME, Page X]\"\n  - Example: \"This is defined on page 5 of '1_Lect_MSS_Intro_CMOS_Basics.pdf'.\"\n  - Use this format consistently for ALL important facts and definitions.\n- **OUTPUT FORMAT**: You must output a valid JSON array of \"blocks\".\n- Block Types: \"text\" (markdown supported), \"latex\" (for standalone formulas).\n- Example Output:\n[\n  { \"type\": \"text\", \"content\": \"The CMOS inverter is a fundamental circuit. This is defined on page 5 of '1_Lect_MSS_Intro_CMOS_Basics.pdf'.\" },\n  { \"type\": \"latex\", \"content\": \"V_{out} = V_{DD} - V_{in}\" }\n]\n- Use \"latex\" blocks for main equations. Use inline math ($...$) inside \"text\" blocks for ALL variables and small formulas.\n- **STRICT RULE**: NEVER use Unicode/ASCII for math (like α, β, ²). ALWAYS use LaTeX (like $\\alpha$, $\\beta$, $^2$). Even for single letters like 'x' in math context, use $x$.\n- **CRITICAL**: Return ONLY the raw JSON array. NO markdown code blocks or other formatting.\n- **CRITICAL**: Ensure all strings are properly escaped. No unescaped newlines or quotes inside strings.\n- **CRITICAL - ESCAPING**: Backslashes in LaTeX MUST be double-escaped. Example: \"\\\\frac\" instead of \"\\frac\".\n- **CRITICAL**: The output MUST be a valid JSON array starting with [ and ending with ].",
       "generate_extra_exercises": "You are a tutor helping students practice a topic.\n{langInstruction}\nBased on the 'EXERCISE SHEET' and 'LECTURE MATERIAL', create 3 ADDITIONAL practice exercises.\nThe exercises should be similar in style and difficulty to the exercise sheet.\n\nREQUIREMENTS:\n1. Create 3 exercises with different focus (e.g. Understanding, Calculation, Transfer).\n2. Each exercise needs a Title, Difficulty, Content (Question), and a short Solution sketch.\n3. **MATH**: ALWAYS use inline LaTeX ($...$) for formulas and variables. NEVER Unicode math.\n4. **Content**: Must be NEW, not copies.\n\nFORMAT:\nReturn ONLY a valid JSON object.\n{\n  \"exercises\": [\n    {\n      \"title\": \"string\",\n      \"difficulty\": \"Easy\" | \"Medium\" | \"Hard\",\n      \"content\": \"string (Markdown + LaTeX allowed)\",\n      \"solution\": \"string (Markdown + LaTeX allowed)\"\n    }\n  ]\n}\n\nJSON ESCAPING:\n- Backslashes in LaTeX must be double escaped (\\\\frac). No Markdown Code Blocks."
+    },
+    "aiLock": {
+      "title": "AI Features Locked",
+      "description": "To use AI features like summarizing slides, solving exercises, and chatting with documents, you need to configure your Gemini API key.",
+      "button": "Configure API Key",
+      "unlock": "Unlock AI Features"
     }
   },
   "generateBlocks": {
@@ -279,7 +285,35 @@
         "label": "Deutsch",
         "description": "Germany"
       }
-    }
+    },
+    "aiTitle": "AI Configuration",
+    "aiDescription": "Configure your Gemini API settings",
+    "apiKeyLabel": "Gemini API Key",
+    "apiKeyPlaceholder": "Enter your Gemini API Key",
+    "modelLabel": "Gemini Model",
+    "modelPlaceholder": "Select a model",
+    "save": "Save Settings",
+    "saved": "Settings saved successfully!",
+    "invalidApiKey": "Invalid API Key",
+    "globalOverride": "Global Model Override",
+    "globalOverrideDescription": "Use the same model for all AI features",
+    "globalOverrideModel": "Global Model",
+    "advancedSettings": "Advanced Settings (Per-Feature Configuration)",
+    "advancedSettingsDescription": "Configure individual models for each AI feature",
+    "features": {
+      "generateSummary": "Generate Summary",
+      "generateTheory": "Generate Theory",
+      "analyzeExercise": "Analyze Exercise",
+      "exerciseChat": "Exercise Chat",
+      "projectChat": "Project Chat",
+      "generateBlocks": "Generate Blocks",
+      "generateChatTitle": "Generate Chat Title",
+      "generateExplanation": "Generate Explanation",
+      "generateExtraExercises": "Generate Extra Exercises",
+      "extractFormulas": "Extract Formulas",
+      "generateLearningPath": "Generate Learning Path"
+    },
+    "useDefault": "Use Default"
   },
   "reference": {
     "page": "Page"

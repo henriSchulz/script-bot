@@ -24,9 +24,70 @@ async function getGlobalLanguage(): Promise<'en' | 'de'> {
   }
 }
 
+// AI Feature types for model configuration
+type AIFeature = 
+  | 'generateSummary'
+  | 'generateTheory'
+  | 'analyzeExercise'
+  | 'exerciseChat'
+  | 'generateBlocks'
+  | 'projectChat'
+  | 'generateChatTitle'
+  | 'generateExplanation'
+  | 'generateExtraExercises'
+  | 'extractFormulas'
+  | 'generateLearningPath';
 
+interface ModelConfig {
+  global?: string;
+  generateSummary?: string;
+  generateTheory?: string;
+  analyzeExercise?: string;
+  exerciseChat?: string;
+  generateBlocks?: string;
+  projectChat?: string;
+  generateChatTitle?: string;
+  generateExplanation?: string;
+  generateExtraExercises?: string;
+  extractFormulas?: string;
+  generateLearningPath?: string;
+}
 
-const apiKey = process.env.GEMINI_API_KEY;
+// Helper to get Gemini Config with per-feature model support
+async function getGeminiConfig(feature?: AIFeature) {
+  try {
+    const cookieStore = await cookies();
+    const apiKeyCookie = cookieStore.get('gemini-api-key')?.value;
+    const modelsCookie = cookieStore.get('gemini-models')?.value;
+
+    const apiKey = apiKeyCookie ? decodeURIComponent(apiKeyCookie) : null;
+    
+    // Parse model configuration
+    let modelConfig: ModelConfig = {};
+    if (modelsCookie) {
+      try {
+        modelConfig = JSON.parse(decodeURIComponent(modelsCookie));
+      } catch (e) {
+        console.error('Failed to parse model config:', e);
+      }
+    }
+    
+    // Determine which model to use
+    let model = "gemini-2.5-flash"; // Default for all features
+    
+    if (modelConfig.global) {
+      // Global override takes precedence
+      model = modelConfig.global;
+    } else if (feature && modelConfig[feature]) {
+      // Feature-specific model
+      model = modelConfig[feature];
+    }
+    
+    return { apiKey, model };
+  } catch (e) {
+    return { apiKey: null, model: "gemini-2.5-flash" };
+  }
+}
 const googleApiKey = process.env.GOOGLE_API_KEY;
 const googleCseId = process.env.GOOGLE_CSE_ID;
 
@@ -103,8 +164,12 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
 }
 
 export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, detailLevel: 'reduced' | 'standard' | 'detailed' = 'standard') {
+  const { apiKey, model: modelName } = await getGeminiConfig('generateSummary');
+
   if (!apiKey) {
-    return { success: false, error: "GEMINI_API_KEY is not set in environment variables" };
+  if (!apiKey) {
+    return { success: false, error: "GEMINI_API_KEY is not set in settings" };
+  }
   }
   
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -205,7 +270,7 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
 
     // 4. Call Gemini
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: modelName,
       generationConfig: {
         responseMimeType: "application/json"
       },
@@ -384,8 +449,10 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
 }
 
 export async function generateTheoryForExercise(projectId: string, exerciseId: string) {
+  const { apiKey, model: modelName } = await getGeminiConfig('generateTheory');
+
   if (!apiKey) {
-    return { success: false, error: "GEMINI_API_KEY is not set in environment variables" };
+    return { success: false, error: "GEMINI_API_KEY is not set in settings" };
   }
   
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -434,7 +501,7 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
 
     // 5. Call Gemini
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: modelName,
       generationConfig: {
         responseMimeType: "application/json"
       }
@@ -551,6 +618,8 @@ export async function generateTheoryForExercise(projectId: string, exerciseId: s
 }
 
 export async function analyzeExerciseStructure(exerciseId: string) {
+  const { apiKey, model: modelName } = await getGeminiConfig('analyzeExercise');
+
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set" };
   }
@@ -578,7 +647,7 @@ export async function analyzeExerciseStructure(exerciseId: string) {
     const fileBuffer = await readFile(filepath);
 
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: modelName,
         generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -699,11 +768,12 @@ CRITICAL INSTRUCTIONS:
 }
 
 export async function chatAboutExercise(exerciseId: string, context: string, messages: { role: string, content: string }[]) {
+    const { apiKey, model: modelName } = await getGeminiConfig('exerciseChat');
     if (!apiKey) return { success: false, error: "No API Key" };
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: modelName,
         generationConfig: { responseMimeType: "application/json" }
     });
     
@@ -839,6 +909,7 @@ ANWEISUNGEN:
 }
 
 export async function generateBlocksForTopic(projectId: string, topic: string, context?: string) {
+  const { apiKey, model: modelName } = await getGeminiConfig('generateBlocks');
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set" };
   }
@@ -852,7 +923,7 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
     const langInstruction = (dict.ai as any).prompts.lang_instruction;
 
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: modelName,
         generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -923,11 +994,12 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
 }
 
 export async function chatAboutProject(projectId: string, messages: { role: string, content: string }[], fileIds?: string[]) {
+    const { apiKey, model: modelName } = await getGeminiConfig('projectChat');
     if (!apiKey) return { success: false, error: "No API Key" };
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: modelName,
         generationConfig: { responseMimeType: "application/json" }
     });
     
@@ -1104,11 +1176,12 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
 }
 
 export async function generateChatTitle(projectId: string, message: string) {
+    const { apiKey, model: modelName } = await getGeminiConfig('generateChatTitle');
     if (!apiKey) return { success: false, error: "No API Key" };
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: modelName,
     });
 
     try {
@@ -1132,6 +1205,7 @@ export async function generateChatTitle(projectId: string, message: string) {
 }
 
 export async function generateExplanationForBlock(blockContent: string, blockType: string, projectId: string) {
+    const { apiKey, model: modelName } = await getGeminiConfig('generateExplanation');
     if (!apiKey) {
         return { success: false, error: "GEMINI_API_KEY is not set" };
     }
@@ -1214,7 +1288,7 @@ CRITICAL: Raw JSON only. Double-escape backslashes (\\\\\\\\frac). No markdown.`
 
         // Call Gemini
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: modelName,
             generationConfig: {
                 responseMimeType: "application/json"
             },
@@ -1285,6 +1359,7 @@ CRITICAL: Raw JSON only. Double-escape backslashes (\\\\\\\\frac). No markdown.`
 }
 
 export async function generateExtraExercises(projectId: string, exerciseId: string) {
+  const { apiKey, model: modelName } = await getGeminiConfig('generateExtraExercises');
   if (!apiKey) {
     return { success: false, error: "GEMINI_API_KEY is not set" };
   }
@@ -1365,7 +1440,7 @@ export async function generateExtraExercises(projectId: string, exerciseId: stri
     const systemPrompt = formatString(promptTemplate || "{langInstruction} Generate 3 JSON exercises.", { langInstruction });
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: modelName,
       generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -1392,5 +1467,23 @@ export async function generateExtraExercises(projectId: string, exerciseId: stri
   } catch (error) {
     console.error("Generate Extra Exercises Error:", error);
     return { success: false, error: "Internal server error" };
+  }
+}
+
+export async function verifyGeminiApiKey(apiKey: string) {
+  if (!apiKey) return { success: false, error: "API Key is empty" };
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // Use a lightweight model for verification
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+    
+    // Attempt a minimal generation
+    await model.generateContent("Hi");
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("API Key Verification Error:", error);
+    return { success: false, error: error.message || "Invalid API Key" };
   }
 }

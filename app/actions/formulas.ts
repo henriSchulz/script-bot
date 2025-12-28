@@ -6,6 +6,29 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { cwd } from "process";
 import { PDFDocument } from "pdf-lib";
+import { cookies } from 'next/headers';
+
+// Helper to get model for formula extraction
+async function getFormulaModel() {
+  try {
+    const cookieStore = await cookies();
+    const modelsCookie = cookieStore.get('gemini-models')?.value;
+    
+    if (modelsCookie) {
+      try {
+        const config = JSON.parse(decodeURIComponent(modelsCookie));
+        if (config.global) return config.global;
+        if (config.extractFormulas) return config.extractFormulas;
+      } catch (e) {
+        console.error('Failed to parse model config:', e);
+      }
+    }
+    
+    return "gemini-2.5-flash"; // Default (was gemini-2.5-pro)
+  } catch (e) {
+    return "gemini-2.5-flash";
+  }
+}
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -54,9 +77,10 @@ export async function processPdfChunk(
     return { success: false, error: "GEMINI_API_KEY is not set" };
   }
 
+  const modelName = await getFormulaModel();
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-2.5-pro",
+    model: modelName,
     generationConfig: {
       responseMimeType: "application/json"
     }

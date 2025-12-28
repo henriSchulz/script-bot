@@ -6,10 +6,13 @@ import { generateTheoryForExercise, analyzeExerciseStructure, chatAboutExercise,
 import { getChatMessages, saveChatMessage } from "@/app/actions/chats";
 import { BlockEditor } from "@/components/editor/block-editor";
 import dynamic from "next/dynamic";
-import { Loader2, ArrowLeft, ChevronRight, Sparkles, MessageSquare, BookOpen, CheckCircle2, Play, SkipForward, FileText, Lightbulb, Plus, Send, Crop, Image as ImageIcon } from "lucide-react";
+import { Loader2, ArrowLeft, ChevronRight, Sparkles, MessageSquare, BookOpen, CheckCircle2, Play, SkipForward, FileText, Lightbulb, Plus, Send, Crop, Image as ImageIcon, Lock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AiLock } from "@/components/ai/ai-lock";
+import { AiLockDialog } from "@/components/ai/ai-lock-dialog";
+import { useAiKey } from "@/hooks/use-ai-key";
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -97,6 +100,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
   const [generating, setGenerating] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState("work");
+  const { hasKey } = useAiKey();
+  const [showLockDialog, setShowLockDialog] = useState(false);
   
   // Work Mode State
   const [structure, setStructure] = useState<{ tasks: Task[] } | null>(null);
@@ -565,16 +570,21 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                     <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={handleGenerateTheory}
+                        onClick={hasKey ? handleGenerateTheory : () => setShowLockDialog(true)}
                         disabled={generating}
                         className="gap-2"
                     >
-                        {generating ? (
+                        {!hasKey ? (
+                             <>
+                                <Lock className="h-4 w-4" />
+                                Lösungen generieren
+                             </>
+                        ) : generating ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Sparkles className="h-4 w-4" />
                         )}
-                        Lösungen generieren
+                        {hasKey && "Lösungen generieren"}
                     </Button>
                 )}
                 <Button 
@@ -700,6 +710,11 @@ export default function ExercisePage({ params }: ExercisePageProps) {
           ) : activeTab === 'work' ? (
             // New Guided Learning UX for Work Mode
             !structure ? (
+              !hasKey ? (
+                 <div className="h-full flex items-center justify-center p-8">
+                     <AiLock className="max-w-md w-full" />
+                 </div>
+              ) : (
               <div className="h-full flex flex-col items-center justify-center gap-6 p-8 text-center">
                 <div className="space-y-4">
                   <div className="p-4 rounded-xl bg-muted inline-flex">
@@ -712,20 +727,26 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                     </p>
                   </div>
                   <Button 
-                    onClick={handleAnalyzeStructure} 
+                    onClick={hasKey ? handleAnalyzeStructure : () => setShowLockDialog(true)} 
                     disabled={analyzing} 
                     size="lg"
                     className="gap-2"
                   >
-                    {analyzing ? (
+                    {!hasKey ? (
+                        <>
+                            <Lock className="h-4 w-4" />
+                            {dict.exercises.chatInterface.analyze}
+                        </>
+                    ) : analyzing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Play className="h-4 w-4" />
                     )}
-                    {dict.exercises.chatInterface.analyze}
+                    {hasKey && dict.exercises.chatInterface.analyze}
                   </Button>
                 </div>
               </div>
+              )
             ) : (
               <div className="h-full flex flex-col">
                 {/* Progress Bar */}
@@ -818,6 +839,12 @@ export default function ExercisePage({ params }: ExercisePageProps) {
 
                     {/* Right: Chat / Interaction Area */}
                     <div className="w-1/2 flex flex-col bg-background">
+                         {!hasKey ? (
+                             <div className="flex-1 flex items-center justify-center p-8">
+                                 <AiLock className="max-w-sm w-full" />
+                             </div>
+                         ) : (
+                         <>
                          <div className="flex-1 overflow-y-auto" ref={chatScrollRef}>
                             <div className="max-w-3xl mx-auto px-6 py-8">
                                 <div className="space-y-8">
@@ -873,6 +900,8 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                                 <Button onClick={handleSendMessage} disabled={!inputMessage.trim() || chatLoading}><Send className="h-4 w-4" /></Button>
                             </div>
                          </div>
+                         </>
+                         )}
                     </div>
                 </div>
 
@@ -908,13 +937,19 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                         <p className="text-muted-foreground">KI-generierte Aufgaben zur Vertiefung dieses Themas.</p>
                     </div>
                      <Button 
-                        onClick={handleGenerateExtra} 
+                        onClick={hasKey ? handleGenerateExtra : () => setShowLockDialog(true)} 
                         disabled={generating}
                         variant={extraExercises ? "outline" : "default"}
                         size="default"
                         className="gap-2"
                       >
-                        {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        {!hasKey ? (
+                            <Lock className="h-4 w-4" />
+                        ) : generating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Sparkles className="h-4 w-4" />
+                        )}
                         {extraExercises ? "Neu generieren" : "Aufgaben Generieren"}
                       </Button>
                 </div>
@@ -931,12 +966,16 @@ export default function ExercisePage({ params }: ExercisePageProps) {
                           </p>
                         </div>
                          <Button 
-                            onClick={handleGenerateExtra} 
+                            onClick={hasKey ? handleGenerateExtra : () => setShowLockDialog(true)} 
                             disabled={generating}
                             size="lg"
                             className="gap-2 shadow-md hover:shadow-lg transition-all"
                           >
-                            <Sparkles className="h-4 w-4" />
+                            {!hasKey ? (
+                                <Lock className="h-4 w-4" />
+                            ) : (
+                                <Sparkles className="h-4 w-4" />
+                            )}
                             Jetzt generieren
                           </Button>
                     </div>
@@ -959,6 +998,7 @@ export default function ExercisePage({ params }: ExercisePageProps) {
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}
       />
+      <AiLockDialog open={showLockDialog} onOpenChange={setShowLockDialog} />
     </div>
   );
 }

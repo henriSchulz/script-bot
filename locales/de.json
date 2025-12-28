@@ -162,6 +162,12 @@
       "generate_blocks": "Du bist ein Experten-Tutor, der Bildungsinhalte erstellt.\n{langInstruction}\n\nTHEMA: \"{topic}\"\n{context}\n\nAUFGABE:\nGeneriere eine umfassende, mehrschrittige Erklärung für das gegebene Thema.\n\nKRITISCHE ANFORDERUNGEN:\n1. **Struktur**: Du MUSST eine Sequenz von MINDESTENS 4-5 Blöcken generieren.\n2. **Vielfalt**: Du MUSST eine Mischung aus \"text\", \"latex\" und \"image_request\" Blöcken verwenden.\n3. **Überschriften**: Beginne mit einem \"text\" Block, der eine <h3> Überschrift enthält.\n4. **Mathe**: Nutze \"latex\" Blöcke für ALLE Hauptformeln. Packe KEINE komplexen Formeln in Text-Blöcke.\n5. **Visuals**: Du MUSST mindestens einen \"image_request\" Block für ein Diagramm oder eine Illustration enthalten.\n\nBLOCK TYPEN:\n- \"text\": HTML Inhalt. Nutze <h3> für Überschriften, <p> für Absätze, <ul>/<li> für Listen. Nutze inline LaTeX ($...$) für Variablen (z.B. $x$, $\\alpha$).\n- \"latex\": Reiner LaTeX Code für alleinstehende Gleichungen (z.B. \"E = mc^2\"). Setze \"isImportant\": true, wenn es sich um das Hauptgesetz oder die Kernformel handelt. Sei selektiv!\n- \"image_request\": Eine klare englische Beschreibung eines Diagramms, nach dem gesucht werden soll (z.B. \"Schematic diagram of photosynthesis process\").\n\nBEISPIEL OUTPUT (JSON):\n{\n  \"blocks\": [\n    { \"type\": \"text\", \"content\": \"<h3>Einführung</h3><p>Der <strong>Satz des Pythagoras</strong> ist fundamental in der Geometrie.</p>\" },\n    { \"type\": \"latex\", \"content\": \"a^2 + b^2 = c^2\", \"isImportant\": true },\n    { \"type\": \"image_request\", \"content\": \"Right triangle with sides labeled a, b, c\" },\n    { \"type\": \"text\", \"content\": \"<h3>Anwendung</h3><p>Er wird verwendet, um den Abstand zwischen zwei Punkten zu finden.</p>\" }\n  ]\n}\nCRITICAL: OUTPUT RAW JSON ONLY. NO MARKDOWN. NO CODE BLOCKS.",
       "chat_project": "Du bist ein hilfreicher KI-Assistent für dieses Projekt.\n{langInstruction}\n\nCHAT VERLAUF:\n{history}\n\nNACHRICHT DES NUTZERS: {userMessage}\n\nANWEISUNGEN:\n- Beantworte die Frage des Nutzers basierend auf den bereitgestellten Projektdateien.\n- **QUELLENANGABEN (SEHR WICHTIG)**: Wenn du Informationen aus den Dateien verwendest, MUSST du Quellenangaben machen:\n  - Füge nach relevanten Sätzen Referenzen im Format ein: \"[Quelle: DATEINAME, Seite X]\"\n  - Beispiel: \"Dies wird auf Seite 5 der Datei '1_Lect_MSS_Intro_CMOS_Basics.pdf' definiert.\"\n  - Nutze dieses Format konsistent für ALLE wichtigen Fakten und Definitionen.\n- **OUTPUT FORMAT**: Du musst ein valides JSON-Array von \"blocks\" ausgeben.\n- Block-Typen: \"text\" (Markdown unterstützt), \"latex\" (für alleinstehende Formeln).\n- Beispiel Output:\n[\n  { \"type\": \"text\", \"content\": \"Der CMOS Inverter ist eine grundlegende Schaltung. Dies wird auf Seite 5 der Datei '1_Lect_MSS_Intro_CMOS_Basics.pdf' definiert.\" },\n  { \"type\": \"latex\", \"content\": \"V_{out} = V_{DD} - V_{in}\" }\n]\n- Nutze \"latex\" Blöcke für Hauptgleichungen. Nutze inline Mathe ($...$) innerhalb von \"text\" Blöcken für ALLE Variablen und kleinen Formeln.\n- **STRENGE REGEL**: NIEMALS Unicode/ASCII für Mathe verwenden (wie α, β, ²). IMMER LaTeX verwenden (wie $\\alpha$, $\\beta$, $^2$). Auch für einzelne Buchstaben wie 'x' im Mathe-Kontext, nutze $x$.\n- **KRITISCH**: Gib NUR das rohe JSON-Array zurück. KEINE Markdown-Code-Blöcke oder andere Formatierung.\n- **KRITISCH**: Stelle sicher, dass alle Strings korrekt escaped sind. Keine unescaped Newlines oder Anführungszeichen in Strings.\n- **KRITISCH - ESCAPING**: Backslashes in LaTeX MÜSSEN doppelt escaped sein. Beispiel: \"\\\\frac\" statt \"\\frac\".\n- **KRITISCH**: Der Output MUSS ein valides JSON-Array sein, das mit [ beginnt und mit ] endet.",
       "generate_extra_exercises": "Du bist ein Tutor, der Studenten hilft, ein Thema zu üben.\n{langInstruction}\nBasierend auf dem Übungsblatt ('EXERCISE SHEET') und den Vorlesungsunterlagen ('LECTURE MATERIAL'), erstelle 3 ZUSÄTZLICHE Aufgaben.\nDie Aufgaben sollen ähnlich im Stil und Schwierigkeitsgrad sein wie die im Übungsblatt.\n\nANFORDERUNGEN:\n1. Erstelle 3 Aufgaben mit unterschiedlichem Fokus (z.B. Verständnis, Rechenaufgabe, Transfer).\n2. Jede Aufgabe braucht einen Titel, Schwierigkeitsgrad, Aufgabenstellung und eine kurze Lösungsskizze.\n3. **MATHEMATIK**: Nutze IMMER inline LaTeX ($...$) für Formeln und Variablen. NIEMALS Unicode-Mathe.\n4. **Inhalt**: Die Aufgaben müssen NEU sein, nicht einfach Kopien der bestehenden Aufgaben.\n\nFORMAT:\nGib NUR ein valides JSON-Objekt zurück.\n{\n  \"exercises\": [\n    {\n      \"title\": \"string\",\n      \"difficulty\": \"Leicht\" | \"Mittel\" | \"Schwer\",\n      \"content\": \"string (Markdown + LaTeX allowed)\",\n      \"solution\": \"string (Markdown + LaTeX allowed)\"\n    }\n  ]\n}\n\nJSON ESCAPING:\n- Backslashes in LaTeX müssen doppelt escaped sein (\\\\frac). Keine Markdown Code Blöcke."
+    },
+    "aiLock": {
+      "title": "KI-Funktionen gesperrt",
+      "description": "Um KI-Funktionen wie das Zusammenfassen von Folien, das Lösen von Aufgaben und das Chatten mit Dokumenten nutzen zu können, musst du deinen Gemini API Key konfigurieren.",
+      "button": "API Key konfigurieren",
+      "unlock": "KI-Funktionen freischalten"
     }
   },
   "generateBlocks": {
@@ -281,7 +287,35 @@
         "label": "Deutsch",
         "description": "Deutschland"
       }
-    }
+    },
+    "aiTitle": "KI Konfiguration",
+    "aiDescription": "Konfiguriere deine Gemini API Einstellungen",
+    "apiKeyLabel": "Gemini API Key",
+    "apiKeyPlaceholder": "Gib deinen Gemini API Key ein",
+    "modelLabel": "Gemini Modell",
+    "modelPlaceholder": "Wähle ein Modell",
+    "save": "Einstellungen speichern",
+    "saved": "Einstellungen erfolgreich gespeichert!",
+    "invalidApiKey": "Ungültiger API Key",
+    "globalOverride": "Globale Modell-Überschreibung",
+    "globalOverrideDescription": "Verwende dasselbe Modell für alle KI-Funktionen",
+    "globalOverrideModel": "Globales Modell",
+    "advancedSettings": "Erweiterte Einstellungen (Pro-Funktion-Konfiguration)",
+    "advancedSettingsDescription": "Konfiguriere individuelle Modelle für jede KI-Funktion",
+    "features": {
+      "generateSummary": "Zusammenfassung erstellen",
+      "generateTheory": "Theorie generieren",
+      "analyzeExercise": "Aufgabe analysieren",
+      "exerciseChat": "Aufgaben-Chat",
+      "projectChat": "Projekt-Chat",
+      "generateBlocks": "Blöcke generieren",
+      "generateChatTitle": "Chat-Titel generieren",
+      "generateExplanation": "Erklärung generieren",
+      "generateExtraExercises": "Extra-Aufgaben generieren",
+      "extractFormulas": "Formeln extrahieren",
+      "generateLearningPath": "Lernpfad generieren"
+    },
+    "useDefault": "Standard verwenden"
   },
   "reference": {
     "page": "Seite"

@@ -6,6 +6,29 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { parseGeminiResponse } from "@/lib/ai-parsing";
+import { cookies } from 'next/headers';
+
+// Helper to get model for learning path generation
+async function getLearningModel() {
+  try {
+    const cookieStore = await cookies();
+    const modelsCookie = cookieStore.get('gemini-models')?.value;
+    
+    if (modelsCookie) {
+      try {
+        const config = JSON.parse(decodeURIComponent(modelsCookie));
+        if (config.global) return config.global;
+        if (config.generateLearningPath) return config.generateLearningPath;
+      } catch (e) {
+        console.error('Failed to parse model config:', e);
+      }
+    }
+    
+    return "gemini-2.5-flash"; // Default
+  } catch (e) {
+    return "gemini-2.5-flash";
+  }
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
@@ -120,7 +143,8 @@ async function generateLearningPath(sessionId: string, projectId: string, fileId
     }
 
     // 2. prompt
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const modelName = await getLearningModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const langInstruction = language === 'de' ? "Antworte IMMER auf Deutsch." : "ALWAYS answer in English.";
 

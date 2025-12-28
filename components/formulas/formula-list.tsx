@@ -12,6 +12,10 @@ import { FormulaActions } from './formula-actions';
 import { cn } from '@/lib/utils';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useLanguage } from "@/components/language-provider";
+import { useAiKey } from '@/hooks/use-ai-key';
+import { Lock } from 'lucide-react';
+import Link from 'next/link';
+import { AiLockDialog } from '@/components/ai/ai-lock-dialog';
 
 interface Formula {
   id: string;
@@ -67,6 +71,7 @@ const LatexText = ({ text }: { text: string | null }) => {
 
 export function FormulaList({ projectId }: FormulaListProps) {
   const { dict } = useLanguage();
+  const { hasKey } = useAiKey();
   const [formulas, setFormulas] = useState<Formula[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExtracting, startTransition] = useTransition();
@@ -75,6 +80,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
   const [progressDetails, setProgressDetails] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useLocalStorage<"grid" | "list">("formula-view-mode", "grid");
+  const [showLockDialog, setShowLockDialog] = useState(false);
 
   const fetchFormulas = async () => {
     setIsLoading(true);
@@ -206,10 +212,11 @@ export function FormulaList({ projectId }: FormulaListProps) {
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3">
           <Button 
-            onClick={handleScan} 
+            onClick={hasKey ? handleScan : () => setShowLockDialog(true)} 
             disabled={isExtracting}
             size="lg"
-            className="group transition-all duration-300"
+            variant="default"
+            className="group transition-all duration-300 relative"
           >
             {isExtracting ? (
               <>
@@ -218,25 +225,36 @@ export function FormulaList({ projectId }: FormulaListProps) {
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
+                {hasKey ? <Sparkles className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform" /> : <Lock className="mr-2 h-4 w-4" />}
                 {dict.formulas.scan.button}
               </>
             )}
           </Button>
           <Button 
             onClick={async () => {
+              if (!hasKey) return;
               if (!confirm(dict.formulas.deleteAll.confirm)) return;
               setIsLoading(true);
               await deleteAllFormulas(projectId);
               handleScan();
             }}
-            disabled={isExtracting}
+            disabled={isExtracting || !hasKey}
             variant="outline"
             size="lg"
             className="transition-all duration-300"
+            asChild={!hasKey}
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            {dict.formulas.deleteAll.button}
+             {!hasKey ? (
+              <Link href="/settings">
+                <RefreshCw className="mr-2 h-4 w-4 opacity-50" />
+                {dict.formulas.deleteAll.button}
+              </Link>
+             ) : (
+               <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {dict.formulas.deleteAll.button}
+               </>
+             )}
           </Button>
         </div>
 
@@ -498,6 +516,7 @@ export function FormulaList({ projectId }: FormulaListProps) {
           ))}
         </div>
       )}
+      <AiLockDialog open={showLockDialog} onOpenChange={setShowLockDialog} />
     </div>
   );
 }
