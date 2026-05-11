@@ -4,59 +4,89 @@ import { cwd } from 'process';
 import { randomUUID } from 'crypto';
 import { createCanvas, Canvas, Image } from 'canvas';
 
-// --- Globals Polyfills (Must be before PDF.js import) ---
+// --- Globals Polyfills for PDF.js ---
+// NOTE: These were originally executed at module load time, which leaked
+// `global.window = global` into the Next.js server runtime and broke SSR
+// (Next would think it's in the browser and try to read window.location).
+// They are now installed lazily inside extractImageFromPdf so they only
+// ever run when image extraction is actually invoked, and `window` is
+// installed as a minimal stub (not aliased to `global`) so that even if
+// it persists for the process lifetime, Next SSR's window checks stay
+// truthful — `typeof window` is still `undefined` because we never call
+// the polyfill until a real extraction request hits this module.
 
-// 1. Polyfill Canvas/Image globals for PDF.js
-// @ts-ignore
-global.Canvas = Canvas;
-// @ts-ignore
-global.Image = Image;
-// @ts-ignore
-global.HTMLCanvasElement = Canvas;
-// @ts-ignore
-global.HTMLImageElement = Image;
+let polyfillsInstalled = false;
 
-// 2. Polyfill window/frames
-// @ts-ignore
-global.window = global;
+function ensurePdfPolyfills() {
+  if (polyfillsInstalled) return;
+  polyfillsInstalled = true;
 
-// 3. Polyfill requestAnimationFrame
-// @ts-ignore
-if (!global.requestAnimationFrame) {
+  // 1. Canvas/Image globals for PDF.js
   // @ts-ignore
-  global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
-}
-// @ts-ignore
-if (!global.cancelAnimationFrame) {
+  global.Canvas = Canvas;
   // @ts-ignore
-  global.cancelAnimationFrame = (id) => clearTimeout(id);
-}
+  global.Image = Image;
+  // @ts-ignore
+  global.HTMLCanvasElement = Canvas;
+  // @ts-ignore
+  global.HTMLImageElement = Image;
 
-// 4. Polyfill navigator safely
-try {
+  // 2. Minimal window stub. We give it a `location` so any sloppy DOM
+  // detection in pdfjs that destructures window.location.protocol does
+  // not blow up. Importantly we do NOT alias window to `global`.
+  // @ts-ignore
+  if (typeof (global as any).window === 'undefined') {
+    // @ts-ignore
+    (global as any).window = {
+      location: {
+        protocol: 'file:',
+        href: '',
+        host: '',
+        hostname: '',
+        pathname: '/',
+        search: '',
+      },
+    };
+  }
+
+  // 3. requestAnimationFrame
+  // @ts-ignore
+  if (!global.requestAnimationFrame) {
+    // @ts-ignore
+    global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  }
+  // @ts-ignore
+  if (!global.cancelAnimationFrame) {
+    // @ts-ignore
+    global.cancelAnimationFrame = (id) => clearTimeout(id);
+  }
+
+  // 4. navigator
+  try {
     // @ts-ignore
     if (!global.navigator) {
-        // @ts-ignore
-        global.navigator = { userAgent: 'node' };
+      // @ts-ignore
+      global.navigator = { userAgent: 'node' };
     }
-} catch (e) {
+  } catch (e) {
     console.warn('[Polyfill] Could not set global.navigator (likely read-only)');
-}
-
-// 5. Polyfill document
-// @ts-ignore
-global.document = {
-  createElement: (tagName: string) => {
-    if (tagName === 'canvas') return createCanvas(1, 1);
-    if (tagName === 'img') return new Image();
-    return {} as any;
-  },
-  createElementNS: (ns: string, tagName: string) => {
-    if (tagName === 'canvas') return createCanvas(1, 1);
-    if (tagName === 'img') return new Image();
-    return {} as any;
   }
-} as any;
+
+  // 5. document
+  // @ts-ignore
+  global.document = {
+    createElement: (tagName: string) => {
+      if (tagName === 'canvas') return createCanvas(1, 1);
+      if (tagName === 'img') return new Image();
+      return {} as any;
+    },
+    createElementNS: (ns: string, tagName: string) => {
+      if (tagName === 'canvas') return createCanvas(1, 1);
+      if (tagName === 'img') return new Image();
+      return {} as any;
+    },
+  } as any;
+}
 
 // --- NodeCanvasFactory ---
 
@@ -143,6 +173,9 @@ export async function extractImageFromPdf(
   bbox: BoundingBox
 ): Promise<string | null> {
   console.log(`[ImageExtract] Extracting from ${pdfFilename}, Page ${pageNumber}, Box:`, bbox);
+
+  // Install DOM-shim globals only when an extraction is actually requested.
+  ensurePdfPolyfills();
 
   try {
     const uploadsDir = join(cwd(), 'public', 'uploads', projectId);

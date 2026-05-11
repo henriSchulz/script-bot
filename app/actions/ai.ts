@@ -12,7 +12,16 @@ import { getDictionary, formatString } from "@/lib/i18n";
 import { cookies } from 'next/headers';
 import { parseGeminiResponse } from "@/lib/ai-parsing";
 import JSON5 from 'json5';
-import { extractImageFromPdf } from "./image-extraction";
+
+// Lazy loader for the PDF image extractor. The extractor module installs DOM-shim
+// globals (canvas, document, window stub) on first use. We import it dynamically so
+// those globals do NOT enter the regular server-render import graph and break SSR
+// for other routes (Next would otherwise see `window` defined and try to read
+// window.location.protocol during rendering).
+async function loadExtractor() {
+  const mod = await import("./image-extraction");
+  return mod.extractImageFromPdf;
+}
 
 // Returns true if the value looks like a sane bbox in 0..1 normalized coords.
 function isValidNormalizedBbox(b: any): b is { x: number; y: number; width: number; height: number } {
@@ -438,6 +447,7 @@ If for a specific image_request you genuinely cannot determine the bbox (rare), 
            // Mode: auto-extract on the server using the AI's bbox.
            if (preselectMode === 'preselect_extract' && rawBbox && pdfFilename && block.page) {
              try {
+               const extractImageFromPdf = await loadExtractor();
                const extractedUrl = await extractImageFromPdf(projectId, pdfFilename, block.page, rawBbox);
                if (extractedUrl) {
                  processedBlocks.push({
