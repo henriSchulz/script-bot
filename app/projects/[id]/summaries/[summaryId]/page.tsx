@@ -269,42 +269,54 @@ export default function SummaryPage({ params }: SummaryPageProps) {
         </div>
       </header>
 
-      {/* Document surface */}
+      {/* Document surface — Craft Docs style: visible paper card on a tinted page */}
       <main className="relative">
-        <div className="mx-auto max-w-3xl px-6 md:px-10 pt-12 pb-24">
-          {/* Document title */}
-          <div className="animate-mac-fade-in mb-10">
-            <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground/70 mb-3">
-              Summary
-            </p>
-            <h1 className="text-[40px] md:text-[48px] leading-[1.05] font-semibold tracking-[-0.03em]">
-              {summary.title}
-            </h1>
-            <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground/80">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="relative flex size-1.5">
-                  <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
-                </span>
-                Auto-saved
-              </span>
-            </div>
-          </div>
-
-          {/* Editor — flat document surface, no card-in-card */}
+        <div className="mx-auto max-w-[820px] px-4 md:px-6 pt-8 md:pt-10 pb-24">
           <div
             ref={editorContentRef}
-            className="animate-mac-fade-in [animation-delay:80ms]"
+            className={cn(
+              "animate-mac-fade-in",
+              // Paper surface
+              "bg-card rounded-[18px]",
+              "border border-border/70",
+              "shadow-[var(--shadow-mac-md)]",
+              // Generous document padding
+              "px-7 md:px-14 pt-10 md:pt-14 pb-16 md:pb-20"
+            )}
           >
-            <BlockEditor
-              key={summary.blocks?.map((b: any) => b.id + b.type).join(',')}
-              ref={editorRef}
-              summaryId={summary.id}
-              projectId={resolvedParams.id}
-              initialBlocks={summary.blocks || []}
-              onPendingBlocksChange={setHasPendingBlocks}
-              isReadOnly={isReadOnly}
-              onChatAboutBlock={handleChatAboutBlock}
-            />
+            {/* Document title — inside the paper */}
+            <div className="mb-9">
+              <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/70 mb-3">
+                Summary
+              </p>
+              <h1 className="text-[34px] md:text-[40px] leading-[1.08] font-semibold tracking-[-0.028em]">
+                {summary.title}
+              </h1>
+              <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground/80">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                  Auto-saved
+                </span>
+              </div>
+            </div>
+
+            {/* Subtle separator between title and body */}
+            <div className="h-px bg-border/60 mb-6" />
+
+            <div
+              className="animate-mac-fade-in [animation-delay:80ms]"
+          >
+              <BlockEditor
+                key={summary.blocks?.map((b: any) => b.id + b.type).join(',')}
+                ref={editorRef}
+                summaryId={summary.id}
+                projectId={resolvedParams.id}
+                initialBlocks={summary.blocks || []}
+                onPendingBlocksChange={setHasPendingBlocks}
+                isReadOnly={isReadOnly}
+                onChatAboutBlock={handleChatAboutBlock}
+              />
+            </div>
           </div>
         </div>
       </main>
