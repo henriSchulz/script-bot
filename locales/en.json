@@ -479,6 +479,14 @@
           "reduced": "Compact (Facts Only)",
           "standard": "Standard",
           "detailed": "Very Detailed"
+       },
+       "explanationStyle": "Explanation Style",
+       "styleOptions": {
+          "standard": "Standard",
+          "intuitive": "Intuitive & Accessible",
+          "practice": "Practice-Oriented (Solving Exercises)",
+          "academic": "Academic & Formal",
+          "compact": "Compact (Cheat Sheet)"
        }
     },
     "review": {
@@ -487,7 +495,8 @@
         "sourceFiles": "Source Files ({count})",
         "focus": "Focus: {focus}",
         "images": "Images: {mode}",
-        "detail": "{level}"
+        "detail": "{level}",
+        "style": "Style: {style}"
     }
   },
   "blockPreview": {
@@ -506,5 +515,19 @@
     "saving": "Saving...",
     "noFile": "No file URL found.",
     "uploadError": "Failed to upload image"
+  },
+  "latexExport": {
+    "tabLabel": "LaTeX",
+    "title": "Generate LaTeX",
+    "description": "Select a summary and let Gemini generate a compilable LaTeX document.",
+    "selectSummary": "Select a summary...",
+    "generate": "Generate LaTeX",
+    "generating": "Generating...",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "download": "Download .tex",
+    "noSummaries": "No summaries found. Create one first.",
+    "emptyHint": "Select a summary above and click Generate LaTeX.",
+    "error": "Failed to generate LaTeX"
   }
 }

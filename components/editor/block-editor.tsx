@@ -90,7 +90,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ su
         const el = document.getElementById(id);
         if (el) {
           console.log("Scrolling to block:", id);
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.scrollIntoView({ behavior: 'instant', block: 'center' });
           // Clear hash to prevent re-scrolling on re-renders
           history.replaceState(null, '', window.location.pathname + window.location.search);
         }

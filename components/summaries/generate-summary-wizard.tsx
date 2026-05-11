@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 import { Button } from "@/components/ui/button";
 import { generateSummaryFromFiles } from "@/app/actions/ai";
 import { getFiles } from "@/app/actions/files";
-import { Loader2, Plus, Sparkles, FileText, Settings, Check, ArrowRight, ArrowLeft, Image as ImageIcon, X } from "lucide-react";
+import { Loader2, Plus, Sparkles, FileText, Settings, Check, ArrowRight, ArrowLeft, Image as ImageIcon, X, GraduationCap } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
   const [focus, setFocus] = useState("");
   const [imageHandling, setImageHandling] = useState<'google' | 'manual' | 'none'>('manual');
   const [detailLevel, setDetailLevel] = useState<'reduced' | 'standard' | 'detailed'>('standard');
+  const [explanationStyle, setExplanationStyle] = useState<'standard' | 'intuitive' | 'practice' | 'academic' | 'compact'>('standard');
 
   // Files list
   const [files, setFiles] = useState<any[]>([]);
@@ -83,6 +84,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
       setFocus("");
       setImageHandling('manual');
       setDetailLevel('standard');
+      setExplanationStyle('standard');
     }
   };
 
@@ -113,7 +115,8 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
         selectedFileIds,
         imageHandling,
         focus || undefined,
-        detailLevel
+        detailLevel,
+        explanationStyle
       );
       
       if (result.success && result.summaryId) {
@@ -336,7 +339,7 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                       </div>
 
                       {/* Image Handling and Reduced Version in Grid */}
-                      <div className="grid md:grid-cols-2 gap-4">
+                      <div className="grid md:grid-cols-3 gap-4">
                         {/* Image Handling */}
                         <div className="space-y-3 rounded-lg border bg-card p-4">
                           <label className="text-sm font-medium flex items-center gap-2">
@@ -378,6 +381,30 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                             <option value="reduced">{dict.summaryWizard.options.detailOptions.reduced}</option>
                             <option value="standard">{dict.summaryWizard.options.detailOptions.standard}</option>
                             <option value="detailed">{dict.summaryWizard.options.detailOptions.detailed}</option>
+                          </select>
+                        </div>
+
+                        {/* Explanation Style */}
+                        <div className="space-y-3 rounded-lg border bg-card p-4">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            {dict.summaryWizard.options.explanationStyle}
+                          </label>
+                          <select
+                            value={explanationStyle}
+                            onChange={(e) => setExplanationStyle(e.target.value as any)}
+                            className={cn(
+                              "w-full bg-background rounded-md",
+                              "border border-input focus:border-primary",
+                              "focus:outline-none p-2 transition-all duration-300",
+                              "text-sm cursor-pointer"
+                            )}
+                          >
+                            <option value="standard">{dict.summaryWizard.options.styleOptions.standard}</option>
+                            <option value="intuitive">{dict.summaryWizard.options.styleOptions.intuitive}</option>
+                            <option value="practice">{dict.summaryWizard.options.styleOptions.practice}</option>
+                            <option value="academic">{dict.summaryWizard.options.styleOptions.academic}</option>
+                            <option value="compact">{dict.summaryWizard.options.styleOptions.compact}</option>
                           </select>
                         </div>
                       </div>
@@ -441,6 +468,11 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                         <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
                           {dict.summaryWizard.review.detail.replace("{level}", detailLevel)}
                         </div>
+                        {explanationStyle !== 'standard' && (
+                          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                            {dict.summaryWizard.review.style.replace("{style}", explanationStyle)}
+                          </div>
+                        )}
                       </div>
                     </div>
 

@@ -42,6 +42,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
+import { LatexTab } from "@/components/summaries/latex-tab";
 
 import { useLanguage } from "@/components/language-provider";
 import { FullscreenProvider, useFullscreen } from "@/contexts/fullscreen-context";
@@ -293,6 +294,12 @@ function ProjectPageContent({ params }: ProjectPageProps) {
       label: dict.project.exercises,
       icon: PenTool,
       content: <ExerciseList projectId={resolvedParams.id} />
+    },
+    {
+      id: "latex",
+      label: (dict as any).latexExport.tabLabel,
+      icon: FileCode,
+      content: <LatexTab projectId={resolvedParams.id} />
     },
     {
       id: "search",

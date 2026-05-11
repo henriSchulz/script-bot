@@ -163,7 +163,7 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
   }
 }
 
-export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, detailLevel: 'reduced' | 'standard' | 'detailed' = 'standard') {
+export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, detailLevel: 'reduced' | 'standard' | 'detailed' = 'standard', explanationStyle: 'standard' | 'intuitive' | 'practice' | 'academic' | 'compact' = 'standard') {
   const { apiKey, model: modelName } = await getGeminiConfig('generateSummary');
 
   if (!apiKey) {
@@ -267,6 +267,17 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
     }
 
     systemPrompt += `\n\nTITLE INSTRUCTION:\nThe title of the summary must be SHORT and PRECISE. Do not make it unnecessarily long.`;
+
+    // Handle explanation style
+    if (explanationStyle === 'intuitive') {
+      systemPrompt += `\n\nEXPLANATION STYLE - INTUITIVE & ACCESSIBLE:\nWrite as if explaining to someone new to the topic. Use simple, everyday language. Include analogies and real-world comparisons. Break down complex ideas step by step. Avoid jargon unless you immediately explain it. Use concrete examples to illustrate abstract concepts. The goal is deep understanding through clarity.`;
+    } else if (explanationStyle === 'practice') {
+      systemPrompt += `\n\nEXPLANATION STYLE - PRACTICE-ORIENTED (SOLVING EXERCISES):\nFocus on APPLICABILITY. Present formulas as tools: for each formula, explain WHEN to use it, WHAT each variable means, and HOW to apply it step by step. Include worked examples or recipe-like procedures. Prioritize methods and techniques over theoretical background. Structure content as: Concept → Formula → Application steps → Common pitfalls. The reader should be able to solve exam problems after reading this.`;
+    } else if (explanationStyle === 'academic') {
+      systemPrompt += `\n\nEXPLANATION STYLE - ACADEMIC & FORMAL:\nUse precise, formal mathematical language. Include rigorous definitions, theorems, and proofs where applicable. State assumptions explicitly. Use proper mathematical notation throughout. Structure content with numbered definitions, lemmas, theorems, and corollaries. Maintain academic rigor and precision.`;
+    } else if (explanationStyle === 'compact') {
+      systemPrompt += `\n\nEXPLANATION STYLE - COMPACT (CHEAT SHEET):\nCreate an extremely condensed reference sheet. Use ONLY bullet points, tables, and formulas. NO prose or lengthy explanations. Maximum information density. Group related formulas together. Use abbreviations where clear. Format as a quick-reference lookup. Every line should contain a fact, formula, or definition — nothing else.`;
+    }
 
     // 4. Call Gemini
     const model = genAI.getGenerativeModel({ 
@@ -1485,5 +1496,107 @@ export async function verifyGeminiApiKey(apiKey: string) {
   } catch (error: any) {
     console.error("API Key Verification Error:", error);
     return { success: false, error: error.message || "Invalid API Key" };
+  }
+}
+
+export async function generateLatexFromSummary(summaryId: string) {
+  const { apiKey, model: modelName } = await getGeminiConfig('generateSummary');
+
+  if (!apiKey) {
+    return { success: false, error: "GEMINI_API_KEY is not set in settings" };
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  try {
+    // 1. Fetch the summary with all blocks
+    const summary = await db.summary.findUnique({
+      where: { id: summaryId },
+      include: {
+        blocks: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (!summary) {
+      return { success: false, error: "Summary not found" };
+    }
+
+    // 2. Serialise blocks into a structured text description for Gemini
+    const blockLines: string[] = [];
+    for (const block of summary.blocks) {
+      if (block.type === 'text') {
+        // Strip HTML tags for a cleaner prompt
+        const plainText = block.content
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        blockLines.push(`[TEXT]\n${plainText}`);
+      } else if (block.type === 'latex') {
+        // Content may be JSON {latex, isImportant} or a raw string
+        let latexContent = block.content;
+        try {
+          const parsed = JSON.parse(block.content);
+          if (parsed.latex) latexContent = parsed.latex;
+        } catch { /* raw string */ }
+        blockLines.push(`[FORMULA]\n${latexContent}`);
+      } else if (block.type === 'image') {
+        blockLines.push(`[IMAGE]\n${block.content}`);
+      }
+      // Skip pending_image, info_box etc.
+    }
+
+    const summaryText = blockLines.join('\n\n---\n\n');
+
+    // 3. Build prompt
+    const language = await getGlobalLanguage();
+    const prompt = `You are an expert LaTeX typesetter.
+${language === 'de' ? 'Antworte auf Deutsch.' : 'Answer in English.'}
+
+The user has a study summary with the following content (blocks separated by ---):
+
+${summaryText}
+
+Your task:
+Produce a COMPLETE, COMPILABLE LaTeX document that neatly typesets this summary.
+
+REQUIREMENTS:
+- Use the article document class with a4paper, 11pt.
+- Include standard packages: inputenc (utf8), fontenc (T1), geometry (margin=2cm), amsmath, amssymb, booktabs, hyperref.
+- Use \\section and \\subsection for headings found in the text blocks.
+- Render all [FORMULA] blocks as displayed math (\\[ ... \\]).
+- For [IMAGE] blocks insert a \\textit{[Image: description]} placeholder.
+- Keep the content faithful to the original – do not paraphrase or add new information.
+- The document must compile without errors with pdflatex.
+
+OUTPUT:
+Return ONLY the raw LaTeX source code starting with \\documentclass. No markdown fences or explanations.`;
+
+    // 4. Call Gemini
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ],
+    });
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+
+    // Strip potential markdown fences just in case
+    const latex = responseText
+      .replace(/^```latex\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/, '')
+      .trim();
+
+    return { success: true, latex };
+  } catch (error) {
+    console.error("Generate LaTeX Error:", error);
+    return { success: false, error: "Internal server error during LaTeX generation" };
   }
 }

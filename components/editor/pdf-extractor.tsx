@@ -50,6 +50,7 @@ export default function PdfExtractor({
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [scale, setScale] = useState(1.0);
   const [saving, setSaving] = useState(false);
+  const [numPages, setNumPages] = useState<number>(0);
   
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +126,7 @@ export default function PdfExtractor({
   }, [summaryId, blockId, exerciseId, taskId, subtaskId, mode]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    // Document loaded
+    setNumPages(numPages);
   };
 
   const handleSave = async () => {
@@ -147,7 +148,7 @@ export default function PdfExtractor({
       cropCanvas.height = completedCrop.height * scaleY;
 
       const ctx = cropCanvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) { setSaving(false); return; }
 
       // Draw the cropped area
       ctx.drawImage(
@@ -164,45 +165,54 @@ export default function PdfExtractor({
 
       // Convert to blob/file
       cropCanvas.toBlob(async (blob) => {
-        if (!blob) return;
+        if (!blob) { setSaving(false); return; }
         
         const file = new File([blob], "cropped-image.png", { type: "image/png" });
         const formData = new FormData();
         formData.append("file", file);
 
-        const uploadResult = await uploadImage(formData, projectId);
-        
-        if (uploadResult.success && uploadResult.url) {
-            
-            if (mode === 'summary' && blockId && summaryId) {
-                // Construct new content JSON preserving crop data
-                const newContent = JSON.stringify({
-                    url: uploadResult.url,
-                    crop: crop, // Save percentage crop
-                    page: pageNumber,
-                    fileUrl: fileUrl, // Keep original file URL for future re-cropping
-                    size: data?.content ? tryParse(data.content)?.size : 'medium' // Preserve size if exists
-                });
+        try {
+          const uploadResult = await uploadImage(formData, projectId);
+          
+          if (uploadResult.success && uploadResult.url) {
+              
+              if (mode === 'summary' && blockId && summaryId) {
+                  // Construct new content JSON preserving crop data
+                  const newContent = JSON.stringify({
+                      url: uploadResult.url,
+                      crop: crop, // Save percentage crop
+                      page: pageNumber,
+                      fileUrl: fileUrl, // Keep original file URL for future re-cropping
+                      size: data?.content ? tryParse(data.content)?.size : 'medium' // Preserve size if exists
+                  });
 
-                await updateSummaryBlock(blockId, newContent, "image");
-                router.refresh();
-                router.push(`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`);
-            } else if (mode === 'exercise' && exerciseId && taskId) {
-                const imageData = {
-                    url: uploadResult.url,
-                    crop: crop,
-                    page: pageNumber
-                };
+                  await updateSummaryBlock(blockId, newContent, "image");
+                  setSaving(false);
+                  router.refresh();
+                  router.push(`/projects/${projectId}/summaries/${summaryId}#block-${blockId}`);
+              } else if (mode === 'exercise' && exerciseId && taskId) {
+                  const imageData = {
+                      url: uploadResult.url,
+                      crop: crop,
+                      page: pageNumber
+                  };
 
-                await updateExerciseTaskImage(exerciseId, taskId, subtaskId || null, imageData);
-                router.refresh();
-                router.push(`/projects/${projectId}/exercises/${exerciseId}`);
-            }
+                  await updateExerciseTaskImage(exerciseId, taskId, subtaskId || null, imageData);
+                  setSaving(false);
+                  router.refresh();
+                  router.push(`/projects/${projectId}/exercises/${exerciseId}`);
+              } else {
+                  setSaving(false);
+              }
 
-        } else {
-            console.error("Upload failed:", uploadResult);
-            alert(dict.pdfExtractor.uploadError);
-            setSaving(false);
+          } else {
+              console.error("Upload failed:", uploadResult);
+              alert(dict.pdfExtractor.uploadError);
+              setSaving(false);
+          }
+        } catch (innerError) {
+          console.error("Save error inside toBlob:", innerError);
+          setSaving(false);
         }
       }, 'image/png');
 
@@ -316,7 +326,22 @@ export default function PdfExtractor({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-8 flex justify-center">
+      <div className="flex-1 overflow-auto p-8 flex justify-center gap-6">
+        {/* Progress Sidebar */}
+        {numPages > 0 && (
+          <div className="hidden md:flex flex-col items-center gap-2 sticky top-8 self-start pt-2">
+            <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+              {Math.round((pageNumber / numPages) * 100)}%
+            </span>
+            <div className="relative w-2 rounded-full bg-muted overflow-hidden" style={{ height: '300px' }}>
+              <div
+                className="absolute inset-x-0 bottom-0 rounded-full bg-primary transition-all duration-300"
+                style={{ height: `${(pageNumber / numPages) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground tabular-nums">{pageNumber}/{numPages}</span>
+          </div>
+        )}
         <div className="relative shadow-2xl rounded-lg overflow-hidden bg-white">
             <Document
                 file={fileUrl}

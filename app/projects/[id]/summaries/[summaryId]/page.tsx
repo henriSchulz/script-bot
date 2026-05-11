@@ -1,18 +1,17 @@
 'use client';
 
-import { use, useEffect, useState, useRef } from "react";
+import { use, useEffect, useState, useRef, useMemo } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { BlockEditor, BlockEditorHandle } from "@/components/editor/block-editor";
-import { getSummary } from "@/app/actions/summaries";
+import { getSummary, getSummaries } from "@/app/actions/summaries";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download, Eye, Edit3 } from 'lucide-react';
+import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download, Eye, Edit3, List } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Progress } from "@/components/ui/progress";
 import { exportSummaryToPDF } from "@/lib/pdf-export";
-import { cn } from "@/lib/utils";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 
 interface SummaryPageProps {
@@ -25,6 +24,7 @@ interface SummaryPageProps {
 export default function SummaryPage({ params }: SummaryPageProps) {
   const resolvedParams = use(params);
   const [summary, setSummary] = useState<any>(null);
+  const [allSummaries, setAllSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [hasPendingBlocks, setHasPendingBlocks] = useState(false);
@@ -33,6 +33,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const [exportStatus, setExportStatus] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const editorContentRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockEditorHandle>(null);
   const router = useRouter();
@@ -87,7 +88,13 @@ export default function SummaryPage({ params }: SummaryPageProps) {
       }
       setLoading(false);
     });
-  }, [resolvedParams.summaryId]);
+
+    getSummaries(resolvedParams.id).then((result) => {
+      if (result.success && result.summaries) {
+        setAllSummaries(result.summaries);
+      }
+    });
+  }, [resolvedParams.summaryId, resolvedParams.id]);
 
   // Keyboard shortcuts: toggle read-only mode and open search
   useEffect(() => {
@@ -115,6 +122,17 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Reading progress on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      setScrollProgress(docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   if (loading) {
@@ -248,9 +266,9 @@ export default function SummaryPage({ params }: SummaryPageProps) {
             </div>
           </div>
 
-          {/* Editor Container with Glassmorphism */}
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-            <div className="relative rounded-3xl bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl overflow-hidden">
+          {/* Editor + Sidebars Layout */}
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 flex gap-4 items-start">
+            <div className="relative rounded-3xl bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl overflow-hidden flex-1">
               {/* Subtle gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3 opacity-50 pointer-events-none" />
               
@@ -267,6 +285,20 @@ export default function SummaryPage({ params }: SummaryPageProps) {
                   onChatAboutBlock={handleChatAboutBlock}
                 />
               </div>
+            </div>
+
+            {/* Reading Progress Sidebar */}
+            <div className="hidden lg:flex flex-col items-center gap-2 sticky top-8 self-start pt-2 select-none">
+              <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                {Math.round(scrollProgress)}%
+              </span>
+              <div className="relative w-1.5 rounded-full bg-muted overflow-hidden" style={{ height: '280px' }}>
+                <div
+                  className="absolute inset-x-0 top-0 rounded-full bg-primary transition-all duration-150"
+                  style={{ height: `${scrollProgress}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground/60 tabular-nums">100%</span>
             </div>
           </div>
         </div>

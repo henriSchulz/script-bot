@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ImageIcon, Maximize2, Minimize2, ExternalLink, CropIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
+import { ImageIcon, Maximize2, Minimize2, ExternalLink, CropIcon, ZoomIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -43,6 +45,7 @@ export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId
   const imageData = parseContent(content);
   const [url, setUrl] = useState(imageData.url);
   const [size, setSize] = useState<ImageSize>(imageData.size || 'medium');
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const handleSave = () => {
     onChange(url);
@@ -71,13 +74,47 @@ export function ImageBlock({ content, onChange, page, fileId, fileUrl, projectId
 
   if (imageData.url) {
     return (
-      <div className="relative group/image my-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img 
-          src={imageData.url} 
-          alt="Block content" 
-          className={cn("rounded-lg mx-auto transition-all duration-300", getSizeClass(size))} 
-        />
+      <div className="relative group/image my-4 flex justify-center">
+        {/* The actual image in the document */}
+        <div 
+          className="relative group cursor-zoom-in inline-block rounded-lg overflow-hidden" 
+          onClick={() => setIsLightboxOpen(true)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src={imageData.url} 
+            alt="Block content" 
+            className={cn("rounded-lg mx-auto transition-all duration-300 group-hover:opacity-90", getSizeClass(size))} 
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+            <ZoomIn className="h-8 w-8 text-white drop-shadow-md" />
+          </div>
+        </div>
+
+        {/* The Raw Custom Lightbox Overlay */}
+        {isLightboxOpen && typeof document !== 'undefined' && createPortal(
+          <div 
+            className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8 animate-in fade-in duration-200 cursor-zoom-out"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            {/* Close Button / Info Guide */}
+            <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1.5 rounded-full text-xs opacity-70 pointer-events-none">
+              Klick irgendwo zum Schließen
+            </div>
+            
+            {/* The Enlarged Image */}
+            <div className="relative w-full h-full flex items-center justify-center p-4 md:p-8" onClick={(e) => e.stopPropagation()}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={imageData.url} 
+                alt="Enlarged content" 
+                className="w-full h-full object-contain cursor-zoom-out rounded-xl drop-shadow-2xl"
+                onClick={() => setIsLightboxOpen(false)}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
         
         {/* Controls overlay */}
         {!isReadOnly && (

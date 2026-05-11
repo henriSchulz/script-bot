@@ -481,6 +481,14 @@
           "reduced": "Kompakt (Nur Fakten)",
           "standard": "Standard",
           "detailed": "Sehr Detailliert"
+       },
+       "explanationStyle": "Erklärstil",
+       "styleOptions": {
+          "standard": "Standard",
+          "intuitive": "Intuitiv & Verständlich",
+          "practice": "Praxisorientiert (Aufgaben lösen)",
+          "academic": "Akademisch & Formal",
+          "compact": "Kompakt (Spickzettel)"
        }
     },
     "review": {
@@ -489,7 +497,8 @@
         "sourceFiles": "Quelldateien ({count})",
         "focus": "Fokus: {focus}",
         "images": "Bilder: {mode}",
-        "detail": "{level}"
+        "detail": "{level}",
+        "style": "Stil: {style}"
     }
   },
   "blockPreview": {
@@ -508,5 +517,20 @@
     "saving": "Speichere...",
     "noFile": "Keine Datei-URL gefunden.",
     "uploadError": "Fehler beim Hochladen des Bildes"
+  },
+  "latexExport": {
+    "tabLabel": "LaTeX",
+    "title": "LaTeX generieren",
+    "description": "Wähle eine Zusammenfassung und lass Gemini ein kompilierbares LaTeX-Dokument erstellen.",
+    "selectSummary": "Zusammenfassung auswählen...",
+    "generate": "LaTeX generieren",
+    "generating": "Generiere...",
+    "copy": "Kopieren",
+    "copied": "Kopiert!",
+    "download": ".tex herunterladen",
+    "noSummaries": "Keine Zusammenfassungen gefunden. Erstelle zuerst eine.",
+    "emptyHint": "Wähle oben eine Zusammenfassung aus und klicke auf LaTeX generieren.",
+    "error": "Fehler beim Generieren des LaTeX-Codes"
   }
 }
+
