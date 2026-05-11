@@ -69,9 +69,14 @@ export default function PdfExtractor({
               console.log("Block content is not JSON, treating as raw string/legacy");
             }
 
-            if (parsedContent.crop) {
-                setCrop(parsedContent.crop);
-                setCompletedCrop(parsedContent.crop);
+            // Prefer an already-saved crop; otherwise fall back to the AI-suggested crop
+            // (only present on freshly generated pending_image blocks).
+            const initialCrop = parsedContent.crop ?? parsedContent.suggestedCrop ?? null;
+            if (initialCrop) {
+                setCrop(initialCrop);
+                // completedCrop must be PixelCrop; ReactCrop will recompute it once the page lays out
+                // and we get the onComplete callback. We set it eagerly so the Save button enables.
+                setCompletedCrop(initialCrop);
             }
 
             if (parsedContent.fileUrl) {

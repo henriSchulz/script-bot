@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Globe, Check, Key, Bot, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
+import { Globe, Check, Key, Bot, Loader2, AlertCircle, ChevronDown, Crop } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -38,6 +38,7 @@ export function SettingsPage() {
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [imagePreselect, setImagePreselect] = useState<'none' | 'preselect' | 'preselect_extract'>('none');
 
   useEffect(() => {
     // Load from cookies
@@ -50,8 +51,12 @@ export function SettingsPage() {
     
     const key = getCookie('gemini-api-key');
     const modelsCookie = getCookie('gemini-models');
-    
+    const preselectCookie = getCookie('image-preselect');
+
     if (key) setApiKey(decodeURIComponent(key));
+    if (preselectCookie === 'preselect' || preselectCookie === 'preselect_extract' || preselectCookie === 'none') {
+      setImagePreselect(preselectCookie);
+    }
     
     if (modelsCookie) {
       try {
@@ -103,7 +108,8 @@ export function SettingsPage() {
       : featureModels;
     
     document.cookie = `gemini-models=${encodeURIComponent(JSON.stringify(modelConfig))}; path=/; max-age=${maxAge}; SameSite=Lax`;
-    
+    document.cookie = `image-preselect=${imagePreselect}; path=/; max-age=${maxAge}; SameSite=Lax`;
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
     router.refresh();
@@ -371,6 +377,50 @@ export function SettingsPage() {
                     </p>
                 )}
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Image Preselect Card */}
+        <Card className="clean-card overflow-hidden mt-8">
+          <CardHeader className="border-b bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Crop className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>
+                  {t('settings.imagePreselect.title')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.imagePreselect.description')}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <Label htmlFor="imagePreselect" className="text-base font-medium">
+                {t('settings.imagePreselect.label')}
+              </Label>
+              <Select
+                value={imagePreselect}
+                onValueChange={(v) => {
+                  setImagePreselect(v as any);
+                  // Persist immediately like a switch
+                  const maxAge = 31536000;
+                  document.cookie = `image-preselect=${v}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                }}
+              >
+                <SelectTrigger id="imagePreselect">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t('settings.imagePreselect.options.none')}</SelectItem>
+                  <SelectItem value="preselect">{t('settings.imagePreselect.options.preselect')}</SelectItem>
+                  <SelectItem value="preselect_extract">{t('settings.imagePreselect.options.preselect_extract')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

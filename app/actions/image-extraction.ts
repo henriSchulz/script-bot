@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { cwd } from 'process';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { createCanvas, Canvas, Image } from 'canvas';
 
 // --- Globals Polyfills (Must be before PDF.js import) ---
@@ -207,7 +207,7 @@ export async function extractImageFromPdf(
     );
 
     const buffer = cropCanvas.toBuffer('image/png');
-    const filename = `extract_${uuidv4()}.png`;
+    const filename = `extract_${randomUUID()}.png`;
     const outputPath = join(extractionDir, filename);
     
     await writeFile(outputPath, buffer);

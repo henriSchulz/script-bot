@@ -12,6 +12,20 @@ import { getDictionary, formatString } from "@/lib/i18n";
 import { cookies } from 'next/headers';
 import { parseGeminiResponse } from "@/lib/ai-parsing";
 import JSON5 from 'json5';
+import { extractImageFromPdf } from "./image-extraction";
+
+// Returns true if the value looks like a sane bbox in 0..1 normalized coords.
+function isValidNormalizedBbox(b: any): b is { x: number; y: number; width: number; height: number } {
+  return (
+    b && typeof b === 'object'
+    && typeof b.x === 'number' && b.x >= 0 && b.x <= 1
+    && typeof b.y === 'number' && b.y >= 0 && b.y <= 1
+    && typeof b.width === 'number' && b.width > 0 && b.width <= 1
+    && typeof b.height === 'number' && b.height > 0 && b.height <= 1
+    && (b.x + b.width) <= 1.001
+    && (b.y + b.height) <= 1.001
+  );
+}
 
 // Helper to get global language from browser storage (via cookies)
 async function getGlobalLanguage(): Promise<'en' | 'de'> {
@@ -21,6 +35,19 @@ async function getGlobalLanguage(): Promise<'en' | 'de'> {
     return (lang === 'de' || lang === 'en') ? lang : 'en';
   } catch (e) {
     return 'en';
+  }
+}
+
+// Image preselect mode (set in user settings). Controls how PDF image extraction is preseeded by AI.
+type ImagePreselectMode = 'none' | 'preselect' | 'preselect_extract';
+async function getImagePreselectMode(): Promise<ImagePreselectMode> {
+  try {
+    const cookieStore = await cookies();
+    const v = cookieStore.get('image-preselect')?.value;
+    if (v === 'preselect' || v === 'preselect_extract') return v;
+    return 'none';
+  } catch (e) {
+    return 'none';
   }
 }
 
@@ -165,6 +192,9 @@ async function fetchImageFromGoogle(description: string, projectId: string): Pro
 
 export async function generateSummaryFromFiles(projectId: string, title: string = "Automatische Zusammenfassung", fileIds?: string[], imageSource: 'google' | 'manual' | 'none' = 'manual', focus?: string, detailLevel: 'reduced' | 'standard' | 'detailed' = 'standard', explanationStyle: 'standard' | 'intuitive' | 'practice' | 'academic' | 'compact' = 'standard') {
   const { apiKey, model: modelName } = await getGeminiConfig('generateSummary');
+  // Image preselect — user setting controls whether the AI is asked for bboxes
+  // and whether we auto-extract.
+  const preselectMode = imageSource === 'manual' ? await getImagePreselectMode() : 'none';
 
   if (!apiKey) {
   if (!apiKey) {
@@ -268,15 +298,21 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
 
     systemPrompt += `\n\nTITLE INSTRUCTION:\nThe title of the summary must be SHORT and PRECISE. Do not make it unnecessarily long.`;
 
-    // Handle explanation style
-    if (explanationStyle === 'intuitive') {
-      systemPrompt += `\n\nEXPLANATION STYLE - INTUITIVE & ACCESSIBLE:\nWrite as if explaining to someone new to the topic. Use simple, everyday language. Include analogies and real-world comparisons. Break down complex ideas step by step. Avoid jargon unless you immediately explain it. Use concrete examples to illustrate abstract concepts. The goal is deep understanding through clarity.`;
-    } else if (explanationStyle === 'practice') {
-      systemPrompt += `\n\nEXPLANATION STYLE - PRACTICE-ORIENTED (SOLVING EXERCISES):\nFocus on APPLICABILITY. Present formulas as tools: for each formula, explain WHEN to use it, WHAT each variable means, and HOW to apply it step by step. Include worked examples or recipe-like procedures. Prioritize methods and techniques over theoretical background. Structure content as: Concept → Formula → Application steps → Common pitfalls. The reader should be able to solve exam problems after reading this.`;
-    } else if (explanationStyle === 'academic') {
-      systemPrompt += `\n\nEXPLANATION STYLE - ACADEMIC & FORMAL:\nUse precise, formal mathematical language. Include rigorous definitions, theorems, and proofs where applicable. State assumptions explicitly. Use proper mathematical notation throughout. Structure content with numbered definitions, lemmas, theorems, and corollaries. Maintain academic rigor and precision.`;
-    } else if (explanationStyle === 'compact') {
-      systemPrompt += `\n\nEXPLANATION STYLE - COMPACT (CHEAT SHEET):\nCreate an extremely condensed reference sheet. Use ONLY bullet points, tables, and formulas. NO prose or lengthy explanations. Maximum information density. Group related formulas together. Use abbreviations where clear. Format as a quick-reference lookup. Every line should contain a fact, formula, or definition — nothing else.`;
+    // Ask the model for a bounding box for every image_request when the user has preselect enabled.
+    if (preselectMode !== 'none') {
+      systemPrompt += `\n\nIMAGE BOUNDING BOX (REQUIRED for every image_request block):
+For EVERY image_request block you generate, you MUST also include a "bbox" field with the precise location of the image on the source PDF page.
+
+bbox is an object: { "x": number, "y": number, "width": number, "height": number }
+
+Coordinate rules:
+- All values are NORMALIZED in the range 0..1.
+- (0, 0) is the TOP-LEFT corner of the page; (1, 1) is the BOTTOM-RIGHT corner.
+- x + width MUST be <= 1. y + height MUST be <= 1.
+- Aim for a tight crop around the figure / diagram / circuit / graph — include axis labels and a thin margin, exclude surrounding body text.
+- These values will be used to AUTOMATICALLY crop the image from the PDF, so accuracy matters.
+
+If for a specific image_request you genuinely cannot determine the bbox (rare), OMIT the "bbox" field for that block rather than guessing.`;
     }
 
     // 4. Call Gemini
@@ -371,27 +407,72 @@ export async function generateSummaryFromFiles(projectId: string, title: string 
              });
            }
         } else if (imageSource === 'manual') {
-           // Resolve file URL
-           let fileUrl = null;
+           // Resolve file URL + filename (used for server-side extraction).
+           let fileUrl: string | null = null;
+           let pdfFilename: string | null = null;
            if (files.length === 1) {
              fileUrl = files[0].url;
+             pdfFilename = files[0].url.split("/").pop() ?? null;
            } else if (block.source_file) {
              const matchedFile = files.find(f => f.name === block.source_file || f.url.endsWith(block.source_file));
              if (matchedFile) {
                fileUrl = matchedFile.url;
+               pdfFilename = matchedFile.url.split("/").pop() ?? null;
              }
            }
 
-           // Create a pending_image block with JSON content
-           const contentObj = {
+           // Normalize AI-suggested bbox into a ReactCrop-percent crop object.
+           // We accept either { bbox: {...} } or top-level { x, y, width, height } fields,
+           // since models occasionally collapse the shape.
+           const rawBbox = isValidNormalizedBbox(block.bbox) ? block.bbox : (isValidNormalizedBbox(block) ? block : null);
+           const suggestedCrop = rawBbox
+             ? {
+                 unit: '%' as const,
+                 x: rawBbox.x * 100,
+                 y: rawBbox.y * 100,
+                 width: rawBbox.width * 100,
+                 height: rawBbox.height * 100,
+               }
+             : null;
+
+           // Mode: auto-extract on the server using the AI's bbox.
+           if (preselectMode === 'preselect_extract' && rawBbox && pdfFilename && block.page) {
+             try {
+               const extractedUrl = await extractImageFromPdf(projectId, pdfFilename, block.page, rawBbox);
+               if (extractedUrl) {
+                 processedBlocks.push({
+                   type: 'image',
+                   content: JSON.stringify({
+                     url: extractedUrl,
+                     size: 'medium',
+                     page: block.page,
+                     fileUrl,
+                     crop: suggestedCrop,
+                   }),
+                   order: block.order,
+                   page: block.page,
+                   fileId: fileId
+                 });
+                 continue;
+               }
+             } catch (extractErr) {
+               console.error('[AI preselect_extract] extraction failed, falling back to pending_image:', extractErr);
+             }
+           }
+
+           // Fallback / preselect mode: keep as pending_image, attach the suggested crop if any.
+           const contentObj: Record<string, any> = {
              description: block.content,
              page: block.page,
-             fileUrl: fileUrl
+             fileUrl: fileUrl,
            };
-           
+           if (preselectMode !== 'none' && suggestedCrop) {
+             contentObj.suggestedCrop = suggestedCrop;
+           }
+
            processedBlocks.push({
              type: 'pending_image',
-             content: JSON.stringify(contentObj), 
+             content: JSON.stringify(contentObj),
              order: block.order,
              page: block.page,
              fileId: fileId

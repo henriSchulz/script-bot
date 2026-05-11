@@ -315,7 +315,17 @@
       "extractFormulas": "Formeln extrahieren",
       "generateLearningPath": "Lernpfad generieren"
     },
-    "useDefault": "Standard verwenden"
+    "useDefault": "Standard verwenden",
+    "imagePreselect": {
+      "title": "Bild-Vorauswahl",
+      "description": "Wenn die KI ein Bild aus einer PDF-Seite anfordert, kann sie den Ausschnitts-Bereich vorschlagen. Du kannst den Bereich vorauswählen lassen oder das Bild direkt automatisch extrahieren.",
+      "label": "KI-Verhalten bei PDF-Bildextraktion",
+      "options": {
+        "none": "Keine KI-Vorauswahl",
+        "preselect": "KI-Vorauswahl (du bestätigst)",
+        "preselect_extract": "KI-Vorauswahl + automatisches Extrahieren"
+      }
+    }
   },
   "reference": {
     "page": "Seite"

@@ -313,7 +313,17 @@
       "extractFormulas": "Extract Formulas",
       "generateLearningPath": "Generate Learning Path"
     },
-    "useDefault": "Use Default"
+    "useDefault": "Use Default",
+    "imagePreselect": {
+      "title": "Image preselect",
+      "description": "When the AI requests an image from a PDF page, it can suggest the area to crop. You can have it preselect the region, or even extract the image automatically.",
+      "label": "AI behavior for PDF image extraction",
+      "options": {
+        "none": "No AI preselect",
+        "preselect": "AI preselect (you review)",
+        "preselect_extract": "AI preselect + auto-extract"
+      }
+    }
   },
   "reference": {
     "page": "Page"
