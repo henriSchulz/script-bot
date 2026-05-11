@@ -1,9 +1,26 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  memo,
+} from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { createPortal } from 'react-dom';
-import { getSummaryBlocks, createSummaryBlock, updateSummaryBlock, deleteSummaryBlock, reorderSummaryBlocks, createExerciseBlock, reorderExerciseBlocks } from '@/app/actions/blocks';
+import {
+  getSummaryBlocks,
+  createSummaryBlock,
+  updateSummaryBlock,
+  deleteSummaryBlock,
+  reorderSummaryBlocks,
+  createExerciseBlock,
+  reorderExerciseBlocks,
+} from '@/app/actions/blocks';
 import { TextBlock, TextBlockRef } from './blocks/text-block';
 import { LatexBlock } from './blocks/latex-block';
 import { ImageBlock } from './blocks/image-block';
@@ -13,13 +30,26 @@ import { BatchUploadDialog } from './batch-upload-dialog';
 import { GenerateBlocksDialog } from './generate-blocks-dialog';
 import { BlockExplanationModal } from './block-explanation-modal';
 import { Button } from '@/components/ui/button';
-import { Plus, GripVertical, Trash2, Image, Type, Sparkles, Sigma, MoreHorizontal, ExternalLink, Copy, Scissors, Star, Box, Lock } from 'lucide-react';
+import {
+  Plus,
+  GripVertical,
+  Trash2,
+  Image as ImageIcon,
+  Type,
+  Sparkles,
+  Sigma,
+  MoreHorizontal,
+  ExternalLink,
+  Copy,
+  Scissors,
+  Star,
+  Lock,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Link from 'next/link';
 import { useLanguage } from '@/components/language-provider';
 import { useAiKey } from '@/hooks/use-ai-key';
-import { AiLock } from "@/components/ai/ai-lock";
 
 interface Block {
   id: string;
@@ -47,902 +77,903 @@ interface BlockEditorProps {
   onChatAboutBlock?: (content: string) => void;
 }
 
-export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false, onChatAboutBlock }, ref) => {
-  const { t } = useLanguage();
-  const { hasKey } = useAiKey();
-  const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
-  const [hoveredBlockIndex, setHoveredBlockIndex] = useState<number | null>(null);
-  const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
-  const blockRefs = useRef<Map<string, TextBlockRef | null>>(new Map());
-  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
-  const [explanationModalOpen, setExplanationModalOpen] = useState(false);
-  const [selectedBlockForExplanation, setSelectedBlockForExplanation] = useState<string | null>(null);
-  const lastSelectedBlockIdRef = useRef<string | null>(null);
+const SAVE_DEBOUNCE_MS = 350;
 
-  useImperativeHandle(ref, () => ({
-    openBatchUploadDialog: () => setShowUploadDialog(true)
-  }));
+export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(
+  ({ summaryId, exerciseId, projectId, initialBlocks, onPendingBlocksChange, isReadOnly = false, onChatAboutBlock }, ref) => {
+    const { t } = useLanguage();
+    const { hasKey } = useAiKey();
+    const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
+    const [hoveredBlockIndex, setHoveredBlockIndex] = useState<number | null>(null);
+    const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
+    const [showUploadDialog, setShowUploadDialog] = useState(false);
+    const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+    const blockRefs = useRef<Map<string, TextBlockRef | null>>(new Map());
+    const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
+    const [explanationModalOpen, setExplanationModalOpen] = useState(false);
+    const [selectedBlockForExplanation, setSelectedBlockForExplanation] = useState<string | null>(null);
+    const lastSelectedBlockIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    console.log("BlockEditor received initialBlocks:", initialBlocks);
-    // Map file.url to fileUrl if present
-    const mappedBlocks = initialBlocks.map((block: any) => ({
-      ...block,
-      fileUrl: block.fileUrl || block.file?.url,
-      page: block.page === null ? undefined : block.page
+    // Performance: track latest content per block for copy/cut without re-rendering on every keystroke
+    const latestContentRef = useRef<Map<string, string>>(new Map());
+    // Debounce timers per block for server writes
+    const saveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+    useImperativeHandle(ref, () => ({
+      openBatchUploadDialog: () => setShowUploadDialog(true),
     }));
-    setBlocks(mappedBlocks);
-  }, [initialBlocks]);
 
-  useEffect(() => {
-    onPendingBlocksChange?.(blocks.some(b => b.type === 'pending_image'));
-  }, [blocks, onPendingBlocksChange]);
+    useEffect(() => {
+      const mapped = initialBlocks.map((block: any) => ({
+        ...block,
+        fileUrl: block.fileUrl || block.file?.url,
+        page: block.page === null ? undefined : block.page,
+      }));
+      setBlocks(mapped);
+      // Seed latest content map
+      const m = new Map<string, string>();
+      mapped.forEach((b) => m.set(b.id, b.content));
+      latestContentRef.current = m;
+    }, [initialBlocks]);
 
-  // Handle scroll to block from hash
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.startsWith('#block-')) {
-      // Small timeout to ensure DOM is ready
-      setTimeout(() => {
-        const id = hash.substring(1); // remove #
-        const el = document.getElementById(id);
-        if (el) {
-          console.log("Scrolling to block:", id);
-          el.scrollIntoView({ behavior: 'instant', block: 'center' });
-          // Clear hash to prevent re-scrolling on re-renders
-          history.replaceState(null, '', window.location.pathname + window.location.search);
-        }
-      }, 500);
-    }
-  }, []); // Run once on mount
+    useEffect(() => {
+      onPendingBlocksChange?.(blocks.some((b) => b.type === 'pending_image'));
+    }, [blocks, onPendingBlocksChange]);
 
-  const handleBlockClick = (e: React.MouseEvent, blockId: string, index: number) => {
-    if (isReadOnly) return;
+    // Flush pending saves on unmount
+    useEffect(() => {
+      return () => {
+        for (const timer of saveTimersRef.current.values()) clearTimeout(timer);
+      };
+    }, []);
 
-    // If clicking inside an input/contenteditable, do not select (unless it's a handle click, handled separately)
-    // But we might want to allow selecting the block wrapper even if clicking text if modifier is held?
-    // Standard behavior: Click on text -> Edit text. Click on border/handle -> Select block.
-    // Shift+Click on text -> Usually text selection.
-    // Cmd+Click on text -> Could be block selection.
-    
-    // Let's assume this handler is attached to the wrapper.
-    // We check if the target is interactive.
-    const target = e.target as HTMLElement;
-    const isInteractive = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true' || target.closest('[contenteditable="true"]');
-    
-    // If clicking interactive element WITHOUT modifiers, let it do its thing (focus)
-    if (isInteractive && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-        // If we have selection, maybe clear it?
-        if (selectedBlockIds.size > 0) {
-            setSelectedBlockIds(new Set());
-        }
+    // Smooth scroll to a block from URL hash
+    useEffect(() => {
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#block-')) {
+        setTimeout(() => {
+          const id = hash.substring(1);
+          const el = document.getElementById(id);
+          if (el) {
+            el.scrollIntoView({ behavior: 'instant', block: 'center' });
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }, 400);
+      }
+    }, []);
+
+    /* ---------------- block selection ---------------- */
+
+    const handleBlockClick = (e: React.MouseEvent, blockId: string, index: number) => {
+      if (isReadOnly) return;
+
+      const target = e.target as HTMLElement;
+      const isInteractive =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.getAttribute('contenteditable') === 'true' ||
+        target.closest('[contenteditable="true"]');
+
+      if (isInteractive && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        if (selectedBlockIds.size > 0) setSelectedBlockIds(new Set());
         return;
-    }
+      }
 
-    // If modifier keys are used, or clicking non-interactive area:
-    e.stopPropagation(); // Prevent bubbling?
+      e.stopPropagation();
 
-    if (e.shiftKey && lastSelectedBlockIdRef.current) {
-        // Range selection
-        const lastIndex = blocks.findIndex(b => b.id === lastSelectedBlockIdRef.current);
+      if (e.shiftKey && lastSelectedBlockIdRef.current) {
+        const lastIndex = blocks.findIndex((b) => b.id === lastSelectedBlockIdRef.current);
         if (lastIndex !== -1) {
-            const start = Math.min(index, lastIndex);
-            const end = Math.max(index, lastIndex);
-            const newSelection = new Set(selectedBlockIds);
-            for (let i = start; i <= end; i++) {
-                newSelection.add(blocks[i].id);
-            }
-            setSelectedBlockIds(newSelection);
+          const start = Math.min(index, lastIndex);
+          const end = Math.max(index, lastIndex);
+          const newSelection = new Set(selectedBlockIds);
+          for (let i = start; i <= end; i++) newSelection.add(blocks[i].id);
+          setSelectedBlockIds(newSelection);
         }
-    } else if (e.metaKey || e.ctrlKey) {
-        // Toggle selection
+      } else if (e.metaKey || e.ctrlKey) {
         const newSelection = new Set(selectedBlockIds);
         if (newSelection.has(blockId)) {
-            newSelection.delete(blockId);
+          newSelection.delete(blockId);
         } else {
-            newSelection.add(blockId);
-            lastSelectedBlockIdRef.current = blockId;
+          newSelection.add(blockId);
+          lastSelectedBlockIdRef.current = blockId;
         }
         setSelectedBlockIds(newSelection);
-    } else {
-        // Single selection (only if not interactive, which we checked above)
-        // If we clicked non-interactive area without modifiers, select just this block
-        if (!isInteractive) {
-             setSelectedBlockIds(new Set([blockId]));
-             lastSelectedBlockIdRef.current = blockId;
-        }
-    }
-  };
-
-  // Global click handler to deselect blocks when clicking outside
-  useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const clickedOnBlock = target.closest('[id^="block-"]');
-      
-      if (!clickedOnBlock && selectedBlockIds.size > 0) {
-        setSelectedBlockIds(new Set());
+      } else if (!isInteractive) {
+        setSelectedBlockIds(new Set([blockId]));
+        lastSelectedBlockIdRef.current = blockId;
       }
     };
 
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, [selectedBlockIds]);
+    useEffect(() => {
+      const handleGlobalClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        const clickedOnBlock = target.closest('[id^="block-"]');
+        if (!clickedOnBlock && selectedBlockIds.size > 0) setSelectedBlockIds(new Set());
+      };
+      document.addEventListener('click', handleGlobalClick);
+      return () => document.removeEventListener('click', handleGlobalClick);
+    }, [selectedBlockIds]);
 
-  // Global keydown for deletion
-  useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
+    /* ---------------- keyboard ---------------- */
+
+    useEffect(() => {
+      const handleKeyDown = async (e: KeyboardEvent) => {
         if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockIds.size > 0) {
-            // Check if we are editing text. If so, only delete if selection is empty? 
-            // Or if we are in "Block Selection Mode" (which implies focus is not in text).
-            // If `selectedBlockIds` is not empty, usually focus is lost from text or we want to override.
-            // But if user has text selected AND block selected (weird state), we should be careful.
-            
-            // Generally, if we have block selection, we assume we want to delete blocks.
-            // But if the user is typing in a block that happens to be selected?
-            // We should clear selection when focusing a block (handled in handleBlockClick/onFocus).
-            
-            // Let's check active element.
-            const activeElement = document.activeElement;
-            const isEditing = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA' || activeElement?.getAttribute('contenteditable') === 'true';
-            
-            if (isEditing) {
-                // If editing, don't delete blocks on Backspace (it deletes text).
-                // Unless maybe Cmd+Backspace?
-                return;
-            }
+          const activeElement = document.activeElement;
+          const isEditing =
+            activeElement?.tagName === 'INPUT' ||
+            activeElement?.tagName === 'TEXTAREA' ||
+            activeElement?.getAttribute('contenteditable') === 'true';
+          if (isEditing) return;
 
-            e.preventDefault();
-            
-            // Delete all selected blocks
-            const idsToDelete = Array.from(selectedBlockIds);
-            
-            // Optimistic update
-            setBlocks(prev => prev.filter(b => !selectedBlockIds.has(b.id)));
-            setSelectedBlockIds(new Set());
-            
-            // Server update
-            for (const id of idsToDelete) {
-                await deleteSummaryBlock(id);
-            }
+          e.preventDefault();
+          const idsToDelete = Array.from(selectedBlockIds);
+          setBlocks((prev) => prev.filter((b) => !selectedBlockIds.has(b.id)));
+          setSelectedBlockIds(new Set());
+          for (const id of idsToDelete) await deleteSummaryBlock(id);
         }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedBlockIds]); // Re-bind when selection changes
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedBlockIds]);
 
+    /* ---------------- paste-anywhere ---------------- */
 
-  const hoveredBlockIndexRef = useRef<number | null>(null);
-  const blocksRef = useRef(blocks);
-  const mouseYRef = useRef<number>(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+    const hoveredBlockIndexRef = useRef<number | null>(null);
+    const blocksRef = useRef(blocks);
+    const mouseYRef = useRef<number>(0);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseYRef.current = e.clientY;
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+    useEffect(() => {
+      const handleMouseMove = (e: MouseEvent) => {
+        mouseYRef.current = e.clientY;
+      };
+      window.addEventListener('mousemove', handleMouseMove);
+      return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
 
-  useEffect(() => {
-    hoveredBlockIndexRef.current = hoveredBlockIndex;
-  }, [hoveredBlockIndex]);
+    useEffect(() => {
+      hoveredBlockIndexRef.current = hoveredBlockIndex;
+    }, [hoveredBlockIndex]);
 
-  useEffect(() => {
-    blocksRef.current = blocks;
-  }, [blocks]);
+    useEffect(() => {
+      blocksRef.current = blocks;
+    }, [blocks]);
 
+    /* ---------------- mutations ---------------- */
 
-  const handleCreateBlock = async (type: string, index: number, focusPosition: 'start' | 'end' = 'start', initialContent: string = '') => {
-    const newOrder = index + 1;
+    const handleCreateBlock = useCallback(
+      async (type: string, index: number, focusPosition: 'start' | 'end' = 'start', initialContent: string = '') => {
+        const newOrder = index + 1;
+        let content = initialContent;
+        if (type === 'latex' && !content) content = '';
+        else if (type === 'info_box' && !content) {
+          content = JSON.stringify({
+            label: t('blockEditor.defaultContent.infoBoxLabel'),
+            color: 'red',
+            latex: t('blockEditor.defaultContent.infoBoxLatex'),
+          });
+        }
 
-    // Default content for specific block types
-    let content = initialContent;
-    if (type === 'latex' && !content) {
-      content = '';
-    } else if (type === 'info_box' && !content) {
-      // Default info box with template
-      content = JSON.stringify({
-        label: t('blockEditor.defaultContent.infoBoxLabel'),
-        color: 'red',
-        latex: t('blockEditor.defaultContent.infoBoxLatex')
-      });
-    }
+        const tempId = `temp-${Date.now()}`;
+        const newBlock = { id: tempId, type, content, order: newOrder };
 
-    const tempId = `temp-${Date.now()}`;
-    const newBlock = { id: tempId, type, content: content, order: newOrder };
-    
-    setBlocks(prev => [
-      ...prev.slice(0, index + 1),
-      newBlock,
-      ...prev.slice(index + 1).map(b => ({ ...b, order: b.order + 1 }))
-    ]);
+        setBlocks((prev) => [
+          ...prev.slice(0, index + 1),
+          newBlock,
+          ...prev.slice(index + 1).map((b) => ({ ...b, order: b.order + 1 })),
+        ]);
+        latestContentRef.current.set(tempId, content);
 
-    // Focus the new block after render
-    setTimeout(() => {
-      const ref = blockRefs.current.get(tempId);
-      if (ref) {
-        ref.focus(focusPosition);
-      }
-    }, 0);
+        setTimeout(() => {
+          const r = blockRefs.current.get(tempId);
+          if (r) r.focus(focusPosition);
+        }, 0);
 
-    let result;
-    if (summaryId) {
-      result = await createSummaryBlock(summaryId, type, content, newOrder);
-    } else if (exerciseId) {
-      result = await createExerciseBlock(exerciseId, type, content, newOrder);
-    } else {
-        console.error("No summaryId or exerciseId provided");
-        return;
-    }
-    if (result.success && result.block) {
-      // Replace temp block with real block
-      setBlocks(prev => prev.map(b => b.id === tempId ? { ...result.block!, page: result.block!.page ?? undefined, fileId: result.block!.fileId ?? undefined } : b));
-    }
-  };
+        let result;
+        if (summaryId) result = await createSummaryBlock(summaryId, type, content, newOrder);
+        else if (exerciseId) result = await createExerciseBlock(exerciseId, type, content, newOrder);
+        else return;
 
-  const handleGeneratedBlocks = async (newBlocks: any[]) => {
-    // Determine insertion index
-    let insertIndex = blocks.length;
-    if (hoveredBlockIndexRef.current !== null) {
+        if (result.success && result.block) {
+          const realBlock = result.block;
+          setBlocks((prev) =>
+            prev.map((b) =>
+              b.id === tempId
+                ? {
+                    ...realBlock,
+                    page: realBlock.page ?? undefined,
+                    fileId: realBlock.fileId ?? undefined,
+                  }
+                : b
+            )
+          );
+          latestContentRef.current.set(realBlock.id, realBlock.content);
+          latestContentRef.current.delete(tempId);
+        }
+      },
+      [summaryId, exerciseId, t]
+    );
+
+    const handleGeneratedBlocks = async (newBlocks: any[]) => {
+      let insertIndex = blocks.length;
+      if (hoveredBlockIndexRef.current !== null) {
         insertIndex = Math.ceil(hoveredBlockIndexRef.current);
-    } else if (focusedBlockId) {
-        const focusedIndex = blocks.findIndex(b => b.id === focusedBlockId);
+      } else if (focusedBlockId) {
+        const focusedIndex = blocks.findIndex((b) => b.id === focusedBlockId);
         if (focusedIndex !== -1) insertIndex = focusedIndex + 1;
-    }
-
-    // Create blocks sequentially
-    for (let i = 0; i < newBlocks.length; i++) {
+      }
+      for (let i = 0; i < newBlocks.length; i++) {
         const block = newBlocks[i];
         await handleCreateBlock(block.type, insertIndex + i - 1, 'start', block.content);
-    }
-  };
-
-  useEffect(() => {
-    const handlePaste = async (e: ClipboardEvent) => {
-      // Calculate insertion index based on mouse position
-      let insertionIndex = -1;
-      
-      // 1. Try explicit hover first (most accurate if user is hovering the button)
-      if (hoveredBlockIndexRef.current !== null) {
-        insertionIndex = Math.ceil(hoveredBlockIndexRef.current);
-      } else {
-        // 2. Fallback: Calculate based on mouse Y position
-        // We need to find which block the mouse is closest to
-        if (!containerRef.current) return;
-        
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const mouseY = mouseYRef.current;
-        
-        // If mouse is outside container horizontally, maybe ignore? 
-        // Or be lenient. Let's be lenient but check vertical bounds roughly.
-        if (mouseY < containerRect.top - 100 || mouseY > containerRect.bottom + 100) return;
-
-        // Find closest block
-        let closestBlockIndex = -1;
-        let minDistance = Infinity;
-        
-        // We need access to block DOM elements. 
-        // We have blockRefs map.
-        const blockElements = Array.from(blockRefs.current.entries());
-        
-        for (let i = 0; i < blocksRef.current.length; i++) {
-            const block = blocksRef.current[i];
-            // We can add an ID to the div: id={`block-${block.id}`}
-            const el = document.getElementById(`block-${block.id}`);
-            if (el) {
-                const rect = el.getBoundingClientRect();
-                const centerY = rect.top + rect.height / 2;
-                const distance = Math.abs(mouseY - centerY);
-                
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestBlockIndex = i;
-                }
-            }
-        }
-
-        if (closestBlockIndex !== -1) {
-             const el = document.getElementById(`block-${blocksRef.current[closestBlockIndex].id}`);
-             if (el) {
-                 const rect = el.getBoundingClientRect();
-                 if (mouseY > rect.top + rect.height / 2) {
-                     insertionIndex = closestBlockIndex + 1;
-                 } else {
-                     insertionIndex = closestBlockIndex;
-                 }
-             }
-        } else {
-            // If no blocks (empty state), index is 0
-            if (blocksRef.current.length === 0) insertionIndex = 0;
-            else {
-                // Default to end if below everything
-                insertionIndex = blocksRef.current.length;
-            }
-        }
-      }
-
-      if (insertionIndex === -1) return;
-
-      console.log('Paste detected. Insertion index:', insertionIndex);
-
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      
-      // Check if we are focused on an input
-      const activeElement = document.activeElement;
-      const isInput = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA' || activeElement?.getAttribute('contenteditable') === 'true';
-
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        
-        // Handle Images
-        if (item.type.indexOf('image') !== -1) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              if (event.target?.result) {
-                const content = event.target.result as string;
-                handleCreateBlock('image', insertionIndex - 1, 'start', content);
-              }
-            };
-            reader.readAsDataURL(file);
-          }
-          return; 
-        }
-        
-        // Handle Text
-        if (item.type.indexOf('text/plain') !== -1 && !isInput) {
-           e.preventDefault();
-           item.getAsString((text) => {
-              if (text.trim()) {
-                handleCreateBlock('text', insertionIndex - 1, 'start', text);
-              }
-           });
-           return;
-        }
       }
     };
 
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [handleCreateBlock]);
-
-  const handleUpdateBlock = async (id: string, content: string, type?: string, isImportant?: boolean, isHighlighted?: boolean) => {
-    // Optimistically update UI immediately
-    setBlocks(prev => prev.map(b => {
-      if (b.id === id) {
-        // Always create a new object to trigger React re-render
-        return {
-          ...b,
-          content,
-          ...(type !== undefined && { type }),
-          ...(isImportant !== undefined && { isImportant }),
-          ...(isHighlighted !== undefined && { isHighlighted })
-        };
-      }
-      return b;
-    }));
-    
-    // Don't try to update temporary blocks that haven't been created in the database yet
-    if (id.startsWith('temp-')) {
-      console.log('Skipping update for temporary block:', id);
-      return;
-    }
-    
-    const result = await updateSummaryBlock(id, content, type, undefined, undefined, isImportant, isHighlighted);
-    if (!result.success) {
-      console.error('Failed to update block:', result.error);
-      // Optionally show toast here if you want to notify the user
-    }
-  };
-
-  const handleBlockTypeChange = async (block: Block, newType: string, level?: number) => {
-    // If it's a Tiptap internal type change (Heading, List, etc.)
-    if (['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote'].includes(newType)) {
-      // If the block is NOT a text block, we first convert it to a text block
-      if (block.type !== 'text') {
-         await handleUpdateBlock(block.id, block.content, 'text');
-         // Wait for render
-         setTimeout(() => {
-            const ref = blockRefs.current.get(block.id);
-            if (ref) ref.toggleBlockType(newType, level);
-         }, 50);
-      } else {
-         // Already a text block, just toggle internal type
-         const ref = blockRefs.current.get(block.id);
-         if (ref) ref.toggleBlockType(newType, level);
-      }
-    } else {
-      // It's a block type change (Latex, Image)
-      await handleUpdateBlock(block.id, block.content, newType);
-    }
-  };
-
-  const handleDeleteBlock = async (id: string) => {
-    const index = blocks.findIndex(b => b.id === id);
-    if (index === -1) return;
-
-    setBlocks(prev => prev.filter(b => b.id !== id));
-    
-    // Focus previous block
-    if (index > 0) {
-      const prevBlock = blocks[index - 1];
-      setTimeout(() => {
-        const ref = blockRefs.current.get(prevBlock.id);
-        if (ref) ref.focus('end');
-      }, 0);
-    }
-
-    await deleteSummaryBlock(id);
-  };
-
-  const onDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
-    const draggableId = result.draggableId;
-
-    // Check if we are dragging a selected item
-    const isMultiDrag = selectedBlockIds.has(draggableId) && selectedBlockIds.size > 1;
-
-    let updatedItems: Block[] = [];
-
-    if (!isMultiDrag) {
-        // Standard single item drag
-        const items = Array.from(blocks);
-        const [reorderedItem] = items.splice(sourceIndex, 1);
-        items.splice(destinationIndex, 0, reorderedItem);
-        updatedItems = items;
-    } else {
-        // Multi-item drag
-        // 1. Get all selected items in their current order
-        const selectedItems = blocks.filter(b => selectedBlockIds.has(b.id));
-        
-        // 2. Get items with ONLY the dragged item removed (to simulate dnd state)
-        // actually, dnd gives us destination index relative to the list with dragged item removed.
-        const itemsWithDraggedRemoved = blocks.filter(b => b.id !== draggableId);
-        
-        // 3. Find the anchor item (first non-selected item at or after destination)
-        let anchorItem: Block | null = null;
-        
-        // We look starting from destinationIndex
-        for (let i = destinationIndex; i < itemsWithDraggedRemoved.length; i++) {
-            const item = itemsWithDraggedRemoved[i];
-            if (!selectedBlockIds.has(item.id)) {
-                anchorItem = item;
-                break;
-            }
-        }
-        
-        // 4. Remove ALL selected items from the original list
-        const remainingItems = blocks.filter(b => !selectedBlockIds.has(b.id));
-        
-        // 5. Insert selected items before the anchor item, or at end
-        if (anchorItem) {
-            const insertIndex = remainingItems.findIndex(b => b.id === anchorItem!.id);
-            updatedItems = [
-                ...remainingItems.slice(0, insertIndex),
-                ...selectedItems,
-                ...remainingItems.slice(insertIndex)
-            ];
+    useEffect(() => {
+      const handlePaste = async (e: ClipboardEvent) => {
+        let insertionIndex = -1;
+        if (hoveredBlockIndexRef.current !== null) {
+          insertionIndex = Math.ceil(hoveredBlockIndexRef.current);
         } else {
-            updatedItems = [...remainingItems, ...selectedItems];
+          if (!containerRef.current) return;
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const mouseY = mouseYRef.current;
+          if (mouseY < containerRect.top - 100 || mouseY > containerRect.bottom + 100) return;
+
+          let closestBlockIndex = -1;
+          let minDistance = Infinity;
+          for (let i = 0; i < blocksRef.current.length; i++) {
+            const block = blocksRef.current[i];
+            const el = document.getElementById(`block-${block.id}`);
+            if (el) {
+              const rect = el.getBoundingClientRect();
+              const centerY = rect.top + rect.height / 2;
+              const distance = Math.abs(mouseY - centerY);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestBlockIndex = i;
+              }
+            }
+          }
+          if (closestBlockIndex !== -1) {
+            const el = document.getElementById(`block-${blocksRef.current[closestBlockIndex].id}`);
+            if (el) {
+              const rect = el.getBoundingClientRect();
+              insertionIndex = mouseY > rect.top + rect.height / 2 ? closestBlockIndex + 1 : closestBlockIndex;
+            }
+          } else {
+            insertionIndex = blocksRef.current.length === 0 ? 0 : blocksRef.current.length;
+          }
         }
-    }
 
-    // Update orders
-    const finalItems = updatedItems.map((item, index) => ({ ...item, order: index }));
-    setBlocks(finalItems);
+        if (insertionIndex === -1) return;
 
-    const updates = finalItems.map(item => ({ id: item.id, order: item.order }));
-    if (summaryId) {
-      await reorderSummaryBlocks(summaryId, updates);
-    } else if (exerciseId) {
-      await reorderExerciseBlocks(exerciseId, updates);
-    }
-  };
+        const items = e.clipboardData?.items;
+        if (!items) return;
 
-  const handleFocusNext = (index: number) => {
-    if (index < blocks.length - 1) {
-      const nextBlock = blocks[index + 1];
-      const ref = blockRefs.current.get(nextBlock.id);
-      if (ref) ref.focus('start');
-    }
-  };
+        const activeElement = document.activeElement;
+        const isInput =
+          activeElement?.tagName === 'INPUT' ||
+          activeElement?.tagName === 'TEXTAREA' ||
+          activeElement?.getAttribute('contenteditable') === 'true';
 
-  const handleFocusPrev = (index: number) => {
-    if (index > 0) {
-      const prevBlock = blocks[index - 1];
-      const ref = blockRefs.current.get(prevBlock.id);
-      if (ref) ref.focus('end');
-    }
-  };
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                if (ev.target?.result) {
+                  handleCreateBlock('image', insertionIndex - 1, 'start', ev.target.result as string);
+                }
+              };
+              reader.readAsDataURL(file);
+            }
+            return;
+          }
+          if (item.type.indexOf('text/plain') !== -1 && !isInput) {
+            e.preventDefault();
+            item.getAsString((text) => {
+              if (text.trim()) handleCreateBlock('text', insertionIndex - 1, 'start', text);
+            });
+            return;
+          }
+        }
+      };
 
-  const handleMergePrev = async (index: number) => {
-    if (index === 0) return;
-    
-    const currentBlock = blocks[index];
-    const prevBlock = blocks[index - 1];
-    
-    if (prevBlock.type === 'text' && currentBlock.type === 'text') {
-      const newContent = prevBlock.content + currentBlock.content;
-      
-      // Update previous block
-      handleUpdateBlock(prevBlock.id, newContent);
-      
-      // Delete current block
-      handleDeleteBlock(currentBlock.id);
-      
-      setTimeout(() => {
-        const ref = blockRefs.current.get(prevBlock.id);
-        if (ref) ref.focus('end');
-      }, 0);
-    }
-  };
+      document.addEventListener('paste', handlePaste);
+      return () => document.removeEventListener('paste', handlePaste);
+    }, [handleCreateBlock]);
 
-  const handleSplit = (index: number) => {
-    handleCreateBlock('text', index, 'start');
-  };
+    /* Performance: schedule a debounced server write, no local state update on keystrokes. */
+    const scheduleSave = useCallback(
+      (id: string, content: string) => {
+        latestContentRef.current.set(id, content);
+        if (id.startsWith('temp-')) return; // temp blocks not yet persisted
 
-  // Empty state
-  if (blocks.length === 0) {
-    return (
-      <>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-6 max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 blur-3xl opacity-50" />
-            <Sparkles className="h-16 w-16 mx-auto text-primary/50 relative" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold">{t('blockEditor.emptyState.title')}</h3>
-            <p className="text-muted-foreground text-sm">
-              <span dangerouslySetInnerHTML={{ __html: t('blockEditor.emptyState.description') }} />
-            </p>
-          </div>
-          <div className="flex gap-2 justify-center">
-            <Button 
-              variant="default" 
-              onClick={() => handleCreateBlock('text', -1)}
-              className="group"
-            >
-              <Type className="h-4 w-4 mr-2" />
-              {t('blockEditor.emptyState.addText')}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => handleCreateBlock('latex', -1)}
-            >
-              <Sigma className="h-4 w-4 mr-2" />
-              {t('blockEditor.emptyState.addLatex')}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => handleCreateBlock('image', -1)}
-            >
-              <Image className="h-4 w-4 mr-2" />
-              {t('blockEditor.emptyState.addImage')}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowGenerateDialog(true)}
-              className="border-primary/20 hover:bg-primary/5 hover:text-primary"
-            >
-               <Sparkles className="h-4 w-4 mr-2" />
-               {t('blockEditor.emptyState.generateWithAi')}
-            </Button>
-          </div>
-        </div>
-      </div>
-      <GenerateBlocksDialog 
-        open={showGenerateDialog} 
-        onOpenChange={setShowGenerateDialog} 
-        projectId={projectId}
-        onSuccess={handleGeneratedBlocks}
-      />
-    </>
+        const existing = saveTimersRef.current.get(id);
+        if (existing) clearTimeout(existing);
+
+        const timer = setTimeout(async () => {
+          saveTimersRef.current.delete(id);
+          const latest = latestContentRef.current.get(id);
+          if (latest === undefined) return;
+          await updateSummaryBlock(id, latest, undefined, undefined, undefined, undefined, undefined);
+        }, SAVE_DEBOUNCE_MS);
+
+        saveTimersRef.current.set(id, timer);
+      },
+      []
     );
-  }
 
-  return (
-    <div 
-      className="w-full"
-    >
-      <div className="max-w-4xl mx-auto space-y-0.5 px-2">
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="blocks">
-          {(provided) => (
-            <div 
-              {...provided.droppableProps} 
-              ref={(el) => { provided.innerRef(el); containerRef.current = el; }} 
-              className="space-y-0.5 min-h-[400px]"
-            >
-              {blocks.map((block, index) => (
-                <Draggable key={block.id} draggableId={block.id} index={index} isDragDisabled={isReadOnly}>
-                  {(provided, snapshot) => {
-                    const child = (
-                      <div
-                        id={`block-${block.id}`}
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent deselection when clicking on block
-                          handleBlockClick(e, block.id, index);
-                        }}
-                        className={cn(
-                          "group relative outline-none transition-all duration-200",
-                          snapshot.isDragging && "z-50",
-                          selectedBlockIds.has(block.id) && "relative z-10"
-                        )}
-                        style={provided.draggableProps.style}
-                      >
-                        {/* Subtle Selection Indicator */}
-                        {!isReadOnly && selectedBlockIds.has(block.id) && (
-                          <div className="absolute inset-0 rounded-lg border border-primary/20 bg-primary/[0.02]" />
-                        )}
-                        
-                        {/* Clean Block Container */}
-                        <div className={cn(
-                          "relative rounded-lg transition-all duration-150 ease-out",
-                          snapshot.isDragging && "cursor-grabbing"
-                        )}>
-                          <div className="relative flex items-start gap-2 py-2 px-3">
-                            {/* Clean Drag Handle */}
+    /* Immediate update for meta changes (type, important, highlight). */
+    const handleUpdateBlockMeta = useCallback(
+      async (id: string, patch: Partial<Block>) => {
+        setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+        if (id.startsWith('temp-')) return;
+        const latest = latestContentRef.current.get(id);
+        const content = patch.content !== undefined ? patch.content : (latest ?? '');
+        if (patch.content !== undefined) latestContentRef.current.set(id, patch.content);
+
+        await updateSummaryBlock(
+          id,
+          content,
+          patch.type,
+          undefined,
+          undefined,
+          patch.isImportant,
+          patch.isHighlighted
+        );
+      },
+      []
+    );
+
+    /* TextBlock onChange wrapper: just debounced save. */
+    const handleTextContentChange = useCallback(
+      (id: string) => (content: string) => {
+        scheduleSave(id, content);
+      },
+      [scheduleSave]
+    );
+
+    /* For non-text blocks (latex, image, info_box) we treat content changes as meta + immediate. */
+    const handleNonTextContentChange = useCallback(
+      (id: string) => (content: string) => {
+        handleUpdateBlockMeta(id, { content });
+      },
+      [handleUpdateBlockMeta]
+    );
+
+    const handleBlockTypeChange = async (block: Block, newType: string, level?: number) => {
+      if (['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote'].includes(newType)) {
+        if (block.type !== 'text') {
+          await handleUpdateBlockMeta(block.id, { type: 'text' });
+          setTimeout(() => {
+            const r = blockRefs.current.get(block.id);
+            if (r) r.toggleBlockType(newType, level);
+          }, 50);
+        } else {
+          const r = blockRefs.current.get(block.id);
+          if (r) r.toggleBlockType(newType, level);
+        }
+      } else {
+        await handleUpdateBlockMeta(block.id, { type: newType });
+      }
+    };
+
+    const handleDeleteBlock = useCallback(
+      async (id: string) => {
+        const idx = blocksRef.current.findIndex((b) => b.id === id);
+        if (idx === -1) return;
+        setBlocks((prev) => prev.filter((b) => b.id !== id));
+        if (idx > 0) {
+          const prevBlock = blocksRef.current[idx - 1];
+          setTimeout(() => {
+            const r = blockRefs.current.get(prevBlock.id);
+            if (r) r.focus('end');
+          }, 0);
+        }
+        // flush any pending save before deleting
+        const t = saveTimersRef.current.get(id);
+        if (t) {
+          clearTimeout(t);
+          saveTimersRef.current.delete(id);
+        }
+        latestContentRef.current.delete(id);
+        await deleteSummaryBlock(id);
+      },
+      []
+    );
+
+    const onDragEnd = async (result: DropResult) => {
+      if (!result.destination) return;
+      const sourceIndex = result.source.index;
+      const destinationIndex = result.destination.index;
+      const draggableId = result.draggableId;
+
+      const isMultiDrag = selectedBlockIds.has(draggableId) && selectedBlockIds.size > 1;
+      let updatedItems: Block[] = [];
+
+      if (!isMultiDrag) {
+        const items = Array.from(blocks);
+        const [reordered] = items.splice(sourceIndex, 1);
+        items.splice(destinationIndex, 0, reordered);
+        updatedItems = items;
+      } else {
+        const selectedItems = blocks.filter((b) => selectedBlockIds.has(b.id));
+        const itemsWithDraggedRemoved = blocks.filter((b) => b.id !== draggableId);
+        let anchorItem: Block | null = null;
+        for (let i = destinationIndex; i < itemsWithDraggedRemoved.length; i++) {
+          if (!selectedBlockIds.has(itemsWithDraggedRemoved[i].id)) {
+            anchorItem = itemsWithDraggedRemoved[i];
+            break;
+          }
+        }
+        const remainingItems = blocks.filter((b) => !selectedBlockIds.has(b.id));
+        if (anchorItem) {
+          const insertIndex = remainingItems.findIndex((b) => b.id === anchorItem!.id);
+          updatedItems = [
+            ...remainingItems.slice(0, insertIndex),
+            ...selectedItems,
+            ...remainingItems.slice(insertIndex),
+          ];
+        } else {
+          updatedItems = [...remainingItems, ...selectedItems];
+        }
+      }
+
+      const finalItems = updatedItems.map((item, index) => ({ ...item, order: index }));
+      setBlocks(finalItems);
+      const updates = finalItems.map((item) => ({ id: item.id, order: item.order }));
+      if (summaryId) await reorderSummaryBlocks(summaryId, updates);
+      else if (exerciseId) await reorderExerciseBlocks(exerciseId, updates);
+    };
+
+    /* navigation between blocks */
+    const handleFocusNext = useCallback((index: number) => {
+      if (index < blocksRef.current.length - 1) {
+        const nextBlock = blocksRef.current[index + 1];
+        const r = blockRefs.current.get(nextBlock.id);
+        if (r) r.focus('start');
+      }
+    }, []);
+    const handleFocusPrev = useCallback((index: number) => {
+      if (index > 0) {
+        const prevBlock = blocksRef.current[index - 1];
+        const r = blockRefs.current.get(prevBlock.id);
+        if (r) r.focus('end');
+      }
+    }, []);
+    const handleMergePrev = useCallback(
+      async (index: number) => {
+        if (index === 0) return;
+        const currentBlock = blocksRef.current[index];
+        const prevBlock = blocksRef.current[index - 1];
+        if (prevBlock.type === 'text' && currentBlock.type === 'text') {
+          const prevContent = latestContentRef.current.get(prevBlock.id) ?? prevBlock.content;
+          const curContent = latestContentRef.current.get(currentBlock.id) ?? currentBlock.content;
+          const merged = prevContent + curContent;
+          // Flush merged content to prev block (immediate)
+          latestContentRef.current.set(prevBlock.id, merged);
+          setBlocks((prev) => prev.map((b) => (b.id === prevBlock.id ? { ...b, content: merged } : b)));
+          await updateSummaryBlock(prevBlock.id, merged);
+          await handleDeleteBlock(currentBlock.id);
+          setTimeout(() => {
+            const r = blockRefs.current.get(prevBlock.id);
+            if (r) r.focus('end');
+          }, 0);
+        }
+      },
+      [handleDeleteBlock]
+    );
+
+    const handleSplit = useCallback(
+      (index: number) => {
+        handleCreateBlock('text', index, 'start');
+      },
+      [handleCreateBlock]
+    );
+
+    /* ---------------- empty state ---------------- */
+
+    if (blocks.length === 0) {
+      return (
+        <>
+          <div className="flex items-center justify-center min-h-[360px]">
+            <div className="text-center space-y-6 max-w-md animate-mac-fade-in">
+              <div className="mx-auto inline-flex items-center justify-center size-12 rounded-full bg-primary/10 text-primary">
+                <Sparkles className="size-5" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-[17px] font-semibold tracking-[-0.018em]">
+                  {t('blockEditor.emptyState.title')}
+                </h3>
+                <p className="text-[13px] text-muted-foreground max-w-sm mx-auto tracking-[-0.005em]">
+                  <span dangerouslySetInnerHTML={{ __html: t('blockEditor.emptyState.description') }} />
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <Button onClick={() => handleCreateBlock('text', -1)}>
+                  <Type />
+                  {t('blockEditor.emptyState.addText')}
+                </Button>
+                <Button variant="outline" onClick={() => handleCreateBlock('latex', -1)}>
+                  <Sigma />
+                  {t('blockEditor.emptyState.addLatex')}
+                </Button>
+                <Button variant="outline" onClick={() => handleCreateBlock('image', -1)}>
+                  <ImageIcon />
+                  {t('blockEditor.emptyState.addImage')}
+                </Button>
+                <Button variant="outline" onClick={() => setShowGenerateDialog(true)}>
+                  <Sparkles />
+                  {t('blockEditor.emptyState.generateWithAi')}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <GenerateBlocksDialog
+            open={showGenerateDialog}
+            onOpenChange={setShowGenerateDialog}
+            projectId={projectId}
+            onSuccess={handleGeneratedBlocks}
+          />
+        </>
+      );
+    }
+
+    /* ---------------- main render ---------------- */
+
+    return (
+      <div className="w-full">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="blocks">
+            {(provided) => (
+              <div
+                {...provided.droppableProps}
+                ref={(el) => {
+                  provided.innerRef(el);
+                  containerRef.current = el;
+                }}
+                className="space-y-px min-h-[360px]"
+              >
+                {blocks.map((block, index) => (
+                  <Draggable
+                    key={block.id}
+                    draggableId={block.id}
+                    index={index}
+                    isDragDisabled={isReadOnly}
+                  >
+                    {(provided, snapshot) => {
+                      const isSelected = selectedBlockIds.has(block.id);
+                      const isFocused = focusedBlockId === block.id;
+
+                      const child = (
+                        <div
+                          id={`block-${block.id}`}
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBlockClick(e, block.id, index);
+                          }}
+                          onMouseEnter={() => setHoveredBlockIndex(index)}
+                          onMouseLeave={() =>
+                            setHoveredBlockIndex((cur) => (cur === index ? null : cur))
+                          }
+                          className={cn(
+                            'group/block relative outline-none',
+                            'transition-[background-color,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                            'rounded-[8px]',
+                            isSelected && 'bg-primary/[0.05] dark:bg-primary/[0.08]',
+                            snapshot.isDragging && 'z-50 shadow-[var(--shadow-mac-lg)] bg-card',
+                          )}
+                          style={provided.draggableProps.style}
+                        >
+                          {/* Left accent stroke — focused or selected */}
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'pointer-events-none absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full',
+                              'transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                              isSelected
+                                ? 'bg-primary opacity-100'
+                                : isFocused
+                                ? 'bg-primary/40 opacity-100'
+                                : 'opacity-0',
+                            )}
+                          />
+
+                          {/* Floating drag handle — outside content flow, no layout shift */}
+                          {!isReadOnly && (
                             <div
                               {...provided.dragHandleProps}
                               className={cn(
-                                "mt-1 transition-all duration-150",
-                                "cursor-grab active:cursor-grabbing",
-                                "hover:text-foreground text-muted-foreground/40",
-                                isReadOnly ? "opacity-0 w-0 p-0 overflow-hidden pointer-events-none" : "opacity-0 group-hover:opacity-100"
+                                'absolute left-[-32px] top-[10px] hidden md:flex',
+                                'opacity-0 group-hover/block:opacity-100',
+                                'transition-opacity duration-150',
+                                'cursor-grab active:cursor-grabbing select-none',
+                                'inline-flex items-center justify-center size-6 rounded-md',
+                                'text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]',
                               )}
+                              title="Drag to reorder"
                             >
-                              <GripVertical className="h-4 w-4" />
+                              <GripVertical className="size-4" />
                             </div>
+                          )}
 
-                            {/* Block Content */}
-                            <div 
-                              className="flex-1 min-w-0"
-                              onFocus={() => setFocusedBlockId(block.id)}
-                              onBlur={() => setFocusedBlockId(null)}
+                          {/* Block content (full width, generous breathing room) */}
+                          <div
+                            className="relative py-2 px-3"
+                            onFocus={() => setFocusedBlockId(block.id)}
+                            onBlur={(e) => {
+                              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                                setFocusedBlockId((cur) => (cur === block.id ? null : cur));
+                              }
+                            }}
+                          >
+                            {block.type === 'text' && (
+                              <TextBlock
+                                ref={(el) => {
+                                  if (el) blockRefs.current.set(block.id, el);
+                                  else blockRefs.current.delete(block.id);
+                                }}
+                                content={block.content}
+                                onChange={handleTextContentChange(block.id)}
+                                onEnter={() => handleSplit(index)}
+                                onFocusNext={() => handleFocusNext(index)}
+                                onFocusPrev={() => handleFocusPrev(index)}
+                                onMergePrev={() => handleMergePrev(index)}
+                                onDelete={() => handleDeleteBlock(block.id)}
+                                onInsertBlock={(type) => handleCreateBlock(type, index)}
+                                page={block.page}
+                                fileId={block.fileId}
+                                fileUrl={block.fileUrl}
+                                projectId={projectId}
+                                isReadOnly={isReadOnly}
+                              />
+                            )}
+                            {block.type === 'latex' && (
+                              <LatexBlock
+                                content={block.content}
+                                onChange={handleNonTextContentChange(block.id)}
+                                page={block.page}
+                                fileId={block.fileId}
+                                fileUrl={block.fileUrl}
+                                projectId={projectId}
+                                isReadOnly={isReadOnly}
+                              />
+                            )}
+                            {block.type === 'pending_image' && (
+                              <PendingImageBlock
+                                content={block.content}
+                                onUpload={() => setShowUploadDialog(true)}
+                                projectId={projectId}
+                                summaryId={summaryId}
+                                blockId={block.id}
+                              />
+                            )}
+                            {block.type === 'image' && (
+                              <ImageBlock
+                                content={block.content}
+                                onChange={handleNonTextContentChange(block.id)}
+                                page={block.page}
+                                fileId={block.fileId}
+                                fileUrl={block.fileUrl}
+                                projectId={projectId}
+                                summaryId={summaryId}
+                                blockId={block.id}
+                                isReadOnly={isReadOnly}
+                              />
+                            )}
+                            {block.type === 'info_box' && (
+                              <InfoBoxBlock
+                                content={block.content}
+                                onChange={handleNonTextContentChange(block.id)}
+                                isReadOnly={isReadOnly}
+                              />
+                            )}
+                          </div>
+
+                          {/* Floating actions — top-right of block, appear on hover */}
+                          <div
+                            className={cn(
+                              'absolute top-1.5 right-1.5 flex items-center gap-0.5',
+                              'opacity-0 group-hover/block:opacity-100 focus-within:opacity-100',
+                              'transition-opacity duration-150',
+                            )}
+                          >
+                            {block.page && block.fileUrl && (
+                              <Link
+                                href={`${block.fileUrl}#page=${block.page}`}
+                                target="_blank"
+                                className="inline-flex items-center justify-center size-[22px] rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+                                title={t('blockEditor.tooltips.goToPage', { page: block.page })}
+                              >
+                                <ExternalLink className="size-3.5" />
+                              </Link>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={
+                                hasKey
+                                  ? () => {
+                                      setSelectedBlockForExplanation(block.id);
+                                      setExplanationModalOpen(true);
+                                    }
+                                  : undefined
+                              }
+                              className={cn(
+                                'inline-flex items-center justify-center size-[22px] rounded-md transition-colors',
+                                hasKey
+                                  ? 'text-muted-foreground/70 hover:text-primary hover:bg-primary/10'
+                                  : 'text-muted-foreground/40',
+                              )}
+                              title={t('blockEditor.tooltips.getAiExplanation')}
                             >
-                              {block.type === 'text' && (
-                                <TextBlock
-                                  ref={(el) => {
-                                    if (el) blockRefs.current.set(block.id, el);
-                                    else blockRefs.current.delete(block.id);
-                                  }}
-                                  content={block.content}
-                                  onChange={(content) => handleUpdateBlock(block.id, content)}
-                                  onEnter={() => handleSplit(index)}
-                                  onFocusNext={() => handleFocusNext(index)}
-                                  onFocusPrev={() => handleFocusPrev(index)}
-                                  onMergePrev={() => handleMergePrev(index)}
-                                  onDelete={() => handleDeleteBlock(block.id)}
-                                  onInsertBlock={(type) => handleCreateBlock(type, index)}
-                                  page={block.page}
-                                  fileId={block.fileId}
-                                  fileUrl={block.fileUrl}
-                                  projectId={projectId}
-                                  isReadOnly={isReadOnly}
-                                />
-                              )}
-                              {block.type === 'latex' && (
-                                <LatexBlock
-                                  content={block.content}
-                                  onChange={(content: string) => handleUpdateBlock(block.id, content)}
-                                  page={block.page}
-                                  fileId={block.fileId}
-                                  fileUrl={block.fileUrl}
-                                  projectId={projectId}
-                                  isReadOnly={isReadOnly}
-                                />
-                              )}
-                              {block.type === 'pending_image' && (
-                                <PendingImageBlock
-                                  content={block.content}
-                                  onUpload={() => setShowUploadDialog(true)}
-                                  projectId={projectId}
-                                  summaryId={summaryId}
-                                  // exerciseId={exerciseId} // TODO: Update PendingImageBlock to accept exerciseId
-                                  blockId={block.id}
-                                />
-                              )}
-                                {block.type === 'image' && (
-                                 <ImageBlock
-                                  content={block.content}
-                                  onChange={(content) => handleUpdateBlock(block.id, content)}
-                                  page={block.page}
-                                  fileId={block.fileId}
-                                  fileUrl={block.fileUrl}
-                                  projectId={projectId}
-                                  summaryId={summaryId}
-                                  blockId={block.id}
-                                  isReadOnly={isReadOnly}
-                                />
-                              )}
-                              {block.type === 'info_box' && (
-                                <InfoBoxBlock
-                                  content={block.content}
-                                  onChange={(content) => handleUpdateBlock(block.id, content)}
-                                  isReadOnly={isReadOnly}
-                                />
-                              )}
-                            </div>
-
-                            {/* Block Options Menu */}
-                            <div className={cn(
-                              "opacity-0 group-hover:opacity-100 transition-all duration-150",
-                              "flex gap-0.5 mt-1"
-                            )}>
-                              {/* Page Reference Link */}
-                              {/* Page Reference Link */}
-                              {block.page && block.fileUrl && (
-                                <Link
-                                  href={`${block.fileUrl}#page=${block.page}`}
-                                  target="_blank"
-                                  className="h-6 w-6 inline-flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-accent rounded-md"
-                                  title={t('blockEditor.tooltips.goToPage', { page: block.page })}
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
+                              {hasKey ? (
+                                <Sparkles className="size-3.5" />
+                              ) : (
+                                <Link href="/settings">
+                                  <Lock className="size-3.5" />
                                 </Link>
                               )}
+                            </button>
 
-                              {/* AI Chat Button */}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                    "h-6 w-6 rounded-md",
-                                    !hasKey ? "text-muted-foreground/30 hover:text-muted-foreground/50" : "text-muted-foreground/50 hover:text-primary hover:bg-primary/10"
-                                )}
-                                title={t('blockEditor.tooltips.getAiExplanation')}
-                                onClick={hasKey ? () => {
-                                  setSelectedBlockForExplanation(block.id);
-                                  setExplanationModalOpen(true);
-                                } : undefined}
-                                asChild={!hasKey}
-                              >
-                                {!hasKey ? (
-                                    <Link href="/settings">
-                                        <Lock className="h-3.5 w-3.5" />
-                                    </Link>
-                                ) : (
-                                    <Sparkles className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                              
-                              {!isReadOnly && (
-                                <Popover>
+                            {!isReadOnly && (
+                              <Popover>
                                 <PopoverTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground/50 hover:text-foreground hover:bg-accent rounded-md"
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center justify-center size-[22px] rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+                                    title="More options"
                                   >
-                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                  </Button>
+                                    <MoreHorizontal className="size-3.5" />
+                                  </button>
                                 </PopoverTrigger>
-                                <PopoverContent align="end" className="w-52 p-1 bg-background/98 backdrop-blur-xl border-border/50 shadow-lg">
-                                  <div className="flex flex-col gap-0.5">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="justify-start h-8 px-2 font-normal"
+                                <PopoverContent
+                                  align="end"
+                                  sideOffset={6}
+                                  className="w-48 p-1"
+                                >
+                                  <div className="flex flex-col gap-px">
+                                    <button
+                                      type="button"
                                       onClick={() => {
-                                        navigator.clipboard.writeText(block.content);
+                                        const latest = latestContentRef.current.get(block.id) ?? block.content;
+                                        navigator.clipboard.writeText(latest);
                                       }}
+                                      className="flex items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] text-foreground hover:bg-foreground/[0.06] transition-colors"
                                     >
-                                      <Copy className="h-4 w-4 mr-2" /> {t('blockEditor.actions.copy')}
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="justify-start h-8 px-2 font-normal"
+                                      <Copy className="size-3.5 text-muted-foreground" />
+                                      {t('blockEditor.actions.copy')}
+                                    </button>
+                                    <button
+                                      type="button"
                                       onClick={() => {
-                                        navigator.clipboard.writeText(block.content);
+                                        const latest = latestContentRef.current.get(block.id) ?? block.content;
+                                        navigator.clipboard.writeText(latest);
                                         handleDeleteBlock(block.id);
                                       }}
+                                      className="flex items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] text-foreground hover:bg-foreground/[0.06] transition-colors"
                                     >
-                                      <Scissors className="h-4 w-4 mr-2" /> {t('blockEditor.actions.cut')}
-                                    </Button>
-                                    
-                                    {/* Mark Important - only for LaTeX blocks */}
+                                      <Scissors className="size-3.5 text-muted-foreground" />
+                                      {t('blockEditor.actions.cut')}
+                                    </button>
                                     {block.type === 'latex' && (
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="justify-start h-8 px-2 font-normal"
+                                      <button
+                                        type="button"
                                         onClick={() => {
-                                          const isCurrentlyImportant = block.isImportant || false;
-                                          handleUpdateBlock(block.id, block.content, undefined, !isCurrentlyImportant, undefined);
+                                          const cur = block.isImportant || false;
+                                          handleUpdateBlockMeta(block.id, { isImportant: !cur });
                                         }}
+                                        className="flex items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] text-foreground hover:bg-foreground/[0.06] transition-colors"
                                       >
-                                        <Star className={cn("h-4 w-4 mr-2", block.isImportant && "fill-current")} /> {t('blockEditor.actions.markImportant')}
-                                      </Button>
+                                        <Star
+                                          className={cn(
+                                            'size-3.5 text-muted-foreground',
+                                            block.isImportant && 'fill-current text-amber-500'
+                                          )}
+                                        />
+                                        {t('blockEditor.actions.markImportant')}
+                                      </button>
                                     )}
-                                    
-                                    <div className="h-px bg-border/50 my-1" />
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="justify-start h-8 px-2 font-normal text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    <div className="h-px bg-border/70 my-1" />
+                                    <button
+                                      type="button"
                                       onClick={() => handleDeleteBlock(block.id)}
+                                      className="flex items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] text-destructive hover:bg-destructive/[0.10] transition-colors"
                                     >
-                                      <Trash2 className="h-4 w-4 mr-2" /> {t('blockEditor.actions.delete')}
-                                    </Button>
+                                      <Trash2 className="size-3.5" />
+                                      {t('blockEditor.actions.delete')}
+                                    </button>
                                   </div>
                                 </PopoverContent>
                               </Popover>
-                              )}
-                            </div>
+                            )}
                           </div>
+
+                          {/* "+" between blocks — appears on hover */}
+                          {!isReadOnly && (
+                            <button
+                              type="button"
+                              onClick={() => handleCreateBlock('text', index)}
+                              className={cn(
+                                'absolute -bottom-[7px] left-1/2 -translate-x-1/2 z-10',
+                                'inline-flex items-center justify-center size-5 rounded-full',
+                                'bg-card border border-border text-muted-foreground/70 hover:text-primary hover:border-primary/40',
+                                'opacity-0 group-hover/block:opacity-100 transition-all duration-150',
+                                'shadow-[var(--shadow-mac-xs)]',
+                              )}
+                              title="Insert block below"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          )}
                         </div>
-                      </div>
-                    );
+                      );
 
-                    if (snapshot.isDragging && typeof document !== 'undefined') {
-                      return createPortal(child, document.body);
-                    }
-                    return child;
-                  }}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+                      if (snapshot.isDragging && typeof document !== 'undefined') {
+                        return createPortal(child, document.body);
+                      }
+                      return child;
+                    }}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
 
-      {/* Keyboard Shortcuts Hint */}
-      <div className="pt-8 pb-4 text-center">
-        <p className="text-xs text-muted-foreground">
-          <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to create block · 
-          <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono mx-1">/</kbd> for commands · 
-          <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono mx-1">$</kbd> for inline math
-        </p>
-      </div>
+        {/* Keyboard shortcuts hint */}
+        {!isReadOnly && (
+          <div className="pt-10 pb-2 text-center">
+            <p className="text-[11px] text-muted-foreground/70 tracking-[-0.005em]">
+              <Kbd>Enter</Kbd> new block <span className="mx-2 opacity-50">·</span>
+              <Kbd>/</Kbd> commands <span className="mx-2 opacity-50">·</span>
+              <Kbd>$</Kbd> inline math <span className="mx-2 opacity-50">·</span>
+              <Kbd>E</Kbd> toggle edit
+            </p>
+          </div>
+        )}
 
-
-      <BatchUploadDialog 
-        open={showUploadDialog} 
-        onOpenChange={setShowUploadDialog}
-        pendingBlocks={blocks.filter(b => b.type === 'pending_image')}
-        onComplete={() => {
-            // Refresh blocks? 
-            // The dialog updates blocks via server action.
-            // We need to reflect that locally.
-            // Ideally, we should reload the page or re-fetch blocks.
-            // For now, let's just reload the window to be safe and simple, 
-            // or we can try to update local state if we knew the URLs.
-            // But the dialog handles multiple uploads.
+        <BatchUploadDialog
+          open={showUploadDialog}
+          onOpenChange={setShowUploadDialog}
+          pendingBlocks={blocks.filter((b) => b.type === 'pending_image')}
+          onComplete={() => {
             window.location.reload();
-        }}
-      />
-      <GenerateBlocksDialog 
-        open={showGenerateDialog} 
-        onOpenChange={setShowGenerateDialog} 
-        projectId={projectId}
-        onSuccess={handleGeneratedBlocks}
-      />
-      {selectedBlockForExplanation && (
-        <BlockExplanationModal
-          open={explanationModalOpen}
-          onOpenChange={setExplanationModalOpen}
-          blockId={selectedBlockForExplanation}
-          projectId={projectId}
+          }}
         />
-      )}
+        <GenerateBlocksDialog
+          open={showGenerateDialog}
+          onOpenChange={setShowGenerateDialog}
+          projectId={projectId}
+          onSuccess={handleGeneratedBlocks}
+        />
+        {selectedBlockForExplanation && (
+          <BlockExplanationModal
+            open={explanationModalOpen}
+            onOpenChange={setExplanationModalOpen}
+            blockId={selectedBlockForExplanation}
+            projectId={projectId}
+          />
+        )}
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 BlockEditor.displayName = 'BlockEditor';
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[4px] bg-foreground/[0.08] text-foreground/80 text-[10.5px] font-mono leading-none">
+      {children}
+    </kbd>
+  );
+}

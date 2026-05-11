@@ -1,6 +1,23 @@
 import { BubbleMenu } from '@tiptap/react/menus';
 import { isTextSelection } from '@tiptap/core';
-import { Bold, Italic, Strikethrough, Code, Sigma, Highlighter, Underline as UnderlineIcon, ChevronDown, Type, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote } from 'lucide-react';
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  Sigma,
+  Highlighter,
+  Underline as UnderlineIcon,
+  ChevronDown,
+  Type,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  ListTodo,
+  Quote,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Editor } from '@tiptap/core';
 import { EditorState } from '@tiptap/pm/state';
@@ -14,7 +31,7 @@ export interface EditorBubbleMenuProps {
 
 const BLOCK_TYPES = [
   {
-    name: 'Paragraph',
+    name: 'Text',
     icon: Type,
     command: (editor: Editor) => editor.chain().focus().setParagraph().run(),
     isActive: (editor: Editor) => editor.isActive('paragraph'),
@@ -63,174 +80,167 @@ const BLOCK_TYPES = [
   },
 ];
 
+function ToolbarBtn({
+  active,
+  onClick,
+  title,
+  children,
+}: {
+  active?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'inline-flex items-center justify-center size-7 rounded-[6px]',
+        'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.08]',
+        'transition-colors duration-120 ease-[cubic-bezier(0.16,1,0.3,1)]',
+        active && 'bg-primary/12 text-primary hover:bg-primary/18 hover:text-primary'
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function EditorBubbleMenu({ editor, className }: EditorBubbleMenuProps) {
   const [open, setOpen] = useState(false);
 
-  if (!editor) {
-    return null;
-  }
+  if (!editor) return null;
 
-  const activeBlockType = BLOCK_TYPES.find(type => type.isActive(editor));
-  const ActiveIcon = activeBlockType?.icon || Type;
+  const activeBlockType = BLOCK_TYPES.find((type) => type.isActive(editor));
+  const ActiveIcon = activeBlockType?.icon ?? Type;
 
   return (
     <BubbleMenu
       editor={editor}
       shouldShow={({ editor, state }: { editor: Editor; state: EditorState }) => {
-        // Only show if selection is text and not empty
         return !editor.isEmpty && isTextSelection(state.selection) && !state.selection.empty;
       }}
       className={cn(
-        "flex w-fit rounded-full border border-border/50 bg-card/90 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200",
+        'flex items-center gap-0.5',
+        'rounded-[10px] p-1',
+        'vibrancy-strong shadow-[var(--shadow-mac-lg)]',
+        'animate-in fade-in zoom-in-95 duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
         className
       )}
     >
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 opacity-50 pointer-events-none" />
-      
-      <div className="relative flex">
-        {/* Block Type Selector */}
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <button
-              className={cn(
-                "flex items-center gap-1 px-2.5 py-2.5 hover:bg-primary/10 transition-all duration-200",
-                open && "bg-primary/20"
-              )}
-              title="Text format"
-            >
-              <ActiveIcon className="h-4 w-4" />
-              <ChevronDown className="h-3 w-3 opacity-70" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent 
-            className="w-48 p-1 bg-card/95 backdrop-blur-xl border-border/50"
-            align="start"
-            sideOffset={8}
+      {/* Block type selector */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'inline-flex items-center gap-1 h-7 px-2 rounded-[6px]',
+              'text-[12px] font-medium text-foreground/80 hover:text-foreground hover:bg-foreground/[0.08]',
+              'transition-colors duration-120',
+              open && 'bg-foreground/[0.10] text-foreground'
+            )}
+            title="Text format"
           >
-            <div className="flex flex-col gap-0.5">
-              {BLOCK_TYPES.map((type) => {
-                const Icon = type.icon;
-                const isActive = type.isActive(editor);
-                return (
-                  <button
-                    key={type.name}
-                    onClick={() => {
-                      type.command(editor);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all",
-                      isActive 
-                        ? "bg-primary/20 text-primary font-medium" 
-                        : "hover:bg-accent/50"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{type.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </PopoverContent>
-        </Popover>
-        
-        <div className="w-px bg-border/50" />
+            <ActiveIcon className="size-3.5" />
+            <span className="hidden sm:inline">{activeBlockType?.name ?? 'Text'}</span>
+            <ChevronDown className="size-3 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-44 p-1" align="start" sideOffset={8}>
+          <div className="flex flex-col gap-px">
+            {BLOCK_TYPES.map((type) => {
+              const Icon = type.icon;
+              const isActive = type.isActive(editor);
+              return (
+                <button
+                  key={type.name}
+                  onClick={() => {
+                    type.command(editor);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    'flex items-center gap-2 px-2 py-[5px] rounded-[6px] text-[13px] text-left',
+                    'transition-colors duration-75',
+                    isActive
+                      ? 'bg-primary text-primary-foreground [&_svg]:text-primary-foreground'
+                      : 'text-foreground hover:bg-foreground/[0.06]'
+                  )}
+                >
+                  <Icon className="size-3.5 text-muted-foreground" />
+                  <span>{type.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
 
-        {/* Inline Formatting */}
-        <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('bold') && "bg-primary/20 text-primary"
-          )}
-          title="Bold (Cmd+B)"
-        >
-          <Bold className="h-4 w-4" />
-        </button>
-        <div className="w-px bg-border/50" />
-        <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('italic') && "bg-primary/20 text-primary"
-          )}
-          title="Italic (Cmd+I)"
-        >
-          <Italic className="h-4 w-4" />
-        </button>
-        <div className="w-px bg-border/50" />
-        <button
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('strike') && "bg-primary/20 text-primary"
-          )}
-          title="Strikethrough"
-        >
-          <Strikethrough className="h-4 w-4" />
-        </button>
-        <div className="w-px bg-border/50" />
-        <button
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('underline') && "bg-primary/20 text-primary"
-          )}
-          title="Underline (Cmd+U)"
-        >
-          <UnderlineIcon className="h-4 w-4" />
-        </button>
-        <div className="w-px bg-border/50" />
-        <button
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('code') && "bg-primary/20 text-primary"
-          )}
-          title="Inline Code"
-        >
-          <Code className="h-4 w-4" />
-        </button>
-        <div className="w-px bg-border/50" />
-        <button
-          onClick={() => editor.chain().focus().toggleHighlight().run()}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('highlight') && "bg-primary/20 text-primary"
-          )}
-          title="Highlight"
-        >
-          <Highlighter className="h-4 w-4" />
-        </button>
-        <div className="w-px bg-border/50" />
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return;
-            
-            const text = editor.state.doc.textBetween(from, to);
-            
-            // Should properly replace the selection with the inline math node
-            editor
-              .chain()
-              .focus()
-              .insertContent({ 
-                type: 'inlineMath', 
-                attrs: { content: text } 
-              })
-              .run();
-          }}
-          className={cn(
-            "p-2.5 hover:bg-primary/10 transition-all duration-200 hover:scale-110",
-            editor.isActive('inlineMath') && "bg-primary/20 text-primary"
-          )}
-          title="Insert Math (or type $)"
-        >
-          <Sigma className="h-4 w-4" />
-        </button>
-      </div>
+      <span className="w-px h-4 bg-border/70 mx-0.5" />
+
+      <ToolbarBtn
+        active={editor.isActive('bold')}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        title="Bold (⌘B)"
+      >
+        <Bold className="size-3.5" />
+      </ToolbarBtn>
+      <ToolbarBtn
+        active={editor.isActive('italic')}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        title="Italic (⌘I)"
+      >
+        <Italic className="size-3.5" />
+      </ToolbarBtn>
+      <ToolbarBtn
+        active={editor.isActive('underline')}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        title="Underline (⌘U)"
+      >
+        <UnderlineIcon className="size-3.5" />
+      </ToolbarBtn>
+      <ToolbarBtn
+        active={editor.isActive('strike')}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        title="Strikethrough"
+      >
+        <Strikethrough className="size-3.5" />
+      </ToolbarBtn>
+
+      <span className="w-px h-4 bg-border/70 mx-0.5" />
+
+      <ToolbarBtn
+        active={editor.isActive('code')}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        title="Inline code"
+      >
+        <Code className="size-3.5" />
+      </ToolbarBtn>
+      <ToolbarBtn
+        active={editor.isActive('highlight')}
+        onClick={() => editor.chain().focus().toggleHighlight().run()}
+        title="Highlight"
+      >
+        <Highlighter className="size-3.5" />
+      </ToolbarBtn>
+      <ToolbarBtn
+        active={editor.isActive('inlineMath')}
+        onClick={(e) => {
+          e.preventDefault();
+          const { from, to, empty } = editor.state.selection;
+          if (empty) return;
+          const text = editor.state.doc.textBetween(from, to);
+          editor
+            .chain()
+            .focus()
+            .insertContent({ type: 'inlineMath', attrs: { content: text } })
+            .run();
+        }}
+        title="Inline math (or type $)"
+      >
+        <Sigma className="size-3.5" />
+      </ToolbarBtn>
     </BubbleMenu>
   );
 }

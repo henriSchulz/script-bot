@@ -5,13 +5,21 @@ import { useLanguage } from "@/components/language-provider";
 import { BlockEditor, BlockEditorHandle } from "@/components/editor/block-editor";
 import { getSummary, getSummaries } from "@/app/actions/summaries";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, ChevronRight, Check, Upload, Home, FileText, Download, Eye, Edit3, List } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Check,
+  Upload,
+  Download,
+  Eye,
+  Edit3,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Progress } from "@/components/ui/progress";
 import { exportSummaryToPDF } from "@/lib/pdf-export";
+import { cn } from "@/lib/utils";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 
 interface SummaryPageProps {
@@ -26,7 +34,6 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const [summary, setSummary] = useState<any>(null);
   const [allSummaries, setAllSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [hasPendingBlocks, setHasPendingBlocks] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -47,21 +54,17 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
   const handleExportPDF = async () => {
     if (!editorContentRef.current) return;
-    
+
     setIsExporting(true);
     setExportProgress(0);
     setExportStatus('Starting export...');
-    
-    // Use requestAnimationFrame to ensure the UI updates (showing the loader) 
-    // before the heavy synchronous work of PDF generation begins.
+
     requestAnimationFrame(() => {
-      // A small timeout to allow the browser to paint the loader
       setTimeout(async () => {
         try {
           if (!editorContentRef.current) return;
-          
           await exportSummaryToPDF(
-            summary.title, 
+            summary.title,
             editorContentRef.current,
             (progress, status) => {
               setExportProgress(progress);
@@ -70,7 +73,6 @@ export default function SummaryPage({ params }: SummaryPageProps) {
           );
         } catch (error) {
           console.error('Export failed:', error);
-          // Show error in a more user-friendly way if needed, but alert is fine for now as fallback
           alert('Failed to export PDF. Please try again.');
         } finally {
           setIsExporting(false);
@@ -96,23 +98,20 @@ export default function SummaryPage({ params }: SummaryPageProps) {
     });
   }, [resolvedParams.summaryId, resolvedParams.id]);
 
-  // Keyboard shortcuts: toggle read-only mode and open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K or Ctrl+K to open search
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearchOpen(true);
         return;
       }
-      
-      // 'e' to toggle read-only mode
+
       if (e.key.toLowerCase() === 'e') {
         const activeElement = document.activeElement;
-        const isInput = activeElement instanceof HTMLInputElement || 
-                        activeElement instanceof HTMLTextAreaElement || 
+        const isInput = activeElement instanceof HTMLInputElement ||
+                        activeElement instanceof HTMLTextAreaElement ||
                         (activeElement instanceof HTMLElement && activeElement.isContentEditable);
-        
+
         if (!isInput) {
           e.preventDefault();
           setIsReadOnly((prev) => !prev);
@@ -124,23 +123,30 @@ export default function SummaryPage({ params }: SummaryPageProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Reading progress on scroll
+  // Reading progress on scroll — used by the thin top progress bar
   useEffect(() => {
+    let rafId = 0;
     const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      setScrollProgress(docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0);
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const scrollTop = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        setScrollProgress(docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0);
+      });
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground text-sm">Loading summary...</p>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <p className="text-[12.5px] text-muted-foreground tracking-[-0.005em]">Loading…</p>
         </div>
       </div>
     );
@@ -148,13 +154,13 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
   if (!summary) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 bg-gradient-to-br from-background via-background to-accent/5">
-        <div className="text-center space-y-4 p-8 rounded-3xl bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl">
-          <h1 className="text-3xl font-bold">Summary not found</h1>
-          <p className="text-muted-foreground">This summary may have been deleted or doesn't exist.</p>
-          <Button asChild className="mt-4">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-5 bg-background px-6">
+        <div className="text-center max-w-md vibrancy-strong rounded-[16px] p-8 shadow-[var(--shadow-mac-lg)]">
+          <h1 className="text-[20px] font-semibold tracking-[-0.018em]">Summary not found</h1>
+          <p className="mt-1.5 text-[13px] text-muted-foreground">This summary may have been deleted.</p>
+          <Button asChild className="mt-5">
             <Link href={`/projects/${resolvedParams.id}`}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft />
               Back to Project
             </Link>
           </Button>
@@ -164,145 +170,144 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
-      {/* Global Search Modal */}
-      <UnifiedSearchModal 
+    <div className="min-h-screen bg-background">
+      <UnifiedSearchModal
         projectId={resolvedParams.id}
         open={searchOpen}
         onOpenChange={setSearchOpen}
       />
-      {/* Fullscreen Loading Overlay */}
+
+      {/* Export overlay */}
       {isExporting && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md space-y-6 p-8 rounded-2xl bg-card border border-border shadow-2xl text-center">
-            <div className="relative mx-auto h-16 w-16">
-              <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-              <Download className="absolute inset-0 m-auto h-6 w-6 text-primary" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-[6px] dark:bg-background/60 animate-mac-fade-in">
+          <div className="w-full max-w-sm space-y-5 p-7 rounded-[16px] vibrancy-strong shadow-[var(--shadow-mac-xl)] text-center">
+            <div className="relative mx-auto size-12">
+              <div className="absolute inset-0 rounded-full border-[3px] border-primary/15" />
+              <div className="absolute inset-0 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
+              <Download className="absolute inset-0 m-auto size-4 text-primary" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold tracking-tight">Exporting PDF</h3>
-              <p className="text-sm text-muted-foreground">{exportStatus}</p>
+            <div>
+              <h3 className="text-[15px] font-semibold tracking-[-0.012em]">Exporting PDF</h3>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">{exportStatus}</p>
             </div>
-            <div className="space-y-2">
-              <Progress value={exportProgress} className="h-2" />
-              <p className="text-xs text-muted-foreground text-right">{Math.round(exportProgress)}%</p>
+            <div className="space-y-1.5">
+              <Progress value={exportProgress} />
+              <p className="text-[11px] text-muted-foreground/80 text-right tabular-nums">
+                {Math.round(exportProgress)}%
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Animated gradient background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-50 pointer-events-none" />
-      
-      <div className="relative">
-        <div className="max-w-5xl mx-auto px-6 md:px-8 py-8 space-y-6">
-          {/* Modern Header with Breadcrumbs */}
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-            {/* Breadcrumb Navigation */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link 
-                href={`/projects/${resolvedParams.id}`}
-                className="hover:text-foreground transition-colors flex items-center gap-1 group"
-              >
-                <ArrowLeft className="h-3 w-3 group-hover:-translate-x-1 transition-transform" />
-                <span>Back to Project</span>
-              </Link>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-foreground font-medium">Summary</span>
-            </div>
-
-            {/* Title Section */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2 flex-1">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
-                  {summary.title}
-                </h1>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Check className="h-3 w-3 text-green-500" />
-                    <span>Auto-saved</span>
-                  </span>
-                  <span>•</span>
-                  <span>Just now</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {/* Read-Only Mode Toggle */}
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/50 bg-background/50">
-                  <Switch
-                    id="readonly-mode"
-                    checked={isReadOnly}
-                    onCheckedChange={setIsReadOnly}
-                  />
-                  <Label htmlFor="readonly-mode" className="text-sm cursor-pointer flex items-center gap-1.5">
-                    <Eye className="h-3.5 w-3.5" />
-                    Read-only
-                  </Label>
-                </div>
-
-                {hasPendingBlocks && (
-                  <Button 
-                    variant="outline" 
-                    className="gap-2 border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-950/30 animate-in fade-in slide-in-from-right-4"
-                    onClick={() => editorRef.current?.openBatchUploadDialog()}
-                  >
-                    <Upload className="h-4 w-4" />
-                    Upload Missing Images
-                  </Button>
-                )}
-                
-                <Button 
-                  variant="default"
-                  onClick={handleExportPDF}
-                  disabled={isExporting}
-                  className="gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Export PDF
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Editor + Sidebars Layout */}
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 flex gap-4 items-start">
-            <div className="relative rounded-3xl bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl overflow-hidden flex-1">
-              {/* Subtle gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3 opacity-50 pointer-events-none" />
-              
-              {/* Editor Content */}
-              <div ref={editorContentRef} className="relative p-8 md:p-12 min-h-[calc(100vh-16rem)]">
-                <BlockEditor 
-                  key={summary.blocks?.map((b: any) => b.id + b.type).join(',')}
-                  ref={editorRef}
-                  summaryId={summary.id} 
-                  projectId={resolvedParams.id}
-                  initialBlocks={summary.blocks || []} 
-                  onPendingBlocksChange={setHasPendingBlocks}
-                  isReadOnly={isReadOnly}
-                  onChatAboutBlock={handleChatAboutBlock}
-                />
-              </div>
-            </div>
-
-            {/* Reading Progress Sidebar */}
-            <div className="hidden lg:flex flex-col items-center gap-2 sticky top-8 self-start pt-2 select-none">
-              <span className="text-xs font-semibold text-muted-foreground tabular-nums">
-                {Math.round(scrollProgress)}%
-              </span>
-              <div className="relative w-1.5 rounded-full bg-muted overflow-hidden" style={{ height: '280px' }}>
-                <div
-                  className="absolute inset-x-0 top-0 rounded-full bg-primary transition-all duration-150"
-                  style={{ height: `${scrollProgress}%` }}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground/60 tabular-nums">100%</span>
-            </div>
+      {/* Toolbar */}
+      <header className="sticky top-0 z-30 mac-toolbar flex flex-col">
+        <div className="h-12 flex items-center px-4 gap-3">
+        <span className="mac-traffic-lights" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+        <Button asChild variant="toolbar" size="icon-sm" className="ml-1">
+          <Link href={`/projects/${resolvedParams.id}`} aria-label="Back to project">
+            <ArrowLeft className="size-[15px]" />
+          </Link>
+        </Button>
+        <div className="flex-1 text-center min-w-0 px-4">
+          <div className="flex items-center justify-center gap-1.5 text-[12.5px] font-medium text-foreground/80 tracking-[-0.005em] truncate">
+            <span className="truncate">{summary.title}</span>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/80 ml-1.5 shrink-0">
+              <Check className="size-[11px] text-emerald-500" />
+              Saved
+            </span>
           </div>
         </div>
-      </div>
+        <div className="flex items-center gap-1.5">
+          {/* Edit / Read-only toggle */}
+          <label
+            className={cn(
+              "inline-flex items-center gap-2 px-2.5 h-[26px] rounded-[7px]",
+              "text-[12px] font-medium cursor-pointer select-none",
+              "text-foreground/80 hover:bg-foreground/[0.06] transition-colors"
+            )}
+            title="Toggle edit mode (E)"
+          >
+            {isReadOnly ? <Eye className="size-[13px]" /> : <Edit3 className="size-[13px]" />}
+            <span>{isReadOnly ? "Read" : "Edit"}</span>
+            <Switch
+              checked={!isReadOnly}
+              onCheckedChange={(v) => setIsReadOnly(!v)}
+              className="scale-[0.85] -ml-0.5"
+            />
+          </label>
+
+          {hasPendingBlocks && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="animate-mac-fade-in"
+              onClick={() => editorRef.current?.openBatchUploadDialog()}
+            >
+              <Upload className="size-[13px]" />
+              <span>Upload images</span>
+            </Button>
+          )}
+
+          <Button onClick={handleExportPDF} disabled={isExporting} size="sm">
+            <Download className="size-[13px]" />
+            <span>Export PDF</span>
+          </Button>
+        </div>
+        </div>
+        {/* Reading progress — thin bar */}
+        <div className="relative h-[2px] bg-transparent">
+          <div
+            className="absolute inset-y-0 left-0 bg-primary/80 rounded-r-full transition-[width] duration-100 ease-linear"
+            style={{ width: `${scrollProgress}%` }}
+            aria-hidden="true"
+          />
+        </div>
+      </header>
+
+      {/* Document surface */}
+      <main className="relative">
+        <div className="mx-auto max-w-3xl px-6 md:px-10 pt-12 pb-24">
+          {/* Document title */}
+          <div className="animate-mac-fade-in mb-10">
+            <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground/70 mb-3">
+              Summary
+            </p>
+            <h1 className="text-[40px] md:text-[48px] leading-[1.05] font-semibold tracking-[-0.03em]">
+              {summary.title}
+            </h1>
+            <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground/80">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="relative flex size-1.5">
+                  <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                </span>
+                Auto-saved
+              </span>
+            </div>
+          </div>
+
+          {/* Editor — flat document surface, no card-in-card */}
+          <div
+            ref={editorContentRef}
+            className="animate-mac-fade-in [animation-delay:80ms]"
+          >
+            <BlockEditor
+              key={summary.blocks?.map((b: any) => b.id + b.type).join(',')}
+              ref={editorRef}
+              summaryId={summary.id}
+              projectId={resolvedParams.id}
+              initialBlocks={summary.blocks || []}
+              onPendingBlocksChange={setHasPendingBlocks}
+              isReadOnly={isReadOnly}
+              onChatAboutBlock={handleChatAboutBlock}
+            />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

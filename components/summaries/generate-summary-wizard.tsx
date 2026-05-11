@@ -1,11 +1,31 @@
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { AiLock } from "@/components/ai/ai-lock";
 import { useAiKey } from "@/hooks/use-ai-key";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { generateSummaryFromFiles } from "@/app/actions/ai";
 import { getFiles } from "@/app/actions/files";
-import { Loader2, Plus, Sparkles, FileText, Settings, Check, ArrowRight, ArrowLeft, Image as ImageIcon, X, GraduationCap } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  FileText,
+  Settings,
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  Image as ImageIcon,
+  GraduationCap,
+} from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -16,6 +36,13 @@ interface CreateSummaryWizardProps {
 }
 
 type Step = 1 | 2 | 3 | 4;
+
+const STEPS = [
+  { n: 1 as Step, icon: Sparkles },
+  { n: 2 as Step, icon: FileText },
+  { n: 3 as Step, icon: Settings },
+  { n: 4 as Step, icon: Check },
+];
 
 export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWizardProps) {
   const { dict } = useLanguage();
@@ -29,34 +56,31 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
   const [title, setTitle] = useState("");
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [focus, setFocus] = useState("");
-  const [imageHandling, setImageHandling] = useState<'google' | 'manual' | 'none'>('manual');
-  const [detailLevel, setDetailLevel] = useState<'reduced' | 'standard' | 'detailed'>('standard');
-  const [explanationStyle, setExplanationStyle] = useState<'standard' | 'intuitive' | 'practice' | 'academic' | 'compact'>('standard');
+  const [imageHandling, setImageHandling] = useState<"google" | "manual" | "none">("manual");
+  const [detailLevel, setDetailLevel] = useState<"reduced" | "standard" | "detailed">("standard");
+  const [explanationStyle, setExplanationStyle] = useState<
+    "standard" | "intuitive" | "practice" | "academic" | "compact"
+  >("standard");
 
-  // Files list
+  // Files
   const [files, setFiles] = useState<any[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
 
-  // UI state
-  const [titleFocused, setTitleFocused] = useState(false);
-
-  const canProceedFromStep1 = true;
+  const canProceedFromStep1 = title.trim().length > 0;
   const canProceedFromStep2 = selectedFileIds.length > 0;
 
   const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep((currentStep + 1) as Step);
-    }
+    if (currentStep === 1 && !canProceedFromStep1) return;
+    if (currentStep === 2 && !canProceedFromStep2) return;
+    if (currentStep < 4) setCurrentStep((currentStep + 1) as Step);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep((currentStep - 1) as Step);
-    }
+    if (currentStep > 1) setCurrentStep((currentStep - 1) as Step);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, canProceed: boolean) => {
-    if (e.key === "Enter" && canProceed && currentStep < 4) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && currentStep < 4) {
       e.preventDefault();
       handleNext();
     } else if (e.key === "Escape" && currentStep > 1) {
@@ -68,41 +92,31 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
   const handleOpenChange = async (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen && !filesLoaded) {
-      // Load files when dialog opens
       const result = await getFiles(projectId, "upload");
       if (result.files) {
         setFiles(result.files);
         setFilesLoaded(true);
       }
     }
-    
-    // Reset state when closing
     if (!newOpen) {
       setCurrentStep(1);
       setTitle("");
       setSelectedFileIds([]);
       setFocus("");
-      setImageHandling('manual');
-      setDetailLevel('standard');
-      setExplanationStyle('standard');
+      setImageHandling("manual");
+      setDetailLevel("standard");
+      setExplanationStyle("standard");
     }
   };
 
   const toggleFileSelection = (fileId: string) => {
-    setSelectedFileIds(prev =>
-      prev.includes(fileId)
-        ? prev.filter(id => id !== fileId)
-        : [...prev, fileId]
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
     );
   };
 
-  const selectAllFiles = () => {
-    setSelectedFileIds(files.map(f => f.id));
-  };
-
-  const deselectAllFiles = () => {
-    setSelectedFileIds([]);
-  };
+  const selectAllFiles = () => setSelectedFileIds(files.map((f) => f.id));
+  const deselectAllFiles = () => setSelectedFileIds([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,14 +132,12 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
         detailLevel,
         explanationStyle
       );
-      
       if (result.success && result.summaryId) {
         setOpen(false);
         onSuccess?.();
         router.push(`/projects/${projectId}/summaries/${result.summaryId}`);
       } else {
         console.error(result.error);
-        // TODO: Show error toast
       }
     });
   };
@@ -133,430 +145,394 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Sparkles className="h-4 w-4" />
+        <Button variant="outline">
+          <Sparkles />
           {dict.summaryWizard.button}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl p-0 border bg-background overflow-hidden rounded-xl shadow-xl">
+      <DialogContent
+        className="sm:max-w-[640px] p-0 gap-0 overflow-hidden"
+        showCloseButton={true}
+      >
         <DialogTitle className="sr-only">Generate Summary Wizard</DialogTitle>
         {!hasKey ? (
-          <div className="min-h-[500px] flex items-center justify-center">
-             <AiLock className="w-full max-w-md mx-auto" />
-
+          <div className="min-h-[460px] flex items-center justify-center p-8">
+            <AiLock className="w-full max-w-md mx-auto" />
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="relative">
-          {/* Step Container */}
-          <div className="relative overflow-hidden bg-background">
-            
-            <div className="relative p-8 min-h-[500px]">
-              {/* Step 1: Title */}
+          <form onSubmit={handleSubmit} className="flex flex-col" onKeyDown={handleKeyDown}>
+            {/* Stepper bar */}
+            <div className="flex items-center justify-center gap-1.5 pt-5 pb-2">
+              {STEPS.map((s) => {
+                const isActive = s.n === currentStep;
+                const isDone = s.n < currentStep;
+                return (
+                  <div key={s.n} className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-flex items-center justify-center size-6 rounded-full text-[11px] font-semibold tabular-nums",
+                        "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                        isActive && "bg-primary text-primary-foreground shadow-[var(--inner-highlight-strong)]",
+                        isDone && "bg-primary/15 text-primary",
+                        !isActive && !isDone && "bg-foreground/[0.08] text-muted-foreground"
+                      )}
+                    >
+                      {isDone ? <Check className="size-3 stroke-[3]" /> : s.n}
+                    </span>
+                    {s.n < STEPS.length && (
+                      <span
+                        className={cn(
+                          "h-px w-5 rounded-full transition-colors duration-300",
+                          isDone ? "bg-primary/40" : "bg-border"
+                        )}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Step content */}
+            <div className="px-8 py-6 min-h-[360px]">
               {currentStep === 1 && (
-                <div key="step1" className="animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        <span>{dict.summaryWizard.steps.step1.subtitle}</span>
+                <div className="animate-mac-fade-in space-y-6">
+                  <StepHeader
+                    icon={<Sparkles className="size-3.5 text-primary" />}
+                    eyebrow={dict.summaryWizard.steps.step1.subtitle}
+                    title={dict.summaryWizard.steps.step1.title}
+                    description={dict.summaryWizard.steps.step1.description}
+                  />
+                  <div className="space-y-2">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder={dict.summaryWizard.steps.step1.titlePlaceholder}
+                      autoFocus
+                      autoComplete="off"
+                      className="h-11 text-[16px] tracking-[-0.012em]"
+                    />
+                    <HintRow>
+                      <Kbd>Enter</Kbd> <span>{dict.common.toContinue}</span>
+                    </HintRow>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 2 && (
+                <div className="animate-mac-fade-in space-y-6">
+                  <StepHeader
+                    icon={<FileText className="size-3.5 text-primary" />}
+                    eyebrow={dict.summaryWizard.steps.step2.subtitle}
+                    title={dict.summaryWizard.steps.step2.title}
+                    description={dict.summaryWizard.steps.step2.description}
+                  />
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2 text-[12px]">
+                      <span className="text-muted-foreground">
+                        {dict.summaryWizard.files.selected.replace("{count}", selectedFileIds.length.toString())}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={selectAllFiles}
+                          disabled={selectedFileIds.length === files.length}
+                        >
+                          {dict.summaryWizard.files.selectAll}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={deselectAllFiles}
+                          disabled={selectedFileIds.length === 0}
+                        >
+                          {dict.summaryWizard.files.deselectAll}
+                        </Button>
                       </div>
-                      <h2 className="text-2xl font-bold text-foreground">
-                        {dict.summaryWizard.steps.step1.title}
-                      </h2>
-                      <p className="text-muted-foreground">
-                        {dict.summaryWizard.steps.step1.description}
-                      </p>
                     </div>
 
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        onFocus={() => setTitleFocused(true)}
-                        onBlur={() => setTitleFocused(false)}
-                        onKeyDown={(e) => handleKeyDown(e, canProceedFromStep1)}
-                        placeholder={dict.summaryWizard.steps.step1.titlePlaceholder}
-                        className={cn(
-                          "w-full bg-transparent text-3xl font-bold tracking-tight",
-                          "placeholder:text-muted-foreground/20",
-                          "border-b border-border focus:border-primary",
-                          "focus:outline-none py-4 transition-all duration-300",
-                        )}
-                        autoFocus
-                        autoComplete="off"
+                    <div className="mac-card overflow-hidden">
+                      <ScrollArea className="max-h-[260px]">
+                        <div className="p-1">
+                          {files.length === 0 ? (
+                            <p className="text-center text-muted-foreground py-10 text-[13px]">
+                              {dict.summaryWizard.files.noFiles}
+                            </p>
+                          ) : (
+                            files.map((file) => {
+                              const selected = selectedFileIds.includes(file.id);
+                              return (
+                                <button
+                                  key={file.id}
+                                  type="button"
+                                  onClick={() => toggleFileSelection(file.id)}
+                                  className={cn(
+                                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[7px] text-left",
+                                    "transition-colors duration-100",
+                                    selected ? "bg-primary/10" : "hover:bg-foreground/[0.05]"
+                                  )}
+                                >
+                                  <Checkbox
+                                    checked={selected}
+                                    onCheckedChange={() => toggleFileSelection(file.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={file.name}
+                                  />
+                                  <FileText className="size-3.5 text-muted-foreground shrink-0" />
+                                  <span className={cn("flex-1 truncate text-[13px]", selected && "text-foreground font-medium")}>
+                                    {file.name}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+
+                  <HintRow>
+                    <Kbd>Enter</Kbd> {dict.common.toContinue} <span className="mx-1 text-muted-foreground/50">·</span>
+                    <Kbd>Esc</Kbd> {dict.common.toGoBack}
+                  </HintRow>
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div className="animate-mac-fade-in space-y-6">
+                  <StepHeader
+                    icon={<Settings className="size-3.5 text-primary" />}
+                    eyebrow={dict.summaryWizard.steps.step3.subtitle}
+                    title={dict.summaryWizard.steps.step3.title}
+                    description={dict.summaryWizard.steps.step3.description}
+                  />
+
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-medium text-muted-foreground tracking-[-0.005em]">
+                        {dict.summaryWizard.options.focusLabel}
+                      </label>
+                      <Input
+                        value={focus}
+                        onChange={(e) => setFocus(e.target.value)}
+                        placeholder={dict.summaryWizard.options.focusPlaceholder}
                       />
                     </div>
 
-                    <p className={cn(
-                      "text-muted-foreground text-sm transition-all duration-500",
-                      titleFocused || title ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-                    )}>
-                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {dict.common.toContinue}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: File Selection */}
-              {currentStep === 2 && (
-                <div key="step2" className="animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span>{dict.summaryWizard.steps.step2.subtitle}</span>
-                      </div>
-                      <h2 className="text-2xl font-bold text-foreground">
-                        {dict.summaryWizard.steps.step2.title}
-                      </h2>
-                      <p className="text-muted-foreground">
-                        {dict.summaryWizard.steps.step2.description}
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* File Selection Header */}
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                          {dict.summaryWizard.files.selected.replace("{count}", selectedFileIds.length.toString())}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={selectAllFiles}
-                            disabled={selectedFileIds.length === files.length}
-                          >
-                            {dict.summaryWizard.files.selectAll}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={deselectAllFiles}
-                            disabled={selectedFileIds.length === 0}
-                          >
-                            {dict.summaryWizard.files.deselectAll}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* File List */}
-                      <div className="rounded-lg border bg-card p-1 space-y-1 max-h-[300px] overflow-y-auto">
-                        {files.length === 0 ? (
-                          <p className="text-center text-muted-foreground py-8">
-                            {dict.summaryWizard.files.noFiles}
-                          </p>
-                        ) : (
-                          files.map((file) => (
-                            <button
-                              key={file.id}
-                              type="button"
-                              onClick={() => toggleFileSelection(file.id)}
-                              className={cn(
-                                "w-full flex items-center gap-3 p-2 rounded-md transition-all duration-200",
-                                selectedFileIds.includes(file.id)
-                                  ? "bg-primary/10 text-primary"
-                                  : "hover:bg-muted"
-                              )}
-                            >
-                              <div className={cn(
-                                "w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-colors border",
-                                selectedFileIds.includes(file.id)
-                                  ? "bg-primary border-primary text-primary-foreground"
-                                  : "border-muted-foreground/30"
-                              )}>
-                                {selectedFileIds.includes(file.id) && (
-                                  <Check className="h-3 w-3" />
-                                )}
-                              </div>
-                              <FileText className="h-4 w-4 opacity-70 flex-shrink-0" />
-                              <span className="text-left flex-1 truncate text-sm">{file.name}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="text-muted-foreground text-sm">
-                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {dict.common.toContinue}, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> {dict.common.toGoBack}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Options */}
-              {currentStep === 3 && (
-                <div 
-                  key="step3" 
-                  className="animate-in fade-in slide-in-from-right-4 duration-500 focus:outline-none"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleNext();
-                    } else if (e.key === "Escape") {
-                      e.preventDefault();
-                      handleBack();
-                    }
-                  }}
-                  ref={(el) => {
-                    if (el) el.focus();
-                  }}
-                >
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-                        <Settings className="h-4 w-4 text-primary" />
-                        <span>{dict.summaryWizard.steps.step3.subtitle}</span>
-                      </div>
-                      <h2 className="text-2xl font-bold text-foreground">
-                        {dict.summaryWizard.steps.step3.title}
-                      </h2>
-                      <p className="text-muted-foreground">{dict.summaryWizard.steps.step3.description}</p>
-                    </div>
-
-                    <div className="space-y-6">
-                      {/* Focus Field */}
-                      <div className="space-y-3">
-                        <label className="text-sm font-medium">
-                          {dict.summaryWizard.options.focusLabel}
+                    <div className="grid md:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground tracking-[-0.005em]">
+                          <ImageIcon className="size-3" />
+                          {dict.summaryWizard.options.imageHandling}
                         </label>
-                        <input
-                          type="text"
-                          value={focus}
-                          onChange={(e) => setFocus(e.target.value)}
-                          placeholder={dict.summaryWizard.options.focusPlaceholder}
-                          className={cn(
-                            "w-full bg-background rounded-lg",
-                            "border border-input focus:border-primary",
-                            "focus:outline-none p-3 transition-all duration-300",
-                            "text-base"
-                          )}
-                        />
+                        <Select value={imageHandling} onValueChange={(v) => setImageHandling(v as any)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">{dict.summaryWizard.options.imageOptions.manual}</SelectItem>
+                            <SelectItem value="google">{dict.summaryWizard.options.imageOptions.google}</SelectItem>
+                            <SelectItem value="none">{dict.summaryWizard.options.imageOptions.none}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
-                      {/* Image Handling and Reduced Version in Grid */}
-                      <div className="grid md:grid-cols-3 gap-4">
-                        {/* Image Handling */}
-                        <div className="space-y-3 rounded-lg border bg-card p-4">
-                          <label className="text-sm font-medium flex items-center gap-2">
-                            <ImageIcon className="h-4 w-4" />
-                            {dict.summaryWizard.options.imageHandling}
-                          </label>
-                          <select
-                            value={imageHandling}
-                            onChange={(e) => setImageHandling(e.target.value as any)}
-                            className={cn(
-                              "w-full bg-background rounded-md",
-                              "border border-input focus:border-primary",
-                              "focus:outline-none p-2 transition-all duration-300",
-                              "text-sm cursor-pointer"
-                            )}
-                          >
-                            <option value="manual">{dict.summaryWizard.options.imageOptions.manual}</option>
-                            <option value="google">{dict.summaryWizard.options.imageOptions.google}</option>
-                            <option value="none">{dict.summaryWizard.options.imageOptions.none}</option>
-                          </select>
-                        </div>
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground tracking-[-0.005em]">
+                          <FileText className="size-3" />
+                          {dict.summaryWizard.options.detailLevel}
+                        </label>
+                        <Select value={detailLevel} onValueChange={(v) => setDetailLevel(v as any)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="reduced">{dict.summaryWizard.options.detailOptions.reduced}</SelectItem>
+                            <SelectItem value="standard">{dict.summaryWizard.options.detailOptions.standard}</SelectItem>
+                            <SelectItem value="detailed">{dict.summaryWizard.options.detailOptions.detailed}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                        {/* Detail Level */}
-                        <div className="space-y-3 rounded-lg border bg-card p-4">
-                          <label className="text-sm font-medium flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            {dict.summaryWizard.options.detailLevel}
-                          </label>
-                          <select
-                            value={detailLevel}
-                            onChange={(e) => setDetailLevel(e.target.value as any)}
-                            className={cn(
-                              "w-full bg-background rounded-md",
-                              "border border-input focus:border-primary",
-                              "focus:outline-none p-2 transition-all duration-300",
-                              "text-sm cursor-pointer"
-                            )}
-                          >
-                            <option value="reduced">{dict.summaryWizard.options.detailOptions.reduced}</option>
-                            <option value="standard">{dict.summaryWizard.options.detailOptions.standard}</option>
-                            <option value="detailed">{dict.summaryWizard.options.detailOptions.detailed}</option>
-                          </select>
-                        </div>
-
-                        {/* Explanation Style */}
-                        <div className="space-y-3 rounded-lg border bg-card p-4">
-                          <label className="text-sm font-medium flex items-center gap-2">
-                            <GraduationCap className="h-4 w-4" />
-                            {dict.summaryWizard.options.explanationStyle}
-                          </label>
-                          <select
-                            value={explanationStyle}
-                            onChange={(e) => setExplanationStyle(e.target.value as any)}
-                            className={cn(
-                              "w-full bg-background rounded-md",
-                              "border border-input focus:border-primary",
-                              "focus:outline-none p-2 transition-all duration-300",
-                              "text-sm cursor-pointer"
-                            )}
-                          >
-                            <option value="standard">{dict.summaryWizard.options.styleOptions.standard}</option>
-                            <option value="intuitive">{dict.summaryWizard.options.styleOptions.intuitive}</option>
-                            <option value="practice">{dict.summaryWizard.options.styleOptions.practice}</option>
-                            <option value="academic">{dict.summaryWizard.options.styleOptions.academic}</option>
-                            <option value="compact">{dict.summaryWizard.options.styleOptions.compact}</option>
-                          </select>
-                        </div>
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground tracking-[-0.005em]">
+                          <GraduationCap className="size-3" />
+                          {(dict.summaryWizard.options as any).explanationStyle ?? "Style"}
+                        </label>
+                        <Select value={explanationStyle} onValueChange={(v) => setExplanationStyle(v as any)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="standard">{(dict.summaryWizard.options as any).styleOptions?.standard ?? "Standard"}</SelectItem>
+                            <SelectItem value="intuitive">{(dict.summaryWizard.options as any).styleOptions?.intuitive ?? "Intuitive"}</SelectItem>
+                            <SelectItem value="practice">{(dict.summaryWizard.options as any).styleOptions?.practice ?? "Practice"}</SelectItem>
+                            <SelectItem value="academic">{(dict.summaryWizard.options as any).styleOptions?.academic ?? "Academic"}</SelectItem>
+                            <SelectItem value="compact">{(dict.summaryWizard.options as any).styleOptions?.compact ?? "Compact"}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-
-                    <p className="text-muted-foreground text-sm">
-                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> {dict.common.toContinue}, <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> {dict.common.toGoBack}
-                    </p>
                   </div>
+
+                  <HintRow>
+                    <Kbd>Enter</Kbd> {dict.common.toContinue} <span className="mx-1 text-muted-foreground/50">·</span>
+                    <Kbd>Esc</Kbd> {dict.common.toGoBack}
+                  </HintRow>
                 </div>
               )}
 
-              {/* Step 4: Review */}
               {currentStep === 4 && (
-                <div key="step4" className="animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-                        <Check className="h-4 w-4 text-green-500" />
-                        <span>{dict.summaryWizard.steps.step4.subtitle}</span>
-                      </div>
-                      <h2 className="text-2xl font-bold text-foreground">
-                        {dict.summaryWizard.steps.step4.title}
-                      </h2>
-                      <p className="text-muted-foreground">{dict.summaryWizard.steps.step4.description}</p>
+                <div className="animate-mac-fade-in space-y-6">
+                  <StepHeader
+                    icon={<Check className="size-3.5 text-emerald-500" />}
+                    eyebrow={dict.summaryWizard.steps.step4.subtitle}
+                    title={dict.summaryWizard.steps.step4.title}
+                    description={dict.summaryWizard.steps.step4.description}
+                  />
+
+                  <div className="mac-card p-5 space-y-4">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1">
+                        Title
+                      </p>
+                      <h3 className="text-[18px] font-semibold tracking-[-0.018em]">{title}</h3>
                     </div>
 
-                    <div className="rounded-lg border bg-card p-6 space-y-6">
-                      {/* Title */}
-                      <div>
-                        <h3 className="text-2xl font-bold mb-2">{title}</h3>
-                      </div>
-
-                      {/* Selected Files */}
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {dict.summaryWizard.review.sourceFiles.replace("{count}", selectedFileIds.length.toString())}
-                        </p>
-                        <div className="space-y-1">
-                          {files
-                            .filter(f => selectedFileIds.includes(f.id))
-                            .map(file => (
-                              <div key={file.id} className="flex items-center gap-2 text-sm">
-                                <FileText className="h-3 w-3 text-muted-foreground" />
-                                <span className="truncate">{file.name}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
-                      {/* Options */}
-                      <div className="flex flex-wrap gap-2">
-                        {focus && (
-                          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            {dict.summaryWizard.review.focus.replace("{focus}", focus)}
-                          </div>
-                        )}
-                        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                          {dict.summaryWizard.review.images.replace("{mode}", imageHandling)}
-                        </div>
-                        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                          {dict.summaryWizard.review.detail.replace("{level}", detailLevel)}
-                        </div>
-                        {explanationStyle !== 'standard' && (
-                          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            {dict.summaryWizard.review.style.replace("{style}", explanationStyle)}
-                          </div>
-                        )}
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-2">
+                        {dict.summaryWizard.review.sourceFiles.replace("{count}", selectedFileIds.length.toString())}
+                      </p>
+                      <div className="space-y-1">
+                        {files
+                          .filter((f) => selectedFileIds.includes(f.id))
+                          .map((file) => (
+                            <div key={file.id} className="flex items-center gap-2 text-[13px]">
+                              <FileText className="size-3 text-muted-foreground shrink-0" />
+                              <span className="truncate">{file.name}</span>
+                            </div>
+                          ))}
                       </div>
                     </div>
 
-                    <p className="text-muted-foreground text-sm">
-                      {dict.common.press} <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> {dict.common.toGoBack}
-                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {focus && <ReviewChip>{dict.summaryWizard.review.focus.replace("{focus}", focus)}</ReviewChip>}
+                      <ReviewChip>{dict.summaryWizard.review.images.replace("{mode}", imageHandling)}</ReviewChip>
+                      <ReviewChip>{dict.summaryWizard.review.detail.replace("{level}", detailLevel)}</ReviewChip>
+                      {explanationStyle !== "standard" && (
+                        <ReviewChip>
+                          {((dict.summaryWizard.review as any).style ?? "Style: {style}").replace("{style}", explanationStyle)}
+                        </ReviewChip>
+                      )}
+                    </div>
                   </div>
+
+                  <HintRow>
+                    <Kbd>Esc</Kbd> {dict.common.toGoBack}
+                  </HintRow>
                 </div>
               )}
             </div>
 
-            {/* Navigation Footer */}
-            <div className="relative border-t bg-muted/20 px-8 py-6">
-              <div className="flex items-center justify-between">
-                {/* Back Button */}
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-border/70 bg-muted/30 px-5 py-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className={cn(currentStep === 1 && "opacity-0 pointer-events-none")}
+              >
+                <ArrowLeft />
+                {dict.common.back ?? "Back"}
+              </Button>
+
+              {currentStep < 4 ? (
                 <Button
                   type="button"
-                  variant="ghost"
-                  onClick={handleBack}
-                  disabled={currentStep === 1}
-                  className={cn(
-                    "group transition-all duration-300",
-                    currentStep === 1 ? "opacity-0 pointer-events-none" : "opacity-100"
-                  )}
+                  size="sm"
+                  onClick={handleNext}
+                  disabled={
+                    (currentStep === 1 && !canProceedFromStep1) ||
+                    (currentStep === 2 && !canProceedFromStep2)
+                  }
                 >
-                  <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                  Back
+                  {dict.common.next}
+                  <ArrowRight />
                 </Button>
-
-                {/* Progress Dots */}
-                <div className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
-                  {[1, 2, 3, 4].map((step) => (
-                    <div
-                      key={step}
-                      className={cn(
-                        "h-2 rounded-full transition-all duration-500",
-                        step === currentStep
-                          ? "w-8 bg-primary"
-                          : step < currentStep
-                          ? "w-2 bg-primary/30"
-                          : "w-2 bg-muted-foreground/20"
-                      )}
-                    />
-                  ))}
-                </div>
-
-                {/* Next/Submit Button */}
-                {currentStep < 4 ? (
-                  <Button
-                    key="next-button"
-                    type="button"
-                    onClick={handleNext}
-                    disabled={
-                      (currentStep === 1 && !canProceedFromStep1) ||
-                      (currentStep === 2 && !canProceedFromStep2)
-                    }
-                    className="group transition-all duration-300"
-                  >
-                    {dict.common.next}
-                    <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                ) : (
-                  <Button
-                    key="submit-button"
-                    type="submit"
-                    disabled={isPending || !canProceedFromStep1 || !canProceedFromStep2}
-                    className="group relative overflow-hidden transition-all duration-300 min-w-[140px]"
-                  >
-                    {isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform relative z-10" />
-                        <span className="relative z-10">{dict.summaryWizard.button}</span>
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isPending || !canProceedFromStep1 || !canProceedFromStep2}
+                  className="min-w-[140px]"
+                >
+                  {isPending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <>
+                      <Sparkles />
+                      <span>{dict.summaryWizard.button}</span>
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-          </div>
-        </form>
+          </form>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ---------- internals ---------- */
+
+function StepHeader({
+  icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+        {icon}
+        <span>{eyebrow}</span>
+      </div>
+      <h2 className="text-[22px] font-semibold tracking-[-0.02em]">{title}</h2>
+      <p className="text-[13px] text-muted-foreground tracking-[-0.005em]">{description}</p>
+    </div>
+  );
+}
+
+function HintRow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11.5px] text-muted-foreground/80 flex items-center gap-1.5 tracking-[-0.005em]">
+      {children}
+    </p>
+  );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[4px] bg-foreground/[0.08] text-foreground/80 text-[10.5px] font-mono leading-none">
+      {children}
+    </kbd>
+  );
+}
+
+function ReviewChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium tracking-[-0.005em]">
+      {children}
+    </span>
   );
 }
