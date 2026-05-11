@@ -3,11 +3,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { 
-  FileText, 
-  PenTool, 
-  Sigma, 
-  MessageSquare, 
+import {
+  FileText,
+  PenTool,
   FolderOpen,
   Upload,
   Trash2,
@@ -40,12 +38,10 @@ import { uploadFile, deleteFile, getFiles } from "@/app/actions/files";
 import { getProject } from "@/app/actions/projects";
 import { useSearchParams, useRouter } from "next/navigation";
 import { SummaryList } from "@/components/summaries/summary-list";
-import { FormulaList } from "@/components/formulas/formula-list";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
-import { ChatTab } from "@/components/chat/chat-tab";
 
 import { useLanguage } from "@/components/language-provider";
 import { FullscreenProvider, useFullscreen } from "@/contexts/fullscreen-context";
@@ -141,41 +137,30 @@ function ProjectPageContent({ params }: ProjectPageProps) {
   
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [chatInitialMessage, setChatInitialMessage] = useState<string | null>(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
-  // Handle URL params for tab switching and chat query
+  // Migrate users whose persisted tab is one of the removed tabs
+  useEffect(() => {
+    if (activeTab === "chat" || activeTab === "formulas") {
+      setActiveTab("summary");
+    }
+  }, [activeTab, setActiveTab]);
+
+  // Handle URL params for tab switching
   useEffect(() => {
     if (!projectName) return; // Wait for project to load first
 
     const tabParam = searchParams.get('tab');
-    const queryParam = searchParams.get('query');
-    const pendingQuery = localStorage.getItem(`project-${resolvedParams.id}-pending-query`);
 
     if (tabParam) {
-      setActiveTab(tabParam);
+      // Ignore deprecated tab IDs
+      const nextTab = tabParam === "chat" || tabParam === "formulas" ? "summary" : tabParam;
+      setActiveTab(nextTab);
       // Clear tab param from URL after applying it
       const newParams = new URLSearchParams(searchParams.toString());
       newParams.delete('tab');
-      const newUrl = newParams.toString() 
-        ? `/projects/${resolvedParams.id}?${newParams.toString()}`
-        : `/projects/${resolvedParams.id}`;
-      router.replace(newUrl, { scroll: false });
-    }
-    
-    if (queryParam) {
-      setChatInitialMessage(queryParam);
-    } else if (pendingQuery) {
-      setChatInitialMessage(pendingQuery);
-      localStorage.removeItem(`project-${resolvedParams.id}-pending-query`);
-    }
-
-    // Clear query param if present
-    if (queryParam) {
-      console.log('[ProjectPage] Clearing query param');
-      const newParams = new URLSearchParams(searchParams.toString());
       newParams.delete('query');
-      const newUrl = newParams.toString() 
+      const newUrl = newParams.toString()
         ? `/projects/${resolvedParams.id}?${newParams.toString()}`
         : `/projects/${resolvedParams.id}`;
       router.replace(newUrl, { scroll: false });
@@ -301,40 +286,18 @@ function ProjectPageContent({ params }: ProjectPageProps) {
       id: "summary",
       label: dict.project.summaries,
       icon: FileText,
-      color: "text-orange-500",
-      bg: "bg-orange-500/10",
       content: <SummaryList projectId={resolvedParams.id} />
-    },
-    {
-      id: "chat",
-      label: dict.project.chat,
-      icon: MessageSquare,
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
-      content: <ChatTab projectId={resolvedParams.id} />
     },
     {
       id: "exercises",
       label: dict.project.exercises,
       icon: PenTool,
-      color: "text-green-500",
-      bg: "bg-green-500/10",
       content: <ExerciseList projectId={resolvedParams.id} />
-    },
-    {
-      id: "formulas",
-      label: dict.project.formulas,
-      icon: Sigma,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10",
-      content: <FormulaList projectId={resolvedParams.id} />
     },
     {
       id: "search",
       label: dict.project.search,
       icon: Search,
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
       content: <GlobalSearchTab projectId={resolvedParams.id} />
     },
 
@@ -342,8 +305,6 @@ function ProjectPageContent({ params }: ProjectPageProps) {
       id: "files",
       label: dict.project.files,
       icon: FolderOpen,
-      color: "text-yellow-500",
-      bg: "bg-yellow-500/10",
       content: (
         <div className="w-full max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
@@ -802,102 +763,74 @@ function ProjectPageContent({ params }: ProjectPageProps) {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header - Hidden in fullscreen mode */}
+      {/* Header */}
       {!isFullscreen && (
-        <div className="flex-none p-6 md:p-8 pb-4 space-y-2">
-        <div className="max-w-7xl mx-auto w-full">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              {projectName || dict.common.loading}
-            </h1>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              asChild
-              className="gap-2"
-            >
-              <a href="/projects">
-                <ArrowLeft className="h-4 w-4" />
-                {dict.project.overview}
-              </a>
-            </Button>
+        <div className="flex-none px-6 md:px-10 pt-8 md:pt-10 pb-5">
+          <div className="max-w-7xl mx-auto w-full">
+            <div className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="-ml-2 mb-2 text-muted-foreground hover:text-foreground"
+                >
+                  <a href="/projects">
+                    <ArrowLeft />
+                    {dict.project.overview}
+                  </a>
+                </Button>
+                <h1 className="text-[34px] md:text-[40px] leading-[1.05] font-semibold tracking-[-0.028em] truncate">
+                  {projectName || dict.common.loading}
+                </h1>
+                <p className="mt-2 text-[14px] text-muted-foreground tracking-[-0.005em]">
+                  Manage your study materials and track your progress.
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-muted-foreground max-w-2xl">
-            Manage your study materials, chat with your AI assistant, and track your progress.
-          </p>
-        </div>
         </div>
       )}
 
-      {/* Tabs Interface - Hidden in fullscreen mode */}
+      {/* Tabs */}
       <div className={cn(
         "flex-1 min-h-0",
-        !isFullscreen && "px-6 md:px-8 pb-6 md:pb-8"
+        !isFullscreen && "px-6 md:px-10 pb-8"
       )}>
-        <Tabs 
+        <Tabs
           value={activeTab}
-          className="h-full flex flex-col max-w-7xl mx-auto w-full"
+          className="h-full flex flex-col max-w-7xl mx-auto w-full gap-4"
           onValueChange={setActiveTab}
         >
           {!isFullscreen && (
-            <TabsList className="flex-none w-full justify-start h-auto p-1 bg-muted/30 border border-border overflow-x-auto mb-4">
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 rounded-md transition-colors",
-                  "data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                )}
-              >
-                <tab.icon className={cn(
-                  "h-4 w-4 transition-colors",
-                  activeTab === tab.id ? tab.color : "text-muted-foreground"
-                )} />
-                <span className="font-medium">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-            </TabsList>
+            <div className="flex-none flex justify-center sticky top-0 z-10 pt-1">
+              <TabsList className="h-9 p-[3px]">
+                {tabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="px-4 h-[30px] text-[13px]"
+                  >
+                    <tab.icon className="size-[14px]" />
+                    <span>{tab.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           )}
 
-          <div className={cn(
-            "flex-1 min-h-0 overflow-hidden relative",
-            !isFullscreen && "border rounded-xl bg-card/50 backdrop-blur-sm"
-          )}>
+          <div className="flex-1 min-h-0 overflow-hidden relative mac-card">
             {tabs.map((tab) => (
               <TabsContent
                 key={tab.id}
                 value={tab.id}
                 className="h-full m-0 data-[state=inactive]:hidden"
               >
-                {tab.id === 'chat' ? (
-                  <div className="h-full">
+                <ScrollArea className="h-full">
+                  <div className="p-6 md:p-8">
                     {tab.content}
                   </div>
-                ) : (
-                  <ScrollArea className="h-full">
-                    <div className="p-6">
-                      {tab.id === "files" || tab.id === "summary" || tab.id === "script" || tab.id === "formulas" || tab.id === "exercises" || tab.id === "export" || tab.id === "search" ? (
-                        tab.content
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
-                          <div className={cn(
-                            "p-4 rounded-xl",
-                            tab.bg
-                          )}>
-                            <tab.icon className={cn("h-8 w-8", tab.color)} />
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="text-xl font-semibold">{tab.label}</h3>
-                            <p className="text-muted-foreground max-w-md text-sm">
-                              {tab.content}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                )}
+                </ScrollArea>
               </TabsContent>
             ))}
           </div>
