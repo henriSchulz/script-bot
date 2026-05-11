@@ -13,7 +13,23 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      "peer relative inline-flex shrink-0 items-center justify-center",
+      "size-[16px] rounded-[5px]",
+      "cursor-default select-none outline-none",
+      "transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+      // Unchecked
+      "bg-card border border-border/80",
+      "shadow-[inset_0_1px_0_0_rgba(0,0,0,0.03)]",
+      "dark:shadow-[inset_0_1px_0_0_rgba(0,0,0,0.2)]",
+      // Checked
+      "data-[state=checked]:bg-primary data-[state=checked]:border-primary",
+      "data-[state=checked]:text-primary-foreground",
+      "data-[state=checked]:shadow-[var(--inner-highlight-strong),0_1px_2px_0_color-mix(in_oklab,var(--primary)_30%,transparent)]",
+      // Indeterminate
+      "data-[state=indeterminate]:bg-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:text-primary-foreground",
+      // Focus
+      "focus-visible:[box-shadow:0_0_0_2px_var(--background),0_0_0_5px_var(--ring)]",
+      "disabled:cursor-not-allowed disabled:opacity-50",
       className
     )}
     {...props}
@@ -21,7 +37,7 @@ const Checkbox = React.forwardRef<
     <CheckboxPrimitive.Indicator
       className={cn("flex items-center justify-center text-current")}
     >
-      <Check className="h-4 w-4" />
+      <Check className="size-3 stroke-[3.5]" />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ))
