@@ -271,7 +271,7 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
       {/* Document surface — Craft Docs style: visible paper card on a tinted page */}
       <main className="relative">
-        <div className="mx-auto max-w-[820px] px-4 md:px-6 pt-8 md:pt-10 pb-24">
+        <div className="mx-auto max-w-[960px] px-4 md:px-6 pt-8 md:pt-10 pb-24">
           <div
             ref={editorContentRef}
             className={cn(
