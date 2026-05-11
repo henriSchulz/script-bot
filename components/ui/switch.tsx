@@ -11,7 +11,20 @@ const Switch = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SwitchPrimitives.Root
     className={cn(
-      "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
+      // Frame
+      "peer relative inline-flex h-[22px] w-[36px] shrink-0 items-center rounded-full",
+      "cursor-default select-none outline-none",
+      "transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+      // Off
+      "data-[state=unchecked]:bg-foreground/[0.10]",
+      "data-[state=unchecked]:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.08)]",
+      "dark:data-[state=unchecked]:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.32)]",
+      // On
+      "data-[state=checked]:bg-primary",
+      "data-[state=checked]:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.10),0_0_0_0.5px_color-mix(in_oklab,var(--primary)_60%,black_8%)]",
+      // Focus
+      "focus-visible:[box-shadow:0_0_0_2px_var(--background),0_0_0_5px_var(--ring)]",
+      "disabled:cursor-not-allowed disabled:opacity-50",
       className
     )}
     {...props}
@@ -19,7 +32,10 @@ const Switch = React.forwardRef<
   >
     <SwitchPrimitives.Thumb
       className={cn(
-        "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
+        "pointer-events-none block size-[18px] rounded-full bg-white",
+        "shadow-[0_2px_4px_0_rgb(0_0_0/0.18),0_0_0_0.5px_rgb(0_0_0/0.08)]",
+        "transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "translate-x-[2px] data-[state=checked]:translate-x-[16px]"
       )}
     />
   </SwitchPrimitives.Root>

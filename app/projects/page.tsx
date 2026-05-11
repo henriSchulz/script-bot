@@ -1,14 +1,7 @@
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import Link from "next/link";
-import { Plus, Settings } from "lucide-react";
+import { Plus, Settings2, FolderOpen, FileText, Home } from "lucide-react";
 import { DeleteProjectButton } from "@/components/projects/delete-project-button";
 
 import { cookies } from "next/headers";
@@ -31,77 +24,165 @@ export default async function ProjectsPage() {
   });
 
   return (
-    <div className="container mx-auto py-10 px-4">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{dict.projectsPage.title}</h1>
-          <p className="text-muted-foreground mt-2">
+    <div className="relative min-h-screen">
+      {/* Toolbar */}
+      <header className="sticky top-0 z-30 mac-toolbar h-12 flex items-center px-4 gap-3">
+        <span className="mac-traffic-lights" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+        <div className="flex items-center gap-1 ml-2">
+          <Button asChild variant="toolbar" size="icon-sm">
+            <Link href="/" aria-label="Home">
+              <Home className="size-[15px]" />
+            </Link>
+          </Button>
+        </div>
+        <div className="flex-1 text-center">
+          <span className="text-[12.5px] font-medium text-foreground/80 tracking-[-0.005em]">
+            {dict.projectsPage.title}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button asChild variant="toolbar" size="icon-sm">
+            <Link href="/settings" aria-label={dict.project.settings}>
+              <Settings2 className="size-[15px]" />
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/projects/new">
+              <Plus />
+              <span>{dict.projectsPage.newProject}</span>
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      {/* Subtle ambient backdrop */}
+      <div className="absolute inset-x-0 top-0 h-[480px] mac-mesh opacity-50 pointer-events-none -z-0" aria-hidden="true" />
+
+      <main className="relative z-10 mx-auto max-w-6xl px-6 py-10">
+        {/* Section heading */}
+        <div className="mb-8 animate-mac-fade-in">
+          <h1 className="text-[34px] leading-[1.05] font-semibold tracking-[-0.025em]">
+            {dict.projectsPage.title}
+          </h1>
+          <p className="mt-2 text-[14px] text-muted-foreground tracking-[-0.005em]">
             {dict.projectsPage.subtitle}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              {dict.project.settings}
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/projects/new">
-              <Plus className="mr-2 h-4 w-4" />
-              {dict.projectsPage.newProject}
-            </Link>
-          </Button>
-        </div>
-      </div>
 
-      {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
-          <Link href="/projects/new">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
-              <Plus className="h-6 w-6 text-secondary-foreground" />
-            </div>
-          </Link>
-          <h3 className="mt-4 text-lg font-semibold">{dict.projectsPage.noProjects}</h3>
-          <p className="mb-4 mt-2 text-sm text-muted-foreground max-w-sm">
-            {dict.projectsPage.createFirst}
-          </p>
-          <Button asChild>
-            <Link href="/projects/new">{dict.projectsPage.createProject}</Link>
-          </Button>
+        {projects.length === 0 ? (
+          <EmptyState dict={dict} />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-mac-fade-in [animation-delay:80ms]">
+            <NewProjectTile label={dict.projectsPage.newProject} />
+            {projects.map((project) => (
+              <ProjectTile
+                key={project.id}
+                project={project}
+                lastUpdatedLabel={formatString(dict.projectsPage.lastUpdated, {
+                  date: project.updatedAt.toLocaleDateString(),
+                })}
+                unitFile={dict.projectsPage.unitFile}
+                unitFiles={dict.projectsPage.unitFiles}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function NewProjectTile({ label }: { label: string }) {
+  return (
+    <Link
+      href="/projects/new"
+      className="group relative flex flex-col items-center justify-center min-h-[148px] rounded-[12px] border border-dashed border-border/70 hover:border-primary/50 bg-card/40 hover:bg-card/80 transition-all duration-200 ease-out"
+    >
+      <div className="flex flex-col items-center gap-2.5 text-muted-foreground group-hover:text-foreground transition-colors">
+        <span className="inline-flex items-center justify-center size-10 rounded-full bg-foreground/[0.06] group-hover:bg-primary/15 group-hover:text-primary transition-colors">
+          <Plus className="size-[18px]" />
+        </span>
+        <span className="text-[13px] font-medium tracking-[-0.005em]">{label}</span>
+      </div>
+    </Link>
+  );
+}
+
+type ProjectWithCount = {
+  id: string;
+  name: string;
+  updatedAt: Date;
+  _count: { files: number };
+};
+
+function ProjectTile({
+  project,
+  lastUpdatedLabel,
+  unitFile,
+  unitFiles,
+}: {
+  project: ProjectWithCount;
+  lastUpdatedLabel: string;
+  unitFile: string;
+  unitFiles: string;
+}) {
+  return (
+    <div className="group relative mac-card mac-card-hover">
+      <Link
+        href={`/projects/${project.id}`}
+        className="block p-5 outline-none focus-visible:[box-shadow:0_0_0_2px_var(--background),0_0_0_5px_var(--ring)] rounded-[var(--radius-lg)]"
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div className="inline-flex items-center justify-center size-9 rounded-[9px] bg-primary/10 text-primary shrink-0">
+            <FolderOpen className="size-[17px]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-semibold tracking-[-0.012em] truncate pr-7">
+              {project.name}
+            </h3>
+            <p className="text-[12px] text-muted-foreground mt-0.5 tracking-[-0.005em]">
+              {lastUpdatedLabel}
+            </p>
+          </div>
         </div>
-      ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Link href="/projects/new">
-            <Card className="h-full flex flex-col items-center justify-center border-dashed hover:bg-muted/50 transition-colors cursor-pointer min-h-[150px]">
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <div className="rounded-full bg-secondary p-4">
-                  <Plus className="h-6 w-6" />
-                </div>
-                <span className="font-medium">{dict.projectsPage.newProject}</span>
-              </div>
-            </Card>
-          </Link>
-          {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer group relative">
-                <CardHeader className="relative">
-                  <CardTitle className="pr-8">{project.name}</CardTitle>
-                  <CardDescription>
-                    {formatString(dict.projectsPage.lastUpdated, { date: project.updatedAt.toLocaleDateString() })}
-                  </CardDescription>
-                  <DeleteProjectButton projectId={project.id} projectName={project.name} />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {project._count.files} {project._count.files === 1 ? dict.projectsPage.unitFile : dict.projectsPage.unitFiles}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground/90">
+          <FileText className="size-[13px]" />
+          <span className="tracking-[-0.005em]">
+            {project._count.files}{" "}
+            {project._count.files === 1 ? unitFile : unitFiles}
+          </span>
         </div>
-      )}
+      </Link>
+      <DeleteProjectButton projectId={project.id} projectName={project.name} />
+    </div>
+  );
+}
+
+function EmptyState({ dict }: { dict: any }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-border/70 bg-card/40 py-16 px-6 text-center animate-mac-fade-in">
+      <Link
+        href="/projects/new"
+        className="group inline-flex items-center justify-center size-14 rounded-full bg-primary/12 hover:bg-primary/20 text-primary transition-colors mb-5"
+      >
+        <Plus className="size-7" />
+      </Link>
+      <h3 className="text-[18px] font-semibold tracking-[-0.018em]">
+        {dict.projectsPage.noProjects}
+      </h3>
+      <p className="mt-2 mb-6 text-[13.5px] text-muted-foreground max-w-sm tracking-[-0.005em]">
+        {dict.projectsPage.createFirst}
+      </p>
+      <Button asChild size="lg">
+        <Link href="/projects/new">
+          <Plus />
+          {dict.projectsPage.createProject}
+        </Link>
+      </Button>
     </div>
   );
 }

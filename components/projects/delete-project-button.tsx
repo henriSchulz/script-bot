@@ -62,10 +62,10 @@ export function DeleteProjectButton({ projectId, projectName }: DeleteProjectBut
         <AlertDialogTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/[0.10]"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 />
             <span className="sr-only">{t("common.delete")}</span>
           </Button>
         </AlertDialogTrigger>
@@ -81,7 +81,7 @@ export function DeleteProjectButton({ projectId, projectName }: DeleteProjectBut
           <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="mac-control-destructive"
             disabled={isDeleting}
           >
             {isDeleting ? t("deleteProject.deleting") : t("common.delete")}
