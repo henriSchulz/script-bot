@@ -67,18 +67,35 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  size = "default",
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: Omit<React.ComponentProps<typeof CommandPrimitive.Input>, "size"> & {
+  size?: "default" | "lg";
+}) {
+  const isLg = size === "lg";
   return (
     <div
       data-slot="command-input-wrapper"
-      className="flex h-12 items-center gap-2.5 border-b border-border/70 px-4"
+      className={cn(
+        "flex items-center gap-3 border-b border-border/70",
+        isLg ? "h-16 px-5" : "h-12 px-4"
+      )}
     >
-      <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
+      <SearchIcon
+        className={cn(
+          "shrink-0 text-muted-foreground",
+          isLg ? "size-5" : "size-4"
+        )}
+      />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          "placeholder:text-muted-foreground/70 flex h-12 w-full bg-transparent py-3 text-[14px] outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+          "flex w-full bg-transparent outline-hidden",
+          "placeholder:text-muted-foreground/70",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+          isLg
+            ? "h-16 py-4 text-[18px] tracking-[-0.018em] caret-primary"
+            : "h-12 py-3 text-[14px]",
           className
         )}
         {...props}
