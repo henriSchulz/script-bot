@@ -2,9 +2,13 @@
 
 import { db } from "@/lib/db";
 
-// Legacy block search result
+/* ────────────────────────────────────────────────────────────────
+   Types
+   ──────────────────────────────────────────────────────────────── */
+
+// Legacy block search result (kept for back-compat with older callers)
 export type SearchResult = {
-  id: string; // block id
+  id: string;
   content: string;
   type: string;
   summaryId: string;
@@ -12,7 +16,9 @@ export type SearchResult = {
   score?: number;
 };
 
-// New unified search result types
+// Highlight range — character offset into `snippet` (or `title` / `name`)
+export type HighlightRange = [number, number];
+
 export type BlockSearchResult = {
   resultType: 'block';
   id: string;
@@ -20,6 +26,9 @@ export type BlockSearchResult = {
   type: string;
   summaryId: string;
   summaryTitle: string;
+  snippet: string;
+  highlights: HighlightRange[];
+  score: number;
 };
 
 export type SummarySearchResult = {
@@ -28,6 +37,8 @@ export type SummarySearchResult = {
   title: string;
   blockCount: number;
   updatedAt: Date;
+  highlights?: HighlightRange[];
+  score?: number;
 };
 
 export type ExerciseSearchResult = {
@@ -36,6 +47,8 @@ export type ExerciseSearchResult = {
   title: string;
   blockCount: number;
   updatedAt: Date;
+  highlights?: HighlightRange[];
+  score?: number;
 };
 
 export type FileSearchResult = {
@@ -47,6 +60,8 @@ export type FileSearchResult = {
   size: number | null;
   category: string;
   createdAt: Date;
+  highlights?: HighlightRange[];
+  score?: number;
 };
 
 export type QuickActionResult = {
@@ -57,266 +72,461 @@ export type QuickActionResult = {
   icon: string;
 };
 
-export type UnifiedSearchResult = 
-  | BlockSearchResult 
-  | SummarySearchResult 
-  | ExerciseSearchResult 
-  | FileSearchResult 
+export type UnifiedSearchResult =
+  | BlockSearchResult
+  | SummarySearchResult
+  | ExerciseSearchResult
+  | FileSearchResult
   | QuickActionResult;
 
-// Legacy function for backward compatibility
-export async function searchProjectBlocks(projectId: string, query: string): Promise<SearchResult[]> {
-  if (!query || query.trim().length < 2) {
-    return [];
+/* ────────────────────────────────────────────────────────────────
+   Text-matching engine — diacritic-insensitive, multi-token, scored
+   ──────────────────────────────────────────────────────────────── */
+
+/** Lowercase + strip combining diacritics + collapse whitespace. */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Split a query into non-empty, normalized tokens. */
+function tokenize(q: string): string[] {
+  return normalize(q)
+    .split(' ')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Convert a block's raw content into searchable plain text.
+ * - text:           strip HTML tags + decode common entities
+ * - latex:          raw LaTeX (or .latex field of JSON)
+ * - info_box:       JSON → label + latex
+ * - pending_image:  JSON → description
+ * - image:          ignored (returns '')
+ */
+function blockToPlainText(content: string, type: string): string {
+  if (!content) return '';
+  if (type === 'image') return '';
+
+  if (type === 'text') {
+    return content
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
-  const cleanQuery = query.trim();
+  if (type === 'latex') {
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed && typeof parsed === 'object' && typeof parsed.latex === 'string') {
+        return parsed.latex.trim();
+      }
+    } catch {}
+    return content.trim();
+  }
+
+  if (type === 'info_box') {
+    try {
+      const parsed = JSON.parse(content);
+      const parts: string[] = [];
+      if (typeof parsed?.label === 'string') parts.push(parsed.label);
+      if (typeof parsed?.latex === 'string') parts.push(parsed.latex);
+      return parts.join(' • ').trim();
+    } catch {}
+    return content.trim();
+  }
+
+  if (type === 'pending_image') {
+    try {
+      const parsed = JSON.parse(content);
+      if (typeof parsed?.description === 'string') return parsed.description.trim();
+    } catch {}
+    return content.trim();
+  }
+
+  return content.trim();
+}
+
+/**
+ * Match `tokens` against the normalized haystack, score the match, and return
+ * highlight ranges (offsets into the ORIGINAL haystack, not the normalized one
+ * — they map 1:1 because our normalization preserves length per character).
+ *
+ * Returns null if not every token appears (AND-semantics).
+ */
+function matchAndScore(
+  haystackNorm: string,
+  queryNorm: string,
+  tokens: string[]
+): { ranges: HighlightRange[]; score: number } | null {
+  if (tokens.length === 0) return { ranges: [], score: 0 };
+
+  let score = 0;
+  const ranges: HighlightRange[] = [];
+
+  // Bonus for exact phrase match
+  if (queryNorm && haystackNorm.includes(queryNorm)) {
+    const idx = haystackNorm.indexOf(queryNorm);
+    score += 300 - Math.min(idx, 300);
+    ranges.push([idx, idx + queryNorm.length]);
+  }
+
+  // All tokens must appear (AND-semantics)
+  for (const t of tokens) {
+    if (!haystackNorm.includes(t)) return null;
+  }
+
+  // Per-token contribution + collect all occurrences
+  for (const t of tokens) {
+    let from = 0;
+    while (from < haystackNorm.length) {
+      const idx = haystackNorm.indexOf(t, from);
+      if (idx === -1) break;
+      const before = idx === 0 ? ' ' : haystackNorm[idx - 1];
+      const after = haystackNorm[idx + t.length] ?? ' ';
+      const tokenIsWordy = /[a-z0-9]/i.test(t[0] ?? '');
+      const isBoundaryBefore = !/[a-z0-9]/i.test(before) || !tokenIsWordy;
+      const isBoundaryAfter = !/[a-z0-9]/i.test(after) || !tokenIsWordy;
+      const wordBonus = isBoundaryBefore && isBoundaryAfter ? 20 : 0;
+      const positionScore = Math.max(0, 80 - Math.min(idx, 80));
+      score += 30 + wordBonus + positionScore;
+
+      ranges.push([idx, idx + t.length]);
+      from = idx + t.length;
+    }
+  }
+
+  return { ranges: mergeRanges(ranges), score };
+}
+
+function mergeRanges(ranges: HighlightRange[]): HighlightRange[] {
+  if (ranges.length <= 1) return ranges.slice();
+  const sorted = ranges.slice().sort((a, b) => a[0] - b[0]);
+  const out: HighlightRange[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = out[out.length - 1];
+    const cur = sorted[i];
+    if (cur[0] <= last[1]) {
+      last[1] = Math.max(last[1], cur[1]);
+    } else {
+      out.push(cur);
+    }
+  }
+  return out;
+}
+
+/** Build a ~160-char snippet centered on the first highlight. */
+function buildSnippet(
+  plainText: string,
+  ranges: HighlightRange[],
+  windowSize = 160
+): { snippet: string; highlights: HighlightRange[] } {
+  if (plainText.length <= windowSize) {
+    return { snippet: plainText, highlights: ranges };
+  }
+
+  const firstStart = ranges[0]?.[0] ?? 0;
+  const half = Math.floor(windowSize / 2);
+  let start = Math.max(0, firstStart - half);
+  let end = Math.min(plainText.length, start + windowSize);
+  start = Math.max(0, end - windowSize);
+
+  if (start > 0) {
+    const spaceIdx = plainText.indexOf(' ', start);
+    if (spaceIdx !== -1 && spaceIdx - start < 12) start = spaceIdx + 1;
+  }
+  if (end < plainText.length) {
+    const spaceIdx = plainText.lastIndexOf(' ', end);
+    if (spaceIdx !== -1 && end - spaceIdx < 12) end = spaceIdx;
+  }
+
+  let snippet = plainText.slice(start, end);
+  const prefix = start > 0 ? '… ' : '';
+  const suffix = end < plainText.length ? ' …' : '';
+  snippet = prefix + snippet + suffix;
+
+  const offset = (start > 0 ? 2 : 0) - start;
+  const localHighlights: HighlightRange[] = ranges
+    .map(([a, b]) => [a + offset, b + offset] as HighlightRange)
+    .filter(([a, b]) => b > 0 && a < snippet.length)
+    .map(([a, b]) => [Math.max(0, a), Math.min(snippet.length, b)] as HighlightRange);
+
+  return { snippet, highlights: localHighlights };
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Legacy block-only search — kept for back-compat
+   ──────────────────────────────────────────────────────────────── */
+
+export async function searchProjectBlocks(
+  projectId: string,
+  query: string
+): Promise<SearchResult[]> {
+  if (!query || query.trim().length < 1) return [];
+
+  const tokens = tokenize(query);
+  if (tokens.length === 0) return [];
+  const queryNorm = tokens.join(' ');
 
   const blocks = await db.block.findMany({
     where: {
-      summary: {
-        projectId: projectId
-      },
-      content: {
-        contains: cleanQuery
-      }
+      summary: { projectId },
+      content: { contains: tokens[0] },
     },
-    include: {
-      summary: {
-        select: {
-          id: true,
-          title: true
-        }
-      }
-    },
-    take: 50,
+    include: { summary: { select: { id: true, title: true } } },
+    take: 400,
   });
 
-  const results: SearchResult[] = blocks.map(block => ({
-    id: block.id,
-    content: block.content,
-    type: block.type,
-    summaryId: block.summary?.id || "",
-    summaryTitle: block.summary?.title || "Untitled Summary"
-  }));
+  const scored: (SearchResult & { score: number })[] = [];
+  for (const b of blocks) {
+    const plain = blockToPlainText(b.content, b.type);
+    const plainNorm = normalize(plain);
+    const m = matchAndScore(plainNorm, queryNorm, tokens);
+    if (!m) continue;
+    scored.push({
+      id: b.id,
+      content: b.content,
+      type: b.type,
+      summaryId: b.summary?.id || '',
+      summaryTitle: b.summary?.title || 'Untitled Summary',
+      score: m.score,
+    });
+  }
 
-  return results;
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 50);
 }
 
-// New unified search function
-export async function searchProject(projectId: string, query: string): Promise<{
+/* ────────────────────────────────────────────────────────────────
+   Unified project search
+   ──────────────────────────────────────────────────────────────── */
+
+export async function searchProject(
+  projectId: string,
+  query: string
+): Promise<{
   blocks: BlockSearchResult[];
   summaries: SummarySearchResult[];
   exercises: ExerciseSearchResult[];
   files: FileSearchResult[];
   quickActions: QuickActionResult[];
 }> {
-  const cleanQuery = query.trim().toLowerCase();
-
-  // Always show Quick Actions
+  const tokens = tokenize(query);
+  const queryNorm = tokens.join(' ');
   const quickActions = getQuickActions();
 
-  // If query is empty, return quick actions and all summaries/exercises
-  if (!cleanQuery) {
+  // Empty query: navigation + most recent summaries/exercises
+  if (tokens.length === 0) {
     const [summaries, exercises] = await Promise.all([
-      getAllSummaries(projectId),
-      getAllExercises(projectId)
+      getRecentSummaries(projectId),
+      getRecentExercises(projectId),
     ]);
-    
-    return {
-      blocks: [],
-      summaries,
-      exercises,
-      files: [],
-      quickActions
-    };
+    return { blocks: [], summaries, exercises, files: [], quickActions };
   }
 
-  // Run all searches in parallel
   const [blocks, summaries, exercises, files] = await Promise.all([
-    searchBlocks(projectId, cleanQuery),
-    getAllSummaries(projectId), // Load all summaries for client-side filtering
-    getAllExercises(projectId), // Load all exercises for client-side filtering  
-    searchFiles(projectId, cleanQuery)
+    searchBlocks(projectId, tokens, queryNorm),
+    searchSummariesScored(projectId, tokens, queryNorm),
+    searchExercisesScored(projectId, tokens, queryNorm),
+    searchFilesScored(projectId, tokens, queryNorm),
   ]);
 
-  return {
-    blocks,
-    summaries,
-    exercises,
-    files,
-    quickActions
-  };
+  return { blocks, summaries, exercises, files, quickActions };
 }
 
-async function searchBlocks(projectId: string, query: string): Promise<BlockSearchResult[]> {
-  const blocks = await db.block.findMany({
+async function searchBlocks(
+  projectId: string,
+  tokens: string[],
+  queryNorm: string
+): Promise<BlockSearchResult[]> {
+  // Coarse DB filter on the first token to reduce candidate set,
+  // then re-score in JS so we get diacritic-insensitive, multi-token AND.
+  const candidates = await db.block.findMany({
     where: {
-      summary: {
-        projectId: projectId
-      },
-      content: {
-        contains: query
-      }
+      summary: { projectId },
+      content: { contains: tokens[0] },
     },
-    include: {
-      summary: {
-        select: {
-          id: true,
-          title: true
-        }
-      }
-    },
-    take: 20,
+    include: { summary: { select: { id: true, title: true } } },
+    take: 300,
   });
 
-  return blocks.map(block => ({
-    resultType: 'block' as const,
-    id: block.id,
-    content: block.content,
-    type: block.type,
-    summaryId: block.summary?.id || "",
-    summaryTitle: block.summary?.title || "Untitled Summary"
-  }));
+  const scored: BlockSearchResult[] = [];
+  for (const b of candidates) {
+    const plain = blockToPlainText(b.content, b.type);
+    if (!plain) continue;
+    const plainNorm = normalize(plain);
+    const m = matchAndScore(plainNorm, queryNorm, tokens);
+    if (!m) continue;
+
+    const { snippet, highlights } = buildSnippet(plain, m.ranges);
+
+    // Title boost
+    const titleNorm = normalize(b.summary?.title || '');
+    const titleHit = tokens.every((t) => titleNorm.includes(t));
+    const titleBoost = titleHit ? 40 : 0;
+
+    scored.push({
+      resultType: 'block',
+      id: b.id,
+      content: b.content,
+      type: b.type,
+      summaryId: b.summary?.id || '',
+      summaryTitle: b.summary?.title || 'Untitled Summary',
+      snippet,
+      highlights,
+      score: m.score + titleBoost,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 25);
 }
 
-async function getAllSummaries(projectId: string): Promise<SummarySearchResult[]> {
+async function searchSummariesScored(
+  projectId: string,
+  tokens: string[],
+  queryNorm: string
+): Promise<SummarySearchResult[]> {
+  const all = await db.summary.findMany({
+    where: { projectId },
+    include: { _count: { select: { blocks: true } } },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const scored: (SummarySearchResult & { score: number })[] = [];
+  for (const s of all) {
+    const titleNorm = normalize(s.title);
+    const m = matchAndScore(titleNorm, queryNorm, tokens);
+    if (!m) continue;
+    scored.push({
+      resultType: 'summary',
+      id: s.id,
+      title: s.title,
+      blockCount: s._count.blocks,
+      updatedAt: s.updatedAt,
+      highlights: m.ranges,
+      score: m.score + 100, // titles rank above blocks/files at equal raw score
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 10);
+}
+
+async function searchExercisesScored(
+  projectId: string,
+  tokens: string[],
+  queryNorm: string
+): Promise<ExerciseSearchResult[]> {
+  const all = await db.exercise.findMany({
+    where: { projectId },
+    include: { _count: { select: { blocks: true } } },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const scored: (ExerciseSearchResult & { score: number })[] = [];
+  for (const e of all) {
+    const titleNorm = normalize(e.title);
+    const m = matchAndScore(titleNorm, queryNorm, tokens);
+    if (!m) continue;
+    scored.push({
+      resultType: 'exercise',
+      id: e.id,
+      title: e.title,
+      blockCount: e._count.blocks,
+      updatedAt: e.updatedAt,
+      highlights: m.ranges,
+      score: m.score + 100,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 10);
+}
+
+async function searchFilesScored(
+  projectId: string,
+  tokens: string[],
+  queryNorm: string
+): Promise<FileSearchResult[]> {
+  const all = await db.file.findMany({
+    where: { projectId },
+    orderBy: { createdAt: 'desc' },
+    take: 500,
+  });
+
+  const scored: (FileSearchResult & { score: number })[] = [];
+  for (const f of all) {
+    const nameNorm = normalize(f.name);
+    const m = matchAndScore(nameNorm, queryNorm, tokens);
+    if (!m) continue;
+    scored.push({
+      resultType: 'file',
+      id: f.id,
+      name: f.name,
+      url: f.url,
+      mimeType: f.mimeType,
+      size: f.size,
+      category: f.category,
+      createdAt: f.createdAt,
+      highlights: m.ranges,
+      score: m.score + 60,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 15);
+}
+
+async function getRecentSummaries(projectId: string): Promise<SummarySearchResult[]> {
   const summaries = await db.summary.findMany({
-    where: {
-      projectId: projectId
-    },
-    include: {
-      _count: {
-        select: { blocks: true }
-      }
-    },
-    orderBy: {
-      updatedAt: 'desc'
-    }
+    where: { projectId },
+    include: { _count: { select: { blocks: true } } },
+    orderBy: { updatedAt: 'desc' },
+    take: 6,
   });
-
-  return summaries.map(summary => ({
+  return summaries.map((s) => ({
     resultType: 'summary' as const,
-    id: summary.id,
-    title: summary.title,
-    blockCount: summary._count.blocks,
-    updatedAt: summary.updatedAt
+    id: s.id,
+    title: s.title,
+    blockCount: s._count.blocks,
+    updatedAt: s.updatedAt,
   }));
 }
 
-async function getAllExercises(projectId: string): Promise<ExerciseSearchResult[]> {
+async function getRecentExercises(projectId: string): Promise<ExerciseSearchResult[]> {
   const exercises = await db.exercise.findMany({
-    where: {
-      projectId: projectId
-    },
-    include: {
-      _count: {
-        select: { blocks: true }
-      }
-    },
-    orderBy: {
-      updatedAt: 'desc'
-    }
+    where: { projectId },
+    include: { _count: { select: { blocks: true } } },
+    orderBy: { updatedAt: 'desc' },
+    take: 6,
   });
-
-  return exercises.map(exercise => ({
+  return exercises.map((e) => ({
     resultType: 'exercise' as const,
-    id: exercise.id,
-    title: exercise.title,
-    blockCount: exercise._count.blocks,
-    updatedAt: exercise.updatedAt
-  }));
-}
-
-async function searchSummaries(projectId: string, query: string): Promise<SummarySearchResult[]> {
-  const summaries = await db.summary.findMany({
-    where: {
-      projectId: projectId,
-      title: {
-        contains: query
-      }
-    },
-    include: {
-      _count: {
-        select: { blocks: true }
-      }
-    },
-    take: 10,
-    orderBy: {
-      updatedAt: 'desc'
-    }
-  });
-
-  return summaries.map(summary => ({
-    resultType: 'summary' as const,
-    id: summary.id,
-    title: summary.title,
-    blockCount: summary._count.blocks,
-    updatedAt: summary.updatedAt
-  }));
-}
-
-async function searchExercises(projectId: string, query: string): Promise<ExerciseSearchResult[]> {
-  const exercises = await db.exercise.findMany({
-    where: {
-      projectId: projectId,
-      title: {
-        contains: query
-      }
-    },
-    include: {
-      _count: {
-        select: { blocks: true }
-      }
-    },
-    take: 10,
-    orderBy: {
-      updatedAt: 'desc'
-    }
-  });
-
-  return exercises.map(exercise => ({
-    resultType: 'exercise' as const,
-    id: exercise.id,
-    title: exercise.title,
-    blockCount: exercise._count.blocks,
-    updatedAt: exercise.updatedAt
-  }));
-}
-
-async function searchFiles(projectId: string, query: string): Promise<FileSearchResult[]> {
-  const files = await db.file.findMany({
-    where: {
-      projectId: projectId,
-      name: {
-        contains: query
-      }
-    },
-    take: 15,
-    orderBy: {
-      createdAt: 'desc'
-    }
-  });
-
-  return files.map(file => ({
-    resultType: 'file' as const,
-    id: file.id,
-    name: file.name,
-    url: file.url,
-    mimeType: file.mimeType,
-    size: file.size,
-    category: file.category,
-    createdAt: file.createdAt
+    id: e.id,
+    title: e.title,
+    blockCount: e._count.blocks,
+    updatedAt: e.updatedAt,
   }));
 }
 
 function getQuickActions(): QuickActionResult[] {
+  // Only references tabs that still exist on the project page.
   return [
-    { resultType: 'quickAction', id: 'chat', label: 'Chat', tab: 'chat', icon: 'MessageSquare' },
     { resultType: 'quickAction', id: 'summaries', label: 'Summaries', tab: 'summary', icon: 'FileText' },
     { resultType: 'quickAction', id: 'exercises', label: 'Exercises', tab: 'exercises', icon: 'PenTool' },
-    { resultType: 'quickAction', id: 'formulas', label: 'Formulas', tab: 'formulas', icon: 'Sigma' },
     { resultType: 'quickAction', id: 'files', label: 'Files', tab: 'files', icon: 'FolderOpen' },
-    { resultType: 'quickAction', id: 'search-tab', label: 'Search Tab', tab: 'search', icon: 'Search' }
+    { resultType: 'quickAction', id: 'search-tab', label: 'Open search tab', tab: 'search', icon: 'Search' },
   ];
 }
