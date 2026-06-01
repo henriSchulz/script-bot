@@ -100,27 +100,34 @@ export default function SummaryPage({ params }: SummaryPageProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+K opens search
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearchOpen(true);
         return;
       }
 
-      if (e.key.toLowerCase() === 'e') {
-        const activeElement = document.activeElement;
-        const isInput = activeElement instanceof HTMLInputElement ||
-                        activeElement instanceof HTMLTextAreaElement ||
-                        (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+      // 'e' / 'E' toggles edit mode — but only when no modifier keys are held
+      // and the user isn't typing into an input / contenteditable.
+      if ((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const active = document.activeElement as HTMLElement | null;
+        const isTyping =
+          !!active &&
+          (active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            active.isContentEditable ||
+            !!active.closest('[contenteditable="true"]'));
 
-        if (!isInput) {
-          e.preventDefault();
-          setIsReadOnly((prev) => !prev);
-        }
+        if (isTyping) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsReadOnly((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Capture phase so children (TipTap, search modal trigger, etc.) can't swallow it first.
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, []);
 
   // Reading progress on scroll — used by the thin top progress bar

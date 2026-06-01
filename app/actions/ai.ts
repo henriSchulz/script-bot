@@ -363,7 +363,9 @@ If for a specific image_request you genuinely cannot determine the bbox (rare), 
       return { success: false, error: `Failed to parse generated summary. Raw start: ${text.substring(0, 100)}...` };
     }
 
-    const generatedTitle = data.title || title || "AI Zusammenfassung";
+    // Priority: user-provided title wins. If empty, fall back to the AI's title.
+    const userTitle = typeof title === 'string' ? title.trim() : '';
+    const generatedTitle = userTitle || data.title || "AI Zusammenfassung";
     const blocksData = data.blocks || (Array.isArray(data) ? data : []);
     
     console.log(`[AI] Generated title: ${generatedTitle}`);

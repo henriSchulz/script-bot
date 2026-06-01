@@ -25,19 +25,10 @@ export function CreateProjectForm() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
-  const [language, setLanguage] = useState("");
-  
+
   // UI states
   const [nameFocused, setNameFocused] = useState(false);
   const [descFocused, setDescFocused] = useState(false);
-
-  const LANGUAGE_OPTIONS = [
-    { value: "German", label: t("project.createProjectWizard.languages.German") },
-    { value: "English", label: t("project.createProjectWizard.languages.English") },
-    { value: "German & English", label: t("project.createProjectWizard.languages.GermanEnglish") },
-    { value: "Russian", label: t("project.createProjectWizard.languages.Russian") },
-    { value: "Other", label: t("project.createProjectWizard.languages.Other") }
-  ];
 
   const canProceedFromStep1 = name.trim().length > 0;
   const canSubmit = name.trim().length > 0;
@@ -84,7 +75,6 @@ export function CreateProjectForm() {
         <input type="hidden" name="name" value={name} />
         <input type="hidden" name="description" value={description} />
         <input type="hidden" name="color" value={color} />
-        <input type="hidden" name="language" value={language} />
 
         {/* Step Container with Glassmorphism */}
         <div className="relative rounded-3xl bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl overflow-hidden">
@@ -271,31 +261,6 @@ export function CreateProjectForm() {
                       </div>
                     </div>
 
-                    {/* Language Selector */}
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <span className="text-lg">🌍</span>
-                        {t("project.createProjectWizard.step3.contentLanguage")}
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {LANGUAGE_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setLanguage(option.value)}
-                            className={cn(
-                              "px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300",
-                              "border-2",
-                              language === option.value
-                                ? "border-primary bg-primary/10 text-primary scale-105"
-                                : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
-                            )}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
                   <p className="text-muted-foreground text-sm">
@@ -330,13 +295,6 @@ export function CreateProjectForm() {
                         <h3 className="text-2xl font-bold">{name}</h3>
                         {description && (
                           <p className="text-muted-foreground">{description}</p>
-                        )}
-                        {language && (
-                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            <span>🌍</span>
-                            {/* Find the label for the selected language value */}
-                            {LANGUAGE_OPTIONS.find(opt => opt.value === language)?.label || language}
-                          </div>
                         )}
                       </div>
                     </div>

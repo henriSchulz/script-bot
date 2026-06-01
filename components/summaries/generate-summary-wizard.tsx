@@ -66,7 +66,8 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
   const [files, setFiles] = useState<any[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
 
-  const canProceedFromStep1 = title.trim().length > 0;
+  // Title is optional — if empty the AI generates one.
+  const canProceedFromStep1 = true;
   const canProceedFromStep2 = selectedFileIds.length > 0;
 
   const handleNext = () => {
@@ -265,13 +266,22 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                             files.map((file) => {
                               const selected = selectedFileIds.includes(file.id);
                               return (
-                                <button
+                                <div
                                   key={file.id}
-                                  type="button"
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-pressed={selected}
                                   onClick={() => toggleFileSelection(file.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === " " || e.key === "Enter") {
+                                      e.preventDefault();
+                                      toggleFileSelection(file.id);
+                                    }
+                                  }}
                                   className={cn(
-                                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[7px] text-left",
-                                    "transition-colors duration-100",
+                                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[7px] text-left cursor-default select-none",
+                                    "transition-colors duration-100 outline-none",
+                                    "focus-visible:[box-shadow:0_0_0_2px_var(--card),0_0_0_5px_var(--ring)]",
                                     selected ? "bg-primary/10" : "hover:bg-foreground/[0.05]"
                                   )}
                                 >
@@ -280,12 +290,13 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                                     onCheckedChange={() => toggleFileSelection(file.id)}
                                     onClick={(e) => e.stopPropagation()}
                                     aria-label={file.name}
+                                    tabIndex={-1}
                                   />
                                   <FileText className="size-3.5 text-muted-foreground shrink-0" />
                                   <span className={cn("flex-1 truncate text-[13px]", selected && "text-foreground font-medium")}>
                                     {file.name}
                                   </span>
-                                </button>
+                                </div>
                               );
                             })
                           )}
