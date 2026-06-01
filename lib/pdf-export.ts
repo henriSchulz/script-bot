@@ -376,19 +376,17 @@ html, body {
 }
 
 /*
- * Page margins are set to ZERO at the page level so the browser has no
- * room to draw its automatic header (date / page title) or footer
- * (url / page x of y). We then re-introduce the visual margins via
- * padding on .doc — that padding lives INSIDE the printable canvas
- * and is unaffected by browser chrome.
- *
- * (We also try the CSS Paged Media Level 3 syntax that newer Chromium
- *  honors to wipe @top-* and @bottom-* boxes explicitly.)
+ * Real per-page margins live on @page so every printed page (not just
+ * the first) gets consistent breathing room from the paper edge. The
+ * @top-*/@bottom-* boxes are explicitly emptied so the browser's
+ * automatic "date / title / url / page-X-of-Y" chrome has nothing to
+ * render in those slots (honored by modern Chromium; on browsers that
+ * ignore it the user can still uncheck "Headers and footers" in the
+ * print dialog).
  */
 @page {
   size: A4;
-  margin: 0;
-  /* Suppress browser-injected header/footer slots where the engine supports it. */
+  margin: 22mm 18mm 22mm 18mm;
   @top-left     { content: none; }
   @top-center   { content: none; }
   @top-right    { content: none; }
@@ -400,9 +398,7 @@ html, body {
 main.doc {
   max-width: none;
   margin: 0;
-  /* The visual page margins live here, inside the printable area, so
-     the browser cannot draw header/footer text on top of them. */
-  padding: 22mm 18mm 22mm 18mm;
+  padding: 0;
 }
 
 .doc-header {
@@ -565,13 +561,38 @@ main.doc {
 
 /* Print: page break rules so we never split a block in half if it fits */
 @media print {
-  .block-latex, .block-image, .block-info-box {
+  /* Whole atomic blocks must stay on one page when possible. */
+  .block-latex,
+  .block-image,
+  .block-info-box,
+  .block-latex .latex-render,
+  .block-info-box .info-box-latex {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  /* KaTeX's own wrapper elements: don't split a formula mid-glyph. */
+  .katex,
+  .katex-display,
+  .katex-html {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  /* Headings stay with their first paragraph. */
+  .block-text h1, .block-text h2, .block-text h3, .block-text h4 {
+    page-break-after: avoid;
+    break-after: avoid;
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  .block-text h1, .block-text h2, .block-text h3 {
-    page-break-after: avoid;
-    break-after: avoid;
+  /* Don't strand a list item by itself at top/bottom of a page. */
+  .block-text li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Tables stay together if they fit. */
+  .block-text table {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   /* Hide any UI affordances if they sneak in. */
   button, [data-print-hide] { display: none !important; }
