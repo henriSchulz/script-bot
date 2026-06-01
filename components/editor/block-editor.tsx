@@ -44,6 +44,7 @@ import {
   Scissors,
   Star,
   Lock,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -74,7 +75,10 @@ interface BlockEditorProps {
   initialBlocks: Block[];
   onPendingBlocksChange?: (hasPending: boolean) => void;
   isReadOnly?: boolean;
-  onChatAboutBlock?: (content: string) => void;
+  onChatAboutBlock?: (
+    content: string,
+    meta: { blockId: string; fileId?: string; page?: number }
+  ) => void;
 }
 
 const SAVE_DEBOUNCE_MS = 350;
@@ -824,6 +828,25 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(
                               )}
                             </button>
 
+                            {/* Ask in chat about this block */}
+                            {hasKey && onChatAboutBlock && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const plain = blockContentToPlain(block);
+                                  onChatAboutBlock(plain, {
+                                    blockId: block.id,
+                                    fileId: block.fileId,
+                                    page: block.page,
+                                  });
+                                }}
+                                className="inline-flex items-center justify-center size-[22px] rounded-md text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors"
+                                title="Ask AI in chat about this block"
+                              >
+                                <MessageSquare className="size-3.5" />
+                              </button>
+                            )}
+
                             {!isReadOnly && (
                               <Popover>
                                 <PopoverTrigger asChild>
@@ -976,4 +999,43 @@ function Kbd({ children }: { children: React.ReactNode }) {
       {children}
     </kbd>
   );
+}
+
+/**
+ * Reduce a block's stored content to a clean plain-text representation —
+ * used when forwarding the block to chat as a quoted excerpt.
+ */
+function blockContentToPlain(block: Block): string {
+  const content = block.content || '';
+  switch (block.type) {
+    case 'text':
+      return content
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+    case 'latex':
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === 'object' && typeof parsed.latex === 'string') {
+          return `$$${parsed.latex.trim()}$$`;
+        }
+      } catch {}
+      return `$$${content.trim()}$$`;
+    case 'info_box':
+      try {
+        const parsed = JSON.parse(content);
+        const label = typeof parsed?.label === 'string' ? parsed.label : '';
+        const latex = typeof parsed?.latex === 'string' ? parsed.latex : '';
+        return [label, latex && `$$${latex}$$`].filter(Boolean).join('\n').trim();
+      } catch {}
+      return content.trim();
+    default:
+      return content.trim();
+  }
 }

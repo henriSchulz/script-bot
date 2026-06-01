@@ -46,10 +46,27 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   const router = useRouter();
   const { dict } = useLanguage();
 
-  const handleChatAboutBlock = (content: string) => {
-    const query = dict.project.projectChat.askAboutBlock.replace("{content}", content);
-    localStorage.setItem(`project-${resolvedParams.id}-pending-query`, query);
-    window.open(`/projects/${resolvedParams.id}?tab=chat`, '_blank');
+  const handleChatAboutBlock = (
+    content: string,
+    meta: { blockId: string; fileId?: string; page?: number }
+  ) => {
+    const trimmed = content.trim();
+    const prompt = trimmed
+      ? `About this excerpt from "${summary?.title ?? 'this summary'}"${
+          meta.page ? ` (page ${meta.page})` : ''
+        }:\n\n> ${trimmed.replace(/\n/g, '\n> ')}\n\n`
+      : '';
+    localStorage.setItem(
+      `project-${resolvedParams.id}-pending-chat`,
+      JSON.stringify({
+        prompt,
+        fileId: meta.fileId ?? null,
+        blockId: meta.blockId,
+        ts: Date.now(),
+      })
+    );
+    // Navigate to the project page on the chat tab; same window for seamless transition.
+    router.push(`/projects/${resolvedParams.id}?tab=chat`);
   };
 
   const handleExportPDF = async () => {

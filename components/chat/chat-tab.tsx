@@ -56,6 +56,39 @@ export function ChatTab({ projectId }: ChatTabProps) {
   const [, startDeleteTransition] = useTransition();
   // When user clicks "New chat" we switch to the composer view (even if a thread is active)
   const [composing, setComposing] = useState(false);
+  // Pending initial input for ChatInterface (forwarded from "Ask in chat" on a block).
+  const [pendingInitialInput, setPendingInitialInput] = useState<string | null>(null);
+
+  // Pick up any pending prompt left by the summary page on mount, auto-create a
+  // chat thread with the block's source file pre-attached as context, and forward
+  // the quoted excerpt straight into the composer for the user to type after.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = `project-${projectId}-pending-chat`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    localStorage.removeItem(key);
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const prompt: string | undefined = data?.prompt;
+    if (typeof prompt !== 'string' || !prompt.trim()) return;
+
+    const fileIds: string[] | undefined = data?.fileId ? [data.fileId] : undefined;
+    createChatThread(projectId, 'New chat', fileIds).then((res) => {
+      if (res.success && res.thread) {
+        // Refresh thread list, switch active, prefill the textarea.
+        fetchThreads();
+        setPendingInitialInput(prompt);
+        setActiveThreadId(res.thread.id);
+        setComposing(false);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const fetchThreads = useCallback(async () => {
     const result = await getChatThreads(projectId);
@@ -237,7 +270,9 @@ export function ChatTab({ projectId }: ChatTabProps) {
                   ? JSON.parse(activeThread.contextFileIds)
                   : []
               }
+              initialInput={pendingInitialInput || undefined}
               onTitleChange={fetchThreads}
+              onInitialInputConsumed={() => setPendingInitialInput(null)}
             />
           )
         )}

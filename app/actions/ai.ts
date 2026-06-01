@@ -1097,16 +1097,21 @@ export async function generateBlocksForTopic(projectId: string, topic: string, c
   }
 }
 
-export async function chatAboutProject(projectId: string, messages: { role: string, content: string }[], fileIds?: string[]) {
+export async function chatAboutProject(
+    projectId: string,
+    messages: { role: string, content: string }[],
+    fileIds?: string[],
+    attachedImageUrls?: string[]
+) {
     const { apiKey, model: modelName } = await getGeminiConfig('projectChat');
     if (!apiKey) return { success: false, error: "No API Key" };
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: { responseMimeType: "application/json" }
     });
-    
+
     try {
         const language = await getGlobalLanguage();
         const dict = await getDictionary(language);
@@ -1152,6 +1157,36 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
                 }
             } catch (e) {
                 console.warn(`Failed to read file ${filename} for chat context:`, e);
+            }
+        }
+
+        // Inline images that the user attached to the latest message.
+        // We accept URLs that point at our /uploads/... static route and read them off disk.
+        if (attachedImageUrls && attachedImageUrls.length > 0) {
+            for (const url of attachedImageUrls) {
+                try {
+                    // Strip leading slash, decode any %20 etc.
+                    const relative = decodeURIComponent(url.replace(/^\//, ''));
+                    const safe = relative.replace(/\.\.\/?/g, ''); // basic traversal guard
+                    const imgPath = join(cwd(), 'public', safe);
+                    const imgBuffer = await readFile(imgPath);
+                    // Infer mime from extension; default png
+                    const ext = (relative.split('.').pop() || '').toLowerCase();
+                    const mime =
+                        ext === 'jpg' || ext === 'jpeg'
+                            ? 'image/jpeg'
+                            : ext === 'webp'
+                            ? 'image/webp'
+                            : ext === 'gif'
+                            ? 'image/gif'
+                            : 'image/png';
+                    parts.push({ text: 'Attached image:' });
+                    parts.push({
+                        inlineData: { data: imgBuffer.toString('base64'), mimeType: mime },
+                    });
+                } catch (e) {
+                    console.warn(`[ProjectChat] Failed to attach image ${url}:`, e);
+                }
             }
         }
 

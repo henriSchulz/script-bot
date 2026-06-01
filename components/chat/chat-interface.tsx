@@ -19,7 +19,17 @@ import 'katex/dist/katex.min.css';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { ArrowUp, FileText, Loader2, Maximize2, Minimize2, Sparkles, ExternalLink } from 'lucide-react';
+import {
+  ArrowUp,
+  FileText,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+  ExternalLink,
+  ImagePlus,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,6 +44,7 @@ import {
   updateChatThreadTitle,
 } from '@/app/actions/chats';
 import { getFiles } from '@/app/actions/files';
+import { uploadImage } from '@/app/actions/upload';
 import { InfoBoxBlock } from '@/components/editor/blocks/info-box-block';
 
 /* ────────────────────────────── types ────────────────────────────── */
@@ -57,11 +68,20 @@ interface ProjectFile {
   url: string;
 }
 
+interface AttachedImage {
+  id: string;
+  file: File;
+  previewUrl: string; // blob: URL for thumbnail
+}
+
 interface ChatInterfaceProps {
   projectId: string;
   threadId: string;
   contextFileIds?: string[];
+  /** When set, prefill the composer with this string on mount. Consumed once. */
+  initialInput?: string;
   onTitleChange?: () => void;
+  onInitialInputConsumed?: () => void;
 }
 
 /* ────────────────────────────── component ────────────────────────────── */
@@ -70,7 +90,9 @@ export function ChatInterface({
   projectId,
   threadId,
   contextFileIds,
+  initialInput,
   onTitleChange,
+  onInitialInputConsumed,
 }: ChatInterfaceProps) {
   const { t } = useLanguage();
   const { hasKey } = useAiKey();
@@ -79,12 +101,57 @@ export function ChatInterface({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialInput ?? '');
   const [contextFiles, setContextFiles] = useState<ProjectFile[]>([]);
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+
+  // Consume the initial-input prop once; place cursor at end and focus.
+  useEffect(() => {
+    if (!initialInput) return;
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.focus();
+        const end = ta.value.length;
+        ta.setSelectionRange(end, end);
+      }
+      onInitialInputConsumed?.();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Manage image attachment lifecycle — File holds the bytes for upload,
+  // `previewUrl` is an object URL we revoke when the image is removed/sent.
+  const addImages = useCallback((files: FileList | File[]) => {
+    const list = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (list.length === 0) return;
+    const next: AttachedImage[] = list.map((file) => ({
+      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setAttachedImages((prev) => [...prev, ...next]);
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setAttachedImages((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      // revoke any blob URLs left when the interface unmounts
+      attachedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ───── load context files ───── */
   useEffect(() => {
@@ -142,30 +209,74 @@ export function ChatInterface({
   /* ───── send ───── */
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
-    if (!trimmed || sending) return;
+    const hasImages = attachedImages.length > 0;
+    if ((!trimmed && !hasImages) || sending) return;
+    const imagesToUpload = attachedImages;
+
     setInput('');
+    setAttachedImages([]);
     setSending(true);
     stickToBottomRef.current = true;
+
+    // 1) Upload any attached images, get back public URLs.
+    let uploadedUrls: string[] = [];
+    if (imagesToUpload.length > 0) {
+      const settled = await Promise.all(
+        imagesToUpload.map(async (img) => {
+          const form = new FormData();
+          form.append('file', img.file);
+          const res = await uploadImage(form, projectId);
+          // Revoke the preview blob once we have a real URL or failed.
+          URL.revokeObjectURL(img.previewUrl);
+          return res.success && res.url ? res.url : null;
+        })
+      );
+      uploadedUrls = settled.filter((u): u is string => !!u);
+    }
+
+    // 2) Build the user message blocks (images first, then text) for display + storage.
+    const userBlocks: ChatBlock[] = [
+      ...uploadedUrls.map<ChatBlock>((url) => ({ type: 'image', content: url })),
+      ...(trimmed ? [{ type: 'text', content: trimmed } satisfies ChatBlock] : []),
+    ];
 
     const tempUserId = `u-${Date.now()}`;
     const optimisticUser: ChatMessage = {
       id: tempUserId,
       role: 'user',
-      content: trimmed,
+      content: trimmed || undefined,
+      blocks: userBlocks.length > 0 ? userBlocks : undefined,
       createdAt: new Date(),
     };
     setMessages((prev) => [...prev, optimisticUser]);
 
     try {
-      await saveChatMessage(undefined, 'user', trimmed, undefined, undefined, projectId, threadId);
+      await saveChatMessage(
+        undefined,
+        'user',
+        trimmed || undefined,
+        userBlocks.length > 0 ? userBlocks : undefined,
+        undefined,
+        projectId,
+        threadId
+      );
 
+      // For the model history, include a textual hint about attached images so
+      // earlier turns reference them even after the binary inlineData is gone.
       const history = messages.map((m) => ({
         role: m.role,
-        content: m.content || (m.blocks ? JSON.stringify(m.blocks) : ''),
+        content: m.content || (m.blocks ? blocksToHistoryText(m.blocks) : ''),
       }));
-      history.push({ role: 'user', content: trimmed });
+      history.push({
+        role: 'user',
+        content:
+          trimmed +
+          (uploadedUrls.length
+            ? `\n\n[${uploadedUrls.length} image${uploadedUrls.length === 1 ? '' : 's'} attached]`
+            : ''),
+      });
 
-      const ai = await chatAboutProject(projectId, history, contextFileIds);
+      const ai = await chatAboutProject(projectId, history, contextFileIds, uploadedUrls);
 
       if (ai.success && ai.blocks) {
         const saved = await saveChatMessage(
@@ -291,6 +402,9 @@ export function ChatInterface({
         onSend={handleSend}
         sending={sending}
         textareaRef={textareaRef}
+        attachedImages={attachedImages}
+        onAddImages={addImages}
+        onRemoveImage={removeImage}
       />
     </div>
   );
@@ -348,19 +462,56 @@ function ChatToolbar({
 
 function MessageRow({ message, contextFiles }: { message: ChatMessage; contextFiles: ProjectFile[] }) {
   if (message.role === 'user') {
+    // Pull out user-side image blocks for thumbnail row; keep text for the bubble.
+    const userImages = (message.blocks || []).filter((b) => b.type === 'image');
+    const userText =
+      message.content ??
+      (message.blocks || [])
+        .filter((b) => b.type === 'text')
+        .map((b) => b.content)
+        .join('\n')
+        .trim();
+
     return (
-      <div className="flex justify-end animate-mac-fade-in">
-        <div
-          className={cn(
-            'max-w-[78%] rounded-[18px] rounded-br-[6px]',
-            'bg-primary text-primary-foreground',
-            'px-[14px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.005em]',
-            'shadow-[var(--inner-highlight-strong),0_1px_2px_0_color-mix(in_oklab,var(--primary)_30%,transparent)]',
-            'whitespace-pre-wrap'
-          )}
-        >
-          {message.content}
-        </div>
+      <div className="flex flex-col items-end gap-1.5 animate-mac-fade-in">
+        {userImages.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-1.5 max-w-[78%]">
+            {userImages.map((img, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <a
+                key={`${img.content}-${i}`}
+                href={img.content}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group/img"
+                title="Open full size"
+              >
+                <img
+                  src={img.content}
+                  alt=""
+                  className={cn(
+                    'block rounded-[14px] max-w-[220px] max-h-[180px] object-cover',
+                    'shadow-[0_1px_2px_0_rgb(0_0_0/0.10),0_0_0_1px_rgb(0_0_0/0.05)]',
+                    'transition-transform duration-150 group-hover/img:scale-[1.01]'
+                  )}
+                />
+              </a>
+            ))}
+          </div>
+        )}
+        {userText && (
+          <div
+            className={cn(
+              'max-w-[78%] rounded-[18px] rounded-br-[6px]',
+              'bg-primary text-primary-foreground',
+              'px-[14px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.005em]',
+              'shadow-[var(--inner-highlight-strong),0_1px_2px_0_color-mix(in_oklab,var(--primary)_30%,transparent)]',
+              'whitespace-pre-wrap'
+            )}
+          >
+            {userText}
+          </div>
+        )}
       </div>
     );
   }
@@ -607,14 +758,21 @@ function ChatComposer({
   onSend,
   sending,
   textareaRef,
+  attachedImages,
+  onAddImages,
+  onRemoveImage,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   sending: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  attachedImages: AttachedImage[];
+  onAddImages: (files: FileList | File[]) => void;
+  onRemoveImage: (id: string) => void;
 }) {
-  const canSend = value.trim().length > 0 && !sending;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const canSend = (value.trim().length > 0 || attachedImages.length > 0) && !sending;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -623,12 +781,38 @@ function ChatComposer({
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imgs: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        const file = it.getAsFile();
+        if (file) imgs.push(file);
+      }
+    }
+    if (imgs.length > 0) {
+      e.preventDefault();
+      onAddImages(imgs);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onAddImages(e.dataTransfer.files);
+    }
+  };
+
   return (
     <div className="flex-none border-t border-border/70 bg-card/40 backdrop-blur-md px-4 pt-3 pb-4">
       <div className="mx-auto max-w-[760px]">
         <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
           className={cn(
-            'group/composer relative flex items-end gap-2',
+            'group/composer relative flex flex-col gap-2',
             'rounded-[16px] bg-card border border-border/80',
             'shadow-[inset_0_1px_0_0_rgba(0,0,0,0.03),0_1px_2px_0_rgb(0_0_0/0.04)]',
             'dark:shadow-[inset_0_1px_0_0_rgba(0,0,0,0.2),0_1px_2px_0_rgb(0_0_0/0.20)]',
@@ -637,46 +821,115 @@ function ChatComposer({
             'focus-within:border-primary/60'
           )}
         >
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything about your project…"
-            disabled={sending}
-            rows={1}
-            className={cn(
-              'flex-1 resize-none bg-transparent outline-none',
-              'pl-4 pr-2 py-3 text-[14px] leading-[1.5] tracking-[-0.005em]',
-              'text-foreground placeholder:text-muted-foreground/70',
-              'caret-primary',
-              'min-h-[44px] max-h-[180px]'
-            )}
-            autoFocus
-          />
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={!canSend}
-            className={cn(
-              'shrink-0 mb-1.5 mr-1.5 inline-flex items-center justify-center',
-              'size-8 rounded-full',
-              'transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
-              canSend
-                ? 'bg-primary text-primary-foreground shadow-[var(--inner-highlight-strong),0_1px_2px_0_color-mix(in_oklab,var(--primary)_30%,transparent)] hover:scale-[1.04] active:scale-95'
-                : 'bg-foreground/[0.08] text-muted-foreground/60'
-            )}
-            aria-label="Send"
-          >
-            {sending ? (
-              <Loader2 className="size-[15px] animate-spin" />
-            ) : (
-              <ArrowUp className="size-[16px] stroke-[2.5]" />
-            )}
-          </button>
+          {attachedImages.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+              {attachedImages.map((img) => (
+                <div
+                  key={img.id}
+                  className="relative group/thumb"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.previewUrl}
+                    alt=""
+                    className={cn(
+                      'block size-14 rounded-[10px] object-cover',
+                      'shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_1px_2px_0_rgb(0_0_0/0.06)]'
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onRemoveImage(img.id)}
+                    className={cn(
+                      'absolute -top-1 -right-1 inline-flex items-center justify-center',
+                      'size-[18px] rounded-full bg-foreground text-background',
+                      'opacity-0 group-hover/thumb:opacity-100 transition-opacity',
+                      'shadow-[0_1px_2px_0_rgb(0_0_0/0.3)]'
+                    )}
+                    title="Remove"
+                    aria-label="Remove image"
+                  >
+                    <X className="size-2.5 stroke-[3]" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end gap-1">
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder="Ask anything about your project…"
+              disabled={sending}
+              rows={1}
+              className={cn(
+                'flex-1 resize-none bg-transparent outline-none',
+                'pl-4 pr-2 py-3 text-[14px] leading-[1.5] tracking-[-0.005em]',
+                'text-foreground placeholder:text-muted-foreground/70',
+                'caret-primary',
+                'min-h-[44px] max-h-[180px]'
+              )}
+              autoFocus
+            />
+            {/* Image attach button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className={cn(
+                'shrink-0 mb-1.5 inline-flex items-center justify-center',
+                'size-8 rounded-full text-muted-foreground',
+                'hover:bg-foreground/[0.06] hover:text-foreground',
+                'transition-colors duration-100',
+                'disabled:opacity-50'
+              )}
+              title="Attach image"
+              aria-label="Attach image"
+            >
+              <ImagePlus className="size-[16px]" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  onAddImages(e.target.files);
+                  e.target.value = '';
+                }
+              }}
+            />
+            {/* Send */}
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={!canSend}
+              className={cn(
+                'shrink-0 mb-1.5 mr-1.5 inline-flex items-center justify-center',
+                'size-8 rounded-full',
+                'transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                canSend
+                  ? 'bg-primary text-primary-foreground shadow-[var(--inner-highlight-strong),0_1px_2px_0_color-mix(in_oklab,var(--primary)_30%,transparent)] hover:scale-[1.04] active:scale-95'
+                  : 'bg-foreground/[0.08] text-muted-foreground/60'
+              )}
+              aria-label="Send"
+            >
+              {sending ? (
+                <Loader2 className="size-[15px] animate-spin" />
+              ) : (
+                <ArrowUp className="size-[16px] stroke-[2.5]" />
+              )}
+            </button>
+          </div>
         </div>
         <p className="mt-2 text-center text-[10.5px] text-muted-foreground/60 tracking-[-0.005em]">
-          <Kbd>↵</Kbd> send · <Kbd>⇧↵</Kbd> newline
+          <Kbd>↵</Kbd> send · <Kbd>⇧↵</Kbd> newline · <Kbd>📎</Kbd> drop / paste images
         </p>
       </div>
     </div>
@@ -762,6 +1015,18 @@ function LoadingState() {
 interface Citation {
   file: string;
   page: number;
+}
+
+/** Reduce a stored blocks array to a single text representation for chat history. */
+function blocksToHistoryText(blocks: ChatBlock[]): string {
+  return blocks
+    .map((b) => {
+      if (b.type === 'image') return `[image: ${b.content}]`;
+      if (b.type === 'latex') return `$$${b.content}$$`;
+      return b.content || '';
+    })
+    .filter(Boolean)
+    .join('\n');
 }
 
 /**
