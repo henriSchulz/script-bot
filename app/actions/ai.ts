@@ -1257,10 +1257,8 @@ export async function chatAboutProject(projectId: string, messages: { role: stri
                     .replace(/^\\\(\s*/, '').replace(/\s*\\\)$/, '')
                     .replace(/^\$\s*/, '').replace(/\s*\$$/, '');
             }
-            // Process inline math in text blocks and extract sources
-            if (b.type === 'text') {
-                b.content = parseMathToHtml(b.content);
-            }
+            // Text blocks reach the client as raw markdown with $...$ math.
+            // The client uses react-markdown + remark-math + rehype-katex to render.
             if (b.type === 'info_box') {
                 let content = b.content;
                 if (typeof content !== 'string') {

@@ -16,6 +16,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { ArrowUp, FileText, Loader2, Maximize2, Minimize2, Sparkles, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,7 +34,6 @@ import {
   updateChatThreadTitle,
 } from '@/app/actions/chats';
 import { getFiles } from '@/app/actions/files';
-import { parseMathToHtml } from '@/lib/math-parser';
 import { InfoBoxBlock } from '@/components/editor/blocks/info-box-block';
 
 /* ────────────────────────────── types ────────────────────────────── */
@@ -441,11 +443,11 @@ function BlockRenderer({
     );
   }
 
-  // text block — extract sources, render math, render citation pills
-  const { html, sources } = extractCitations(block.content);
+  // text block — extract sources, then render markdown + math + citation pills
+  const { md, sources } = extractCitationsFromMarkdown(block.content);
   return (
     <div className="space-y-2">
-      <ProseHtml html={html} />
+      <MarkdownBody md={md} />
       {sources.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {sources.map((src, i) => {
@@ -489,55 +491,78 @@ function BlockRenderer({
 }
 
 /**
- * Render HTML that may contain <span data-type="math" data-latex="..."> spans.
- * KaTeX renders those spans inline after mount.
+ * Render the assistant's markdown body.
+ * Pipeline: raw markdown (with $...$ and $$...$$ math)
+ *   → remark-math turns math into AST nodes
+ *   → rehype-katex renders them to HTML
+ *   → react-markdown emits real React elements (no dangerouslySetInnerHTML)
+ *
+ * Also normalizes legacy DB content that still has the old
+ * <span data-type="math" data-latex="X"> placeholders back into $X$.
  */
-function ProseHtml({ html }: { html: string }) {
-  const ref = useRef<HTMLDivElement>(null);
+function MarkdownBody({ md }: { md: string }) {
+  const source = useMemo(() => normalizeLegacyMathSpans(md), [md]);
 
-  useEffect(() => {
-    const root = ref.current;
-    if (!root) return;
-    const spans = root.querySelectorAll('[data-type="math"]');
-    spans.forEach((span) => {
-      const latex = span.getAttribute('data-latex') || '';
-      const decoded = latex
+  return (
+    <div
+      className={cn(
+        'text-[14px] leading-[1.6] text-foreground tracking-[-0.005em]',
+        '[&_p]:my-0 [&_p+p]:mt-2.5',
+        '[&_h1]:text-[18px] [&_h1]:font-semibold [&_h1]:tracking-[-0.012em] [&_h1]:mt-3 [&_h1]:mb-1.5',
+        '[&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:tracking-[-0.01em] [&_h2]:mt-3 [&_h2]:mb-1.5',
+        '[&_h3]:text-[14.5px] [&_h3]:font-semibold [&_h3]:tracking-[-0.005em] [&_h3]:mt-2.5 [&_h3]:mb-1',
+        '[&_strong]:font-semibold [&_strong]:text-foreground',
+        '[&_em]:italic',
+        '[&_code]:bg-foreground/[0.07] [&_code]:rounded-[4px] [&_code]:px-1.5 [&_code]:py-[1px] [&_code]:text-[12.5px] [&_code]:font-mono',
+        '[&_pre]:bg-foreground/[0.05] [&_pre]:rounded-[10px] [&_pre]:p-3 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:text-[12.5px]',
+        '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
+        '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1.5 [&_ul]:space-y-0.5',
+        '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1.5 [&_ol]:space-y-0.5',
+        '[&_li]:my-0',
+        '[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline',
+        '[&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-foreground/85 [&_blockquote]:italic',
+        '[&_hr]:my-3 [&_hr]:border-border/70',
+        // Inline KaTeX a touch larger for legibility
+        '[&_.katex]:text-[1em]',
+        // Display KaTeX gets its own breathing room (the AI rarely emits $$..$$, but just in case)
+        '[&_.katex-display]:my-2 [&_.katex-display]:px-2'
+      )}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
+        components={{
+          // Open external links in a new tab.
+          a: ({ node, ...props }) => (
+            <a target="_blank" rel="noopener noreferrer" {...props} />
+          ),
+        }}
+      >
+        {source}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+/**
+ * Legacy content from older saved messages contained
+ *   <span data-type="math" data-latex="x_n"></span>
+ * placeholders (the server used to pre-render). Convert them back to $x_n$
+ * so react-markdown + remark-math + rehype-katex picks them up.
+ */
+function normalizeLegacyMathSpans(input: string): string {
+  if (!input.includes('data-type="math"')) return input;
+  return input.replace(
+    /<span\s+data-type="math"\s+data-latex="([^"]*)"[^>]*>\s*<\/span>/g,
+    (_full, latex) => {
+      const decoded = String(latex)
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'");
-      try {
-        (span as HTMLElement).innerHTML = katex.renderToString(decoded, {
-          throwOnError: false,
-          displayMode: false,
-        });
-      } catch {
-        (span as HTMLElement).textContent = `$${latex}$`;
-      }
-    });
-  }, [html]);
-
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        'text-[14px] leading-[1.6] text-foreground tracking-[-0.005em]',
-        // Mac-clean inline prose
-        '[&_p]:my-0 [&_p+p]:mt-2',
-        '[&_h1]:text-[18px] [&_h1]:font-semibold [&_h1]:tracking-[-0.012em] [&_h1]:mt-3 [&_h1]:mb-1',
-        '[&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:tracking-[-0.01em] [&_h2]:mt-3 [&_h2]:mb-1',
-        '[&_h3]:text-[14.5px] [&_h3]:font-semibold [&_h3]:tracking-[-0.005em] [&_h3]:mt-2 [&_h3]:mb-1',
-        '[&_strong]:font-semibold',
-        '[&_em]:italic',
-        '[&_code]:bg-foreground/[0.07] [&_code]:rounded-[4px] [&_code]:px-1.5 [&_code]:py-[1px] [&_code]:text-[12.5px] [&_code]:font-mono',
-        '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1.5',
-        '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1.5',
-        '[&_li]:my-0.5',
-        '[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline'
-      )}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+      return `$${decoded}$`;
+    }
   );
 }
 
@@ -740,13 +765,21 @@ interface Citation {
 }
 
 /**
- * Strips inline `[Quelle: filename.pdf, Seite X, Y]` / `[Source: …, Page X]` citations
- * from the HTML and returns them as structured pill data.
+ * Strips inline `[Quelle: filename.pdf, Seite X, Y]` / `[Source: …, Page X]`
+ * citations from a markdown string and returns them as structured pill data.
+ *
+ * Cares about not leaving stranded punctuation behind. The AI often writes
+ *   "…wobei [Quelle: Vorlesung 2, Seite 11]"
+ * we want the citation pill below and clean tail text "…wobei".
  */
-function extractCitations(html: string): { html: string; sources: Citation[] } {
+function extractCitationsFromMarkdown(md: string): { md: string; sources: Citation[] } {
   const sources: Citation[] = [];
-  const re = /\[(Quelle|Source):\s*([^,\]]+),\s*(Seite|Page)\s+([\d,\s]+)\]\.?/g;
-  const cleaned = html.replace(re, (_full, _label, file, _word, pages) => {
+  // Captures any quoting style around the filename: optional ' or " or no quotes.
+  // Captures one OR a list of pages.
+  const re =
+    /\s*\[(Quelle|Source):\s*['"]?([^,'"\]]+?)['"]?\s*,\s*(Seite|Page)\s+([\d,\s]+)\]\s*\.?/g;
+
+  const cleaned = md.replace(re, (_full, _label, file, _word, pages) => {
     const pageList = String(pages)
       .split(',')
       .map((p: string) => parseInt(p.trim(), 10))
@@ -754,7 +787,17 @@ function extractCitations(html: string): { html: string; sources: Citation[] } {
     if (pageList.length > 0) {
       sources.push({ file: String(file).trim(), page: pageList[0] });
     }
-    return '';
+    return ' ';
   });
-  return { html: cleaned.replace(/\s+/g, ' ').trim() || html, sources };
+
+  // Collapse multiple spaces, but preserve newlines so markdown lists & paragraphs survive.
+  const out = cleaned
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trimEnd())
+    .join('\n')
+    // strip whitespace before punctuation that the citation removal left behind: "wobei ."
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .trim();
+
+  return { md: out || md, sources };
 }
