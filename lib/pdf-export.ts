@@ -375,15 +375,34 @@ html, body {
   print-color-adjust: exact;
 }
 
+/*
+ * Page margins are set to ZERO at the page level so the browser has no
+ * room to draw its automatic header (date / page title) or footer
+ * (url / page x of y). We then re-introduce the visual margins via
+ * padding on .doc — that padding lives INSIDE the printable canvas
+ * and is unaffected by browser chrome.
+ *
+ * (We also try the CSS Paged Media Level 3 syntax that newer Chromium
+ *  honors to wipe @top-* and @bottom-* boxes explicitly.)
+ */
 @page {
   size: A4;
-  margin: 22mm 18mm 22mm 18mm;
+  margin: 0;
+  /* Suppress browser-injected header/footer slots where the engine supports it. */
+  @top-left     { content: none; }
+  @top-center   { content: none; }
+  @top-right    { content: none; }
+  @bottom-left  { content: none; }
+  @bottom-center{ content: none; }
+  @bottom-right { content: none; }
 }
 
 main.doc {
   max-width: none;
   margin: 0;
-  padding: 0;
+  /* The visual page margins live here, inside the printable area, so
+     the browser cannot draw header/footer text on top of them. */
+  padding: 22mm 18mm 22mm 18mm;
 }
 
 .doc-header {
