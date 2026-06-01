@@ -91,7 +91,6 @@ export function SummaryList({ projectId }: SummaryListProps) {
         alert(dict.summaries.deleteAlert.error);
       }
       setSummaryToDelete(null);
-      setSummaryToDelete(null);
     });
   };
 

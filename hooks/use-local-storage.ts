@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Custom hook to persist state in localStorage
@@ -38,15 +38,23 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     }
   }, [key, storedValue, isInitialized]);
 
-  const setValue = (value: T | ((val: T) => T)) => {
+  // Keep a ref to the latest value so the setter stays referentially stable
+  // (it must never read `storedValue` from its closure, or it would need to be
+  // in every consumer's effect deps — which is precisely what we're avoiding).
+  const valueRef = useRef(storedValue);
+  useEffect(() => {
+    valueRef.current = storedValue;
+  }, [storedValue]);
+
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
-      // Allow value to be a function like setState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      const valueToStore =
+        value instanceof Function ? (value as (val: T) => T)(valueRef.current) : value;
       setStoredValue(valueToStore);
     } catch (error) {
       console.error(`Error setting value for localStorage key "${key}":`, error);
     }
-  };
+  }, [key]);
 
   return [storedValue, setValue];
 }

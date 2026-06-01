@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { unlink, access } from "fs/promises";
 import { join } from "path";
+import { formatError } from "@/lib/error-message";
 
 export async function getSummaries(projectId: string) {
   try {
@@ -33,7 +34,7 @@ export async function getSummaries(projectId: string) {
     return { success: true, summaries };
   } catch (error) {
     console.error("Error fetching summaries:", error);
-    return { success: false, error: "Failed to fetch summaries" };
+    return { success: false, error: formatError("Zusammenfassungen konnten nicht geladen werden", error) };
   }
 }
 
@@ -66,7 +67,7 @@ export async function getSummary(summaryId: string) {
     return { success: true, summary };
   } catch (error) {
     console.error("Error fetching summary:", error);
-    return { success: false, error: "Failed to fetch summary" };
+    return { success: false, error: formatError("Zusammenfassung konnte nicht geladen werden", error) };
   }
 }
 
@@ -91,7 +92,7 @@ export async function createSummary(projectId: string, title: string) {
     return { success: true, summary };
   } catch (error) {
     console.error("Error creating summary:", error);
-    return { success: false, error: "Failed to create summary" };
+    return { success: false, error: formatError("Zusammenfassung konnte nicht erstellt werden", error) };
   }
 }
 
@@ -152,7 +153,7 @@ export async function deleteSummary(summaryId: string, projectId: string) {
     return { success: true };
   } catch (error) {
     console.error("Error deleting summary:", error);
-    return { success: false, error: "Failed to delete summary" };
+    return { success: false, error: formatError("Zusammenfassung konnte nicht gelöscht werden", error) };
   }
 }
 
@@ -171,6 +172,6 @@ export async function updateSummary(summaryId: string, projectId: string, title:
     return { success: true, summary };
   } catch (error) {
     console.error("Error updating summary:", error);
-    return { success: false, error: "Failed to update summary" };
+    return { success: false, error: formatError("Zusammenfassung konnte nicht aktualisiert werden", error) };
   }
 }

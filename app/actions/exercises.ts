@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { unlink, access } from "fs/promises";
 import { join } from "path";
+import { formatError } from "@/lib/error-message";
 
 export async function getExercises(projectId: string) {
   try {
@@ -24,7 +25,7 @@ export async function getExercises(projectId: string) {
     return { success: true, exercises };
   } catch (error) {
     console.error("Error fetching exercises:", error);
-    return { success: false, error: "Failed to fetch exercises" };
+    return { success: false, error: formatError("Aufgaben konnten nicht geladen werden", error) };
   }
 }
 
@@ -72,7 +73,7 @@ export async function getExercise(exerciseId: string) {
     return { success: true, exercise };
   } catch (error) {
     console.error("Error fetching exercise:", error);
-    return { success: false, error: "Failed to fetch exercise" };
+    return { success: false, error: formatError("Aufgabe konnte nicht geladen werden", error) };
   }
 }
 
@@ -98,7 +99,7 @@ export async function createExercise(projectId: string, title: string, fileId?: 
     return { success: true, exercise };
   } catch (error) {
     console.error("Error creating exercise:", error);
-    return { success: false, error: "Failed to create exercise" };
+    return { success: false, error: formatError("Aufgabe konnte nicht erstellt werden", error) };
   }
 }
 
@@ -152,6 +153,6 @@ export async function deleteExercise(exerciseId: string, projectId: string) {
     return { success: true };
   } catch (error) {
     console.error("Error deleting exercise:", error);
-    return { success: false, error: "Failed to delete exercise" };
+    return { success: false, error: formatError("Aufgabe konnte nicht gelöscht werden", error) };
   }
 }

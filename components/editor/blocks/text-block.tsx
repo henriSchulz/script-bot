@@ -5,8 +5,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
-import Underline from '@tiptap/extension-underline';
-import { HorizontalRule } from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { SlashCommand, renderItems } from '../extensions/slash-command';
@@ -79,14 +77,11 @@ export const TextBlock = forwardRef<TextBlockRef, TextBlockProps>(({
       }),
       Highlight,
       Typography,
-      Underline,
-      HorizontalRule,
       TaskList,
       TaskItem.configure({
         nested: true,
       }),
       ...(isReadOnly ? [] : [
-        MathExtension,
         SlashCommand.configure({
           suggestion: {
             items: ({ query }: { query: string }) => {

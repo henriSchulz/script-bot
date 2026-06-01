@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useMemo, ReactNode } from 'react';
 
 interface FullscreenContextType {
   isFullscreen: boolean;
@@ -12,8 +12,13 @@ const FullscreenContext = createContext<FullscreenContextType | undefined>(undef
 export function FullscreenProvider({ children }: { children: ReactNode }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const value = useMemo(
+    () => ({ isFullscreen, setIsFullscreen }),
+    [isFullscreen]
+  );
+
   return (
-    <FullscreenContext.Provider value={{ isFullscreen, setIsFullscreen }}>
+    <FullscreenContext.Provider value={value}>
       {children}
     </FullscreenContext.Provider>
   );

@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { formatError } from "@/lib/error-message";
 
 export async function getProject(projectId: string) {
   try {
@@ -22,7 +23,7 @@ export async function getProject(projectId: string) {
     return { success: true, project };
   } catch (error) {
     console.error("Error fetching project:", error);
-    return { success: false, error: "Failed to fetch project" };
+    return { success: false, error: formatError("Projekt konnte nicht geladen werden", error) };
   }
 }
 
@@ -41,7 +42,7 @@ export async function updateProjectScript(projectId: string, script: string) {
     return { success: true };
   } catch (error) {
     console.error("Error updating project script:", error);
-    return { success: false, error: "Failed to update project script" };
+    return { success: false, error: formatError("Projekt-Skript konnte nicht aktualisiert werden", error) };
   }
 }
 
@@ -57,6 +58,6 @@ export async function deleteProject(projectId: string) {
     return { success: true };
   } catch (error) {
     console.error("Error deleting project:", error);
-    return { success: false, error: "Failed to delete project" };
+    return { success: false, error: formatError("Projekt konnte nicht gelöscht werden", error) };
   }
 }
