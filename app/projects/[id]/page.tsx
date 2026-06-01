@@ -22,7 +22,8 @@ import {
   Archive,
   FileJson,
   FileCode,
-  Search
+  Search,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +44,7 @@ import { ExerciseList } from "@/components/exercises/exercise-list";
 import { GlobalSearchTab } from "@/components/experiments/global-search-tab";
 import { UnifiedSearchModal } from "@/components/experiments/unified-search-modal";
 import { LatexTab } from "@/components/summaries/latex-tab";
+import { ChatTab } from "@/components/chat/chat-tab";
 
 import { useLanguage } from "@/components/language-provider";
 import { FullscreenProvider, useFullscreen } from "@/contexts/fullscreen-context";
@@ -140,9 +142,9 @@ function ProjectPageContent({ params }: ProjectPageProps) {
   const router = useRouter();
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
-  // Migrate users whose persisted tab is one of the removed tabs
+  // Migrate users whose persisted tab is the removed `formulas` tab
   useEffect(() => {
-    if (activeTab === "chat" || activeTab === "formulas") {
+    if (activeTab === "formulas") {
       setActiveTab("summary");
     }
   }, [activeTab, setActiveTab]);
@@ -154,8 +156,8 @@ function ProjectPageContent({ params }: ProjectPageProps) {
     const tabParam = searchParams.get('tab');
 
     if (tabParam) {
-      // Ignore deprecated tab IDs
-      const nextTab = tabParam === "chat" || tabParam === "formulas" ? "summary" : tabParam;
+      // Ignore the removed `formulas` tab id
+      const nextTab = tabParam === "formulas" ? "summary" : tabParam;
       setActiveTab(nextTab);
       // Clear tab param from URL after applying it
       const newParams = new URLSearchParams(searchParams.toString());
@@ -288,6 +290,12 @@ function ProjectPageContent({ params }: ProjectPageProps) {
       label: dict.project.summaries,
       icon: FileText,
       content: <SummaryList projectId={resolvedParams.id} />
+    },
+    {
+      id: "chat",
+      label: dict.project.chat,
+      icon: MessageSquare,
+      content: <ChatTab projectId={resolvedParams.id} />
     },
     {
       id: "exercises",
@@ -827,19 +835,25 @@ function ProjectPageContent({ params }: ProjectPageProps) {
           )}
 
           <div className="flex-1 min-h-0 overflow-hidden relative mac-card">
-            {tabs.map((tab) => (
-              <TabsContent
-                key={tab.id}
-                value={tab.id}
-                className="h-full m-0 data-[state=inactive]:hidden"
-              >
-                <ScrollArea className="h-full">
-                  <div className="p-6 md:p-8">
-                    {tab.content}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-            ))}
+            {tabs.map((tab) => {
+              // Some tabs (chat) manage their own scroll + need to fill the surface.
+              const fullSurface = tab.id === 'chat';
+              return (
+                <TabsContent
+                  key={tab.id}
+                  value={tab.id}
+                  className="h-full m-0 data-[state=inactive]:hidden"
+                >
+                  {fullSurface ? (
+                    <div className="h-full">{tab.content}</div>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      <div className="p-6 md:p-8">{tab.content}</div>
+                    </ScrollArea>
+                  )}
+                </TabsContent>
+              );
+            })}
           </div>
         </Tabs>
       </div>
