@@ -70,34 +70,29 @@ export default function SummaryPage({ params }: SummaryPageProps) {
   };
 
   const handleExportPDF = async () => {
-    if (!editorContentRef.current) return;
+    if (!summary) return;
 
     setIsExporting(true);
     setExportProgress(0);
-    setExportStatus('Starting export...');
+    setExportStatus('Preparing document…');
 
-    requestAnimationFrame(() => {
-      setTimeout(async () => {
-        try {
-          if (!editorContentRef.current) return;
-          await exportSummaryToPDF(
-            summary.title,
-            editorContentRef.current,
-            (progress, status) => {
-              setExportProgress(progress);
-              setExportStatus(status);
-            }
-          );
-        } catch (error) {
-          console.error('Export failed:', error);
-          alert('Failed to export PDF. Please try again.');
-        } finally {
-          setIsExporting(false);
-          setExportProgress(0);
-          setExportStatus('');
-        }
-      }, 50);
-    });
+    try {
+      await exportSummaryToPDF({
+        title: summary.title,
+        blocks: summary.blocks || [],
+        onProgress: (progress, status) => {
+          setExportProgress(progress);
+          setExportStatus(status);
+        },
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+      setExportStatus('');
+    }
   };
 
   useEffect(() => {
