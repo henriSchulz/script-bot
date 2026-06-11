@@ -271,7 +271,12 @@ export function GenerateSummaryWizard({ projectId, onSuccess }: CreateSummaryWiz
                                   role="button"
                                   tabIndex={0}
                                   aria-pressed={selected}
-                                  onClick={() => toggleFileSelection(file.id)}
+                                  onClick={(e) => {
+                                    // Radix's hidden form input re-dispatches a synthetic click
+                                    // whenever `checked` changes; reacting to it loops forever.
+                                    if (!e.nativeEvent.isTrusted) return;
+                                    toggleFileSelection(file.id);
+                                  }}
                                   onKeyDown={(e) => {
                                     if (e.key === " " || e.key === "Enter") {
                                       e.preventDefault();
